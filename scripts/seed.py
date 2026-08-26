@@ -1,7 +1,7 @@
-"""seed：内置角色 / 权限 / 菜单 / 超管初始化（幂等，可重复执行）。
+"""seed：内置角色 / 权限 / 菜单 / 超管 / 审批流定义初始化（幂等，可重复执行）。
 
 用法：python scripts/seed.py
-数据来源：app/user/permissions.py 声明（后续模块的 permissions.py 在此聚合）。
+数据来源：各模块 permissions.py 声明（在此聚合，新增模块登记一行）。
 """
 
 import sys
@@ -14,7 +14,10 @@ from passlib.context import CryptContext  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
+from app.approval.models import ApprovalFlowDef, ApprovalFlowNode  # noqa: E402
 from app.core.db import SessionLocal  # noqa: E402
+from app.customer import permissions as customer_perms  # noqa: E402
+from app.institution import permissions as institution_perms  # noqa: E402
 from app.user import permissions as user_perms  # noqa: E402
 from app.user.enums import PermType  # noqa: E402
 from app.user.models import (  # noqa: E402
@@ -25,6 +28,7 @@ from app.user.models import (  # noqa: E402
     User,
     UserRole,
 )
+from app.warrant import permissions as warrant_perms  # noqa: E402
 
 # bcrypt（总体方案 §3.3：cost=12，不兼容旧 pbkdf2 哈希）
 pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=12)
@@ -34,9 +38,68 @@ ADMIN_INIT_PASSWORD = "Admin@whdb3"
 
 ORDINAL_STEP = 100  # 菜单/权限排序步长，便于后续插入
 
+# ---- 模块聚合：新增模块的 permissions.py 在此登记 ----
+ALL_MENUS: list[dict] = (
+    user_perms.MENUS
+    + institution_perms.MENUS
+    + customer_perms.MENUS
+    + warrant_perms.MENUS
+)
+ALL_ACTIONS: list[tuple[str, str]] = (
+    user_perms.ACTION_PERMISSIONS
+    + institution_perms.ACTION_PERMISSIONS
+    + customer_perms.ACTION_PERMISSIONS
+    + warrant_perms.ACTION_PERMISSIONS
+)
+
+# 菜单权限（type=10）中文名：与各模块 MENUS 的 permission_code 对应
+MENU_PERM_NAMES: dict[str, str] = {
+    "user:list": "用户列表",
+    "dept:list": "部门列表",
+    "role:list": "角色列表",
+    "menu:list": "菜单列表",
+    "log:operation": "操作日志查询",
+    "log:login": "登录日志查询",
+    "institution:list": "机构列表",
+    "customer:list": "客户列表",
+    "warrant:list": "权证列表",
+}
+
+# 审批流定义（总体方案 §5.3：流程定义走代码版本管理，新增 flow_code 需评审）
+# M2 首发：客户创建 / 敏感修改 / 批量移交，单节点或签（部门负责人）
+APPROVAL_FLOWS: list[dict] = [
+    {
+        "code": "customer_create",
+        "name": "客户创建审批",
+        "description": "新建客户（含企业/个人扩展），审批通过后落库",
+        "nodes": [
+            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
+        ],
+    },
+    {
+        "code": "customer_update",
+        "name": "客户敏感修改审批",
+        "description": "名称/证件号/状态/授信额度等敏感字段变更，通过后应用 diff",
+        "nodes": [
+            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
+        ],
+    },
+    {
+        "code": "customer_transfer",
+        "name": "客户批量移交审批",
+        "description": "批量变更管护经理（≤200），通过后一条 UPDATE 批量生效",
+        "nodes": [
+            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
+        ],
+    },
+]
+
 
 def seed_menus(db: Session) -> dict[str, int]:
-    """递归建菜单（按 path 幂等），返回 permission_code -> menu_id 映射。"""
+    """递归建菜单（按 path 幂等），返回 permission_code -> menu_id 映射。
+
+    多模块声明同一目录（如 /basic）时按 path 幂等合并，children 挂到同一目录下。
+    """
 
     def upsert(nodes: list[dict], parent_id: int, start_order: int) -> None:
         for i, node in enumerate(nodes):
@@ -55,17 +118,22 @@ def seed_menus(db: Session) -> dict[str, int]:
             if node.get("children"):
                 upsert(node["children"], menu.id, ORDINAL_STEP)
 
-    upsert(user_perms.MENUS, parent_id=0, start_order=ORDINAL_STEP)
+    upsert(ALL_MENUS, parent_id=0, start_order=ORDINAL_STEP)
 
     # permission_code -> menu_id（供菜单权限挂 menu_id）
     mapping: dict[str, int] = {}
-    for node in user_perms.MENUS:
-        for child in node.get("children", []):
-            code = child.get("permission_code")
+
+    def walk(nodes: list[dict]) -> None:
+        for node in nodes:
+            code = node.get("permission_code")
             if code:
-                menu = db.scalar(select(Menu).where(Menu.path == child["path"]))
+                menu = db.scalar(select(Menu).where(Menu.path == node["path"]))
                 assert menu is not None
                 mapping[code] = menu.id
+            if node.get("children"):
+                walk(node["children"])
+
+    walk(ALL_MENUS)
     return mapping
 
 
@@ -88,22 +156,14 @@ def seed_permissions(db: Session, menu_ids: dict[str, int]) -> dict[str, int]:
     ids: dict[str, int] = {}
 
     # 菜单权限：与菜单树同源（user:list / dept:list / ...）
-    menu_names = {
-        "user:list": "用户列表",
-        "dept:list": "部门列表",
-        "role:list": "角色列表",
-        "menu:list": "菜单列表",
-        "log:operation": "操作日志查询",
-        "log:login": "登录日志查询",
-    }
     for i, (code, menu_id) in enumerate(menu_ids.items()):
         ids[code] = upsert_perm(
-            code, menu_names.get(code, code), PermType.MENU.value, menu_id,
+            code, MENU_PERM_NAMES.get(code, code), PermType.MENU.value, menu_id,
             (i + 1) * ORDINAL_STEP,
         )
 
     # 操作权限
-    for i, (code, name) in enumerate(user_perms.ACTION_PERMISSIONS):
+    for i, (code, name) in enumerate(ALL_ACTIONS):
         ids[code] = upsert_perm(
             code, name, PermType.ACTION.value, None,
             (len(menu_ids) + i + 1) * ORDINAL_STEP,
@@ -135,6 +195,37 @@ def seed_roles(db: Session, perm_ids: dict[str, int]) -> None:
             for pid in perm_ids.values():
                 if pid not in existing:
                     db.add(RolePermission(role_id=role.id, permission_id=pid))
+
+
+def seed_approval_flows(db: Session) -> None:
+    """审批流定义 + 节点（按 code 幂等；节点全删重建避免 step 漂移残留）。"""
+    for spec in APPROVAL_FLOWS:
+        flow = db.scalar(select(ApprovalFlowDef).where(ApprovalFlowDef.code == spec["code"]))
+        if flow is None:
+            flow = ApprovalFlowDef(code=spec["code"])
+            db.add(flow)
+        flow.name = spec["name"]
+        flow.description = spec["description"]
+        flow.version = 1
+        flow.status = 10
+        db.flush()
+
+        # 节点重建（幂等：删旧插新）
+        db.query(ApprovalFlowNode).filter(
+            ApprovalFlowNode.flow_def_id == flow.id
+        ).delete(synchronize_session=False)
+        db.flush()
+        for node in spec["nodes"]:
+            db.add(
+                ApprovalFlowNode(
+                    flow_def_id=flow.id,
+                    step=node["step"],
+                    name=node["name"],
+                    approver_role_code=node["approver_role_code"],
+                    approver_scope=10,
+                    or_sign=True,
+                )
+            )
 
 
 def seed_super_admin(db: Session) -> None:
@@ -169,9 +260,10 @@ def main() -> None:
             menu_ids = seed_menus(db)
             perm_ids = seed_permissions(db, menu_ids)
             seed_roles(db, perm_ids)
+            seed_approval_flows(db)
             seed_super_admin(db)
     total_perms = len(perm_ids)
-    print(f"seed 完成：8 内置角色 / {total_perms} 权限 / {len(menu_ids)} 菜单 / 超管 admin")
+    print(f"seed 完成：8 内置角色 / {total_perms} 权限 / {len(menu_ids)} 菜单权限 / {len(APPROVAL_FLOWS)} 审批流 / 超管 admin")
     print(f"超管初始密码：{ADMIN_INIT_PASSWORD}（首登强制改密）")
 
 

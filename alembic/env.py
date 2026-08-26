@@ -14,6 +14,11 @@ from app.core.db import Base
 
 # ---- 模型发现：新增模块在此登记 ----
 import app.user.models  # noqa: F401,E402
+import app.approval.models  # noqa: F401,E402
+import app.attachment.models  # noqa: F401,E402
+import app.institution.models  # noqa: F401,E402
+import app.customer.models  # noqa: F401,E402
+import app.warrant.models  # noqa: F401,E402
 
 config = context.config
 

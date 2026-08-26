@@ -1,0 +1,1114 @@
+"""客户主服务：列表/详情/审批三场景接入/子资源/统计。
+
+字段分级（§3.5）：
+- 敏感字段（name/short_name/credit_code/license_num/custom_state/credit_amount/custom_typ）
+  → customer_update 审批流
+- 归属字段（managementor）→ customer_transfer 移交流
+- 自由字段（contact_addr/linkman/contact_num/region_id/industry_id/tags）→ 直接 PATCH
+"""
+
+from datetime import datetime
+
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.orm import Session
+
+from app.approval import services as approval_service
+from app.core.deps import AuthContext, apply_data_scope_filter
+from app.core.exceptions import BizError
+from app.customer.enums import Classification, Genre, LABELS
+from app.customer.models import (
+    CompanyProfile,
+    CoreHistory,
+    CoreLimit,
+    Customer,
+    CustomerExtend,
+    Director,
+    PersonalProfile,
+    Shareholder,
+)
+from app.customer.schemas import (
+    CustomerChangeRequest,
+    CustomerCreate,
+    CustomerTransferReq,
+    CustomerUpdate,
+)
+
+# 敏感字段白名单（走 customer_update 审批流）
+SENSITIVE_FIELDS = {
+    "name", "short_name", "credit_code", "license_num",
+    "custom_state", "credit_amount", "custom_typ",
+}
+
+FLOW_CREATE = "customer_create"
+FLOW_UPDATE = "customer_update"
+FLOW_TRANSFER = "customer_transfer"
+
+
+def _get_or_404(db: Session, customer_id: int) -> Customer:
+    c = db.get(Customer, customer_id)
+    if c is None:
+        raise BizError(4041, "客户不存在")
+    return c
+
+
+def _disp(group: str, value: int | None) -> str | None:
+    if value is None:
+        return None
+    return LABELS[group].get(value, str(value))
+
+
+# ===== 列表 =====
+
+def list_customers(
+    db: Session,
+    ctx: AuthContext,
+    page: int,
+    page_size: int,
+    genre: int | None = None,
+    custom_state: int | None = None,
+    group_id: int | None = None,
+    is_core: bool | None = None,
+    is_acceptor: bool | None = None,
+    credit_region_id: int | None = None,
+    region_id: int | None = None,
+    industry_id: int | None = None,
+    managementor_id: int | None = None,
+    controler_id: int | None = None,
+    classification: int | None = None,
+    q: str | None = None,
+) -> tuple[list[dict], int]:
+    from app.user.models import User
+
+    stmt = select(Customer).order_by(Customer.credit_amount.desc())
+
+    # 数据级权限：按管护人过滤（§4.1）——部门范围经统一入口翻译为部门内用户集合
+    stmt = apply_data_scope_filter(db, stmt, ctx, owner_field="managementor_id")
+
+    if genre is not None:
+        stmt = stmt.where(Customer.genre == genre)
+    if custom_state is not None:
+        stmt = stmt.where(Customer.custom_state == custom_state)
+    if group_id is not None:
+        stmt = stmt.where(Customer.group_id == group_id)
+    if is_core is not None:
+        stmt = stmt.where(Customer.is_core == is_core)
+    if is_acceptor is not None:
+        stmt = stmt.where(Customer.is_acceptor == is_acceptor)
+    if credit_region_id is not None:
+        stmt = stmt.where(Customer.credit_region_id == credit_region_id)
+    if region_id is not None:
+        stmt = stmt.where(Customer.region_id == region_id)
+    if industry_id is not None:
+        stmt = stmt.where(Customer.industry_id == industry_id)
+    if managementor_id is not None:
+        stmt = stmt.where(Customer.managementor_id == managementor_id)
+    if controler_id is not None:
+        stmt = stmt.where(Customer.controler_id == controler_id)
+    if classification is not None:
+        stmt = stmt.where(Customer.classification == classification)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                Customer.name.like(like),
+                Customer.short_name.like(like),
+                Customer.linkman.like(like),
+                Customer.contact_num.like(like),
+            )
+        )
+
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    customers = db.scalars(
+        stmt.offset((page - 1) * page_size).limit(page_size)
+    ).all()
+
+    # 批量取关联名称（避免 N+1）
+    user_ids = {c.managementor_id for c in customers} | {c.controler_id for c in customers}
+    users = dict(
+        db.execute(select(User.id, User.name).where(User.id.in_(user_ids))).all()
+    ) if user_ids else {}
+    region_ids = {c.region_id for c in customers if c.region_id}
+    region_names = {}
+    if region_ids:
+        from app.customer.models import Region
+
+        region_names = dict(
+            db.execute(select(Region.id, Region.name).where(Region.id.in_(region_ids))).all()
+        )
+    industry_names = {}
+    industry_ids = {c.industry_id for c in customers if c.industry_id}
+    if industry_ids:
+        from app.customer.models import Industry
+
+        industry_names = dict(
+            db.execute(select(Industry.id, Industry.name).where(Industry.id.in_(industry_ids))).all()
+        )
+    group_names = {}
+    group_ids = {c.group_id for c in customers if c.group_id}
+    if group_ids:
+        from app.customer.models import Group
+
+        group_names = dict(
+            db.execute(select(Group.id, Group.name).where(Group.id.in_(group_ids))).all()
+        )
+    credit_region_names = {}
+    cr_ids = {c.credit_region_id for c in customers if c.credit_region_id}
+    if cr_ids:
+        from app.customer.models import CreditRegion
+
+        credit_region_names = dict(
+            db.execute(
+                select(CreditRegion.id, CreditRegion.name).where(CreditRegion.id.in_(cr_ids))
+            ).all()
+        )
+
+    items = []
+    for c in customers:
+        items.append(
+            {
+                "id": c.id,
+                "name": c.name,
+                "short_name": c.short_name,
+                "genre": c.genre,
+                "custom_typ": c.custom_typ,
+                "custom_state": c.custom_state,
+                "is_core": c.is_core,
+                "is_acceptor": c.is_acceptor,
+                "managementor_name": users.get(c.managementor_id, ""),
+                "credit_amount": float(c.credit_amount),
+                "amount": float(c.amount),
+                "classification": c.classification,
+                "region_name": region_names.get(c.region_id or 0),
+                "credit_region_id": c.credit_region_id,
+                "credit_region_name": credit_region_names.get(c.credit_region_id or 0),
+                "industry_name": industry_names.get(c.industry_id or 0),
+                "group_id": c.group_id,
+                "group_name": group_names.get(c.group_id or 0),
+                "controler_name": users.get(c.controler_id, ""),
+                "last_provide_date": c.last_provide_date,
+                "last_review_date": c.last_review_date,
+                "day_space": c.day_space,
+            }
+        )
+    return items, total
+
+
+# ===== 详情 =====
+
+def get_detail(db: Session, customer_id: int) -> dict:
+    from app.user.models import User
+
+    c = _get_or_404(db, customer_id)
+    users = dict(
+        db.execute(
+            select(User.id, User.name).where(User.id.in_([c.managementor_id, c.controler_id, c.create_by]))
+        ).all()
+    )
+
+    detail = {
+        "id": c.id,
+        "name": c.name,
+        "short_name": c.short_name,
+        "genre": c.genre,
+        "custom_typ": c.custom_typ,
+        "custom_state": c.custom_state,
+        "is_core": c.is_core,
+        "is_acceptor": c.is_acceptor,
+        "managementor_name": users.get(c.managementor_id, ""),
+        "credit_amount": float(c.credit_amount),
+        "amount": float(c.amount),
+        "classification": c.classification,
+        "classification_display": _disp("classification", c.classification),
+        "region_name": None,
+        "credit_region_id": c.credit_region_id,
+        "credit_region_name": None,
+        "industry_name": None,
+        "group_id": c.group_id,
+        "group_name": None,
+        "controler_name": users.get(c.controler_id, ""),
+        "last_provide_date": c.last_provide_date,
+        "last_review_date": c.last_review_date,
+        "day_space": c.day_space,
+        # 余额（M2 阶段实时 SUM 暂以缓存值返回，M3 放款落地后切换）
+        "custom_flow": float(c.custom_flow),
+        "custom_accept": float(c.custom_accept),
+        "custom_back": float(c.custom_back),
+        "entrusted_loan": float(c.entrusted_loan),
+        "last_synced_at": c.last_synced_at,
+        "g_radio": float(c.g_radio),
+        "v_radio": float(c.v_radio),
+        "company": None,
+        "personal": None,
+        "group": None,
+        "core_info": None,
+        "shareholder_count": 0,
+        "director_count": 0,
+        "extend_count": 0,
+        "latest_extend": None,
+        "pending_requests": [],
+        "tags": c.tags,
+        "created_at": c.created_at,
+    }
+
+    # 关联名称
+    if c.region_id:
+        from app.customer.models import Region
+
+        detail["region_name"] = db.scalar(
+            select(Region.name).where(Region.id == c.region_id)
+        )
+    if c.industry_id:
+        from app.customer.models import Industry
+
+        detail["industry_name"] = db.scalar(
+            select(Industry.name).where(Industry.id == c.industry_id)
+        )
+    if c.group_id:
+        from app.customer.models import Group
+
+        g = db.get(Group, c.group_id)
+        if g:
+            detail["group_name"] = g.name
+    if c.credit_region_id:
+        from app.customer.models import CreditRegion
+
+        detail["credit_region_name"] = db.scalar(
+            select(CreditRegion.name).where(CreditRegion.id == c.credit_region_id)
+        )
+
+    # 扩展信息
+    if c.genre == Genre.COMPANY:
+        cp = db.scalar(
+            select(CompanyProfile).where(CompanyProfile.customer_id == customer_id)
+        )
+        if cp:
+            detail["company"] = {
+                "id": cp.id,
+                "credit_code": cp.credit_code,
+                "decisionor": cp.decisionor,
+                "decisionor_display": _disp("decisionor", cp.decisionor),
+                "custom_nature": cp.custom_nature,
+                "custom_nature_display": _disp("custom_nature", cp.custom_nature),
+                "industry_c": cp.industry_c,
+                "typing": cp.typing,
+                "typing_display": _disp("typing", cp.typing),
+                "capital": float(cp.capital or 0),
+                "paid_capital": float(cp.paid_capital or 0),
+                "registered_addr": cp.registered_addr,
+                "representative": cp.representative,
+            }
+            detail["shareholder_count"] = db.scalar(
+                select(func.count(Shareholder.id)).where(Shareholder.company_id == cp.id)
+            ) or 0
+            detail["director_count"] = db.scalar(
+                select(func.count(Director.id)).where(Director.company_id == cp.id)
+            ) or 0
+    else:
+        pp = db.scalar(
+            select(PersonalProfile).where(PersonalProfile.customer_id == customer_id)
+        )
+        if pp:
+            spouse = None
+            if pp.spouse_id:
+                sc = db.get(Customer, pp.spouse_id)
+                if sc:
+                    spouse = {"id": sc.id, "name": sc.name, "short_name": sc.short_name}
+            detail["personal"] = {
+                "id": pp.id,
+                "license_num": pp.license_num,
+                "license_addr": pp.license_addr,
+                "marital_status": pp.marital_status,
+                "marital_status_display": _disp("marital_status", pp.marital_status),
+                "household_nature": pp.household_nature,
+                "household_nature_display": _disp("household_nature", pp.household_nature),
+                "spouse": spouse,
+            }
+
+    # 经营快照
+    detail["extend_count"] = db.scalar(
+        select(func.count(CustomerExtend.id)).where(CustomerExtend.customer_id == customer_id)
+    ) or 0
+    latest = db.scalar(
+        select(CustomerExtend)
+        .where(CustomerExtend.customer_id == customer_id)
+        .order_by(CustomerExtend.data_date.desc())
+        .limit(1)
+    )
+    if latest:
+        detail["latest_extend"] = {
+            "id": latest.id,
+            "sales_revenue": float(latest.sales_revenue),
+            "total_assets": float(latest.total_assets),
+            "people_engaged": float(latest.people_engaged),
+            "data_date": latest.data_date,
+            "typing": latest.typing,
+        }
+
+    # 核心企业概要
+    if c.is_core:
+        current = db.scalar(
+            select(CoreLimit).where(
+                CoreLimit.customer_id == customer_id,
+                CoreLimit.status == 10,
+            )
+        )
+        total_used = db.scalar(
+            select(func.coalesce(func.sum(CoreLimit.used_amount), 0)).where(
+                CoreLimit.customer_id == customer_id
+            )
+        )
+        detail["core_info"] = {
+            "core_rate": float(c.core_rate) if c.core_rate is not None else None,
+            "core_remark": c.core_remark,
+            "current_limit": (
+                {
+                    "id": current.id,
+                    "credit_amount": float(current.credit_amount),
+                    "valid_begin_date": current.valid_begin_date,
+                    "valid_end_date": current.valid_end_date,
+                    "used_amount": float(current.used_amount),
+                    "remaining_amount": float(current.remaining_amount),
+                    "status": current.status,
+                }
+                if current
+                else None
+            ),
+            "total_used_amount": float(total_used or 0),
+        }
+
+    # pending 审批横幅
+    from app.approval.models import ApprovalInstance
+
+    pendings = db.scalars(
+        select(ApprovalInstance)
+        .where(
+            ApprovalInstance.biz_type == "customer",
+            ApprovalInstance.biz_id == customer_id,
+            ApprovalInstance.status == 10,
+        )
+        .order_by(ApprovalInstance.id.desc())
+    ).all()
+    detail["pending_requests"] = [
+        {
+            "instance_id": p.id,
+            "flow_code": p.flow_code,
+            "status": p.status,
+            "summary": p.summary,
+            "submitted_at": p.submitted_at,
+        }
+        for p in pendings
+    ]
+    return detail
+
+
+# ===== 审批三场景 =====
+
+def _validate_create_payload(db: Session, data: dict) -> None:
+    """创建校验：唯一性（含 pending 草稿）+ 外键存在性。"""
+    from app.approval.models import ApprovalInstance
+
+    name = data.get("name")
+    short_name = data.get("short_name")
+    dup = db.scalar(
+        select(Customer.id).where(
+            or_(Customer.name == name, Customer.short_name == short_name)
+        )
+    )
+    if dup is not None:
+        raise BizError(4091, "客户名称或简称已存在")
+    # pending 草稿中的唯一性
+    pending = db.scalars(
+        select(ApprovalInstance.payload).where(
+            ApprovalInstance.flow_code == FLOW_CREATE,
+            ApprovalInstance.status == 10,
+        )
+    ).all()
+    for pl in pending:
+        if pl.get("name") == name or pl.get("short_name") == short_name:
+            raise BizError(4091, "同名客户正在审批中，不可重复提交")
+
+    genre = data.get("genre")
+    if genre == Genre.COMPANY:
+        company = data.get("company") or {}
+        if not company.get("credit_code"):
+            raise BizError(4001, "企业客户必须提供统一社会信用代码")
+        dup_code = db.scalar(
+            select(CompanyProfile.id).where(
+                CompanyProfile.credit_code == company["credit_code"]
+            )
+        )
+        if dup_code is not None:
+            raise BizError(4091, "统一社会信用代码已存在")
+        for pl in pending:
+            pc = (pl.get("company") or {}).get("credit_code")
+            if pc == company["credit_code"]:
+                raise BizError(4091, "该信用代码正在审批中")
+    elif genre == Genre.PERSONAL:
+        personal = data.get("personal") or {}
+        if not personal.get("license_num"):
+            raise BizError(4001, "个人客户必须提供身份证号")
+        dup_license = db.scalar(
+            select(PersonalProfile.id).where(
+                PersonalProfile.license_num == personal["license_num"]
+            )
+        )
+        if dup_license is not None:
+            raise BizError(4091, "身份证号已存在")
+        for pl in pending:
+            pl_num = (pl.get("personal") or {}).get("license_num")
+            if pl_num == personal["license_num"]:
+                raise BizError(4091, "该身份证号正在审批中")
+
+    # 外键存在性
+    from app.user.models import User
+
+    if db.get(User, data.get("managementor_id")) is None:
+        raise BizError(4041, "管护经理不存在")
+    if db.get(User, data.get("controler_id")) is None:
+        raise BizError(4041, "风控专员不存在")
+
+
+def submit_create(db: Session, body: CustomerCreate, user_id: int) -> int:
+    """添加客户 → 创建审批实例（payload=完整草稿）。"""
+    from app.customer.models import Group, Region, Industry as IndustryModel
+
+    data = body.model_dump()
+    _validate_create_payload(db, data)
+
+    # 外键存在性（区域/行业/集团）
+    if db.get(Region, data["region_id"]) is None:
+        raise BizError(4041, "行政区域不存在")
+    if db.get(IndustryModel, data["industry_id"]) is None:
+        raise BizError(4041, "行业不存在")
+    if data.get("group_id") and db.get(Group, data["group_id"]) is None:
+        raise BizError(4041, "集团不存在")
+
+    summary = f"新增客户 {data['name']}（{'企业' if data['genre'] == 1 else '个人'}）"
+    return approval_service.submit(
+        db, FLOW_CREATE, "customer", None, data, summary, user_id
+    )
+
+
+def apply_create(db: Session, instance) -> None:
+    """customer_create 审批通过 → 落库（executor，由 executors.py 注册）。"""
+    data = dict(instance.payload)
+    company = data.pop("company", None)
+    personal = data.pop("personal", None)
+    tags = data.pop("tags", [])
+
+    customer = Customer(
+        **data,
+        tags=tags or None,
+        create_by=instance.submitted_by,
+        classification=Classification.NORMAL,
+    )
+    db.add(customer)
+    db.flush()
+
+    if customer.genre == Genre.COMPANY and company:
+        db.add(CompanyProfile(customer_id=customer.id, **company))
+    elif customer.genre == Genre.PERSONAL and personal:
+        db.add(PersonalProfile(customer_id=customer.id, **personal))
+
+
+def submit_change_request(
+    db: Session, customer_id: int, body: CustomerChangeRequest, user_id: int
+) -> int:
+    """敏感字段修改申请：生成字段级 diff payload。"""
+    c = _get_or_404(db, customer_id)
+
+    invalid = set(body.values.keys()) - SENSITIVE_FIELDS
+    if invalid:
+        raise BizError(4001, f"非敏感字段请走普通修改接口: {', '.join(invalid)}")
+    if not body.values:
+        raise BizError(4001, "修改内容为空")
+
+    # 生成 diff（含 credit_code/license_num 所在扩展表字段）
+    diff: dict[str, dict] = {}
+    for field, new_value in body.values.items():
+        if field == "credit_code":
+            cp = db.scalar(
+                select(CompanyProfile).where(CompanyProfile.customer_id == customer_id)
+            )
+            old_value = cp.credit_code if cp else None
+        elif field == "license_num":
+            pp = db.scalar(
+                select(PersonalProfile).where(PersonalProfile.customer_id == customer_id)
+            )
+            old_value = pp.license_num if pp else None
+        else:
+            old_value = getattr(c, field, None)
+        if old_value == new_value:
+            continue
+        diff[field] = {"before": old_value, "after": new_value}
+
+    if not diff:
+        raise BizError(4001, "与当前值相同，无需修改")
+
+    summary = f"修改客户 {c.name}：{', '.join(diff.keys())}"
+    return approval_service.submit(
+        db, FLOW_UPDATE, "customer", customer_id, diff, summary, user_id
+    )
+
+
+def apply_change(db: Session, instance) -> None:
+    """customer_update 审批通过 → 应用 diff（executor）。"""
+    c = _get_or_404(db, instance.biz_id)
+    diff = instance.payload
+
+    for field, change in diff.items():
+        new_value = change["after"]
+        if field == "credit_code":
+            cp = db.scalar(
+                select(CompanyProfile).where(CompanyProfile.customer_id == c.id)
+            )
+            if cp:
+                cp.credit_code = new_value
+        elif field == "license_num":
+            pp = db.scalar(
+                select(PersonalProfile).where(PersonalProfile.customer_id == c.id)
+            )
+            if pp:
+                pp.license_num = new_value
+        else:
+            setattr(c, field, new_value)
+
+
+def submit_transfer(
+    db: Session, body: CustomerTransferReq, user_id: int
+) -> int:
+    """批量管护经理移交申请：payload = 批量 ID 列表（≤200）。"""
+    from app.user.models import User
+
+    if db.get(User, body.to_managementor_id) is None:
+        raise BizError(4041, "目标管护经理不存在")
+
+    # 校验客户存在
+    for cid in body.customer_ids:
+        _get_or_404(db, cid)
+
+    payload = {
+        "customer_ids": body.customer_ids,
+        "to_managementor_id": body.to_managementor_id,
+        "reason": body.reason,
+    }
+    summary = (
+        f"移交 {len(body.customer_ids)} 个客户至 "
+        f"{db.get(User, body.to_managementor_id).name}"
+    )
+    return approval_service.submit(
+        db, FLOW_TRANSFER, "customer_batch", None, payload, summary, user_id
+    )
+
+
+def apply_transfer(db: Session, instance) -> None:
+    """customer_transfer 审批通过 → 一条 UPDATE 批量生效（executor）。"""
+    payload = instance.payload
+    to_id = payload["to_managementor_id"]
+    db.query(Customer).filter(
+        Customer.id.in_(payload["customer_ids"])
+    ).update(
+        {"managementor_id": to_id},
+        synchronize_session=False,
+    )
+
+
+# ===== 自由字段 PATCH / 删除 =====
+
+def update_free_fields(db: Session, customer_id: int, body: CustomerUpdate) -> None:
+    c = _get_or_404(db, customer_id)
+    data = body.model_dump(exclude_unset=True)
+    if not data:
+        return
+    tags = data.pop("tags", None)
+    for k, v in data.items():
+        setattr(c, k, v)
+    if tags is not None:
+        c.tags = tags or None
+
+
+def delete_customer(db: Session, customer_id: int) -> None:
+    c = _get_or_404(db, customer_id)
+    # 拦截：pending 审批 / 核心企业额度 / 业务引用（M3+ 合同/项目）
+    if approval_service.has_pending_instance(db, "customer", customer_id):
+        raise BizError(4091, "客户存在待审流程，不可删除")
+    has_limit = db.scalar(
+        select(CoreLimit.id).where(CoreLimit.customer_id == customer_id).limit(1)
+    )
+    if has_limit is not None:
+        raise BizError(4091, "客户存在核心企业额度记录，不可删除")
+    c.custom_state = 90  # 逻辑注销
+
+
+def change_controler(db: Session, customer_id: int, controler_id: int) -> None:
+    from app.user.models import User
+
+    c = _get_or_404(db, customer_id)
+    if db.get(User, controler_id) is None:
+        raise BizError(4041, "风控专员不存在")
+    c.controler_id = controler_id
+
+
+# ===== 经营快照 / 划型 / 分类 =====
+
+def add_extend(
+    db: Session, customer_id: int, sales_revenue: float, total_assets: float,
+    people_engaged: float, data_date, user_id: int,
+) -> int:
+    c = _get_or_404(db, customer_id)
+    if c.genre != Genre.COMPANY:
+        raise BizError(4001, "仅企业客户可添加经营信息")
+
+    # upsert（同 (customer_id, data_date) 覆盖）
+    existing = db.scalar(
+        select(CustomerExtend).where(
+            CustomerExtend.customer_id == customer_id,
+            CustomerExtend.data_date == data_date,
+        )
+    )
+    typing = _classify_typing(db, customer_id, sales_revenue, total_assets, people_engaged)
+    if existing:
+        existing.sales_revenue = sales_revenue
+        existing.total_assets = total_assets
+        existing.people_engaged = people_engaged
+        existing.typing = typing
+        extend_id = existing.id
+    else:
+        e = CustomerExtend(
+            customer_id=customer_id, sales_revenue=sales_revenue,
+            total_assets=total_assets, people_engaged=people_engaged,
+            data_date=data_date, typing=typing, created_by=user_id,
+        )
+        db.add(e)
+        db.flush()
+        extend_id = e.id
+
+    # 同步主表快照 + 扩展表划型
+    c.sales_revenue = sales_revenue
+    c.total_assets = total_assets
+    c.people_engaged = people_engaged
+    c.data_date = data_date
+    cp = db.scalar(
+        select(CompanyProfile).where(CompanyProfile.customer_id == customer_id)
+    )
+    if cp:
+        cp.typing = typing
+    return extend_id
+
+
+def delete_extend(db: Session, customer_id: int, extend_id: int) -> None:
+    e = db.get(CustomerExtend, extend_id)
+    if e is None or e.customer_id != customer_id:
+        raise BizError(4041, "经营信息不存在")
+    db.delete(e)
+
+
+def _classify_typing(
+    db: Session, customer_id: int, sales_revenue: float,
+    total_assets: float, people_engaged: float,
+) -> int:
+    """划型（同步版，简化规则）：三指标就高不就低。
+
+    M2 简化：按人数规则划型（<20 微型, 20-100 小型, 100-300 中型, >300 大型）。
+    工信部分行业划型标准表 M2 后续按需补充（预留 industry_c 维度）。
+    """
+    if people_engaged < 20:
+        return 10
+    if people_engaged < 100:
+        return 20
+    if people_engaged < 300:
+        return 30
+    return 40
+
+
+def change_classification(
+    db: Session, customer_id: int, classification: int, reason: str, user_id: int
+) -> None:
+    c = _get_or_404(db, customer_id)
+    c.classification = classification
+
+
+# ===== 子资源：股东/董事/配偶 =====
+
+def _get_company_profile(db: Session, customer_id: int) -> CompanyProfile:
+    c = _get_or_404(db, customer_id)
+    if c.genre != Genre.COMPANY:
+        raise BizError(4001, "仅企业客户有股东/董事")
+    cp = db.scalar(
+        select(CompanyProfile).where(CompanyProfile.customer_id == customer_id)
+    )
+    if cp is None:
+        raise BizError(4041, "企业扩展信息不存在")
+    return cp
+
+
+def list_shareholders(db: Session, customer_id: int) -> list[dict]:
+    cp = _get_company_profile(db, customer_id)
+    rows = db.scalars(
+        select(Shareholder).where(Shareholder.company_id == cp.id)
+        .order_by(Shareholder.shareholding_ratio.desc())
+    ).all()
+    return [
+        {
+            "id": s.id, "shareholder_name": s.shareholder_name,
+            "invested_amount": float(s.invested_amount or 0),
+            "shareholding_ratio": float(s.shareholding_ratio),
+        }
+        for s in rows
+    ]
+
+
+def add_shareholder(
+    db: Session, customer_id: int, shareholder_name: str,
+    invested_amount: float, shareholding_ratio: float, user_id: int,
+) -> int:
+    cp = _get_company_profile(db, customer_id)
+    total = db.scalar(
+        select(func.coalesce(func.sum(Shareholder.shareholding_ratio), 0)).where(
+            Shareholder.company_id == cp.id
+        )
+    )
+    if float(total or 0) + shareholding_ratio > 100:
+        raise BizError(4091, f"持股比例合计将超过 100%（当前 {float(total or 0)}%）")
+    dup = db.scalar(
+        select(Shareholder.id).where(
+            Shareholder.company_id == cp.id,
+            Shareholder.shareholder_name == shareholder_name,
+        )
+    )
+    if dup is not None:
+        raise BizError(4091, "同名股东已存在")
+    s = Shareholder(
+        company_id=cp.id, shareholder_name=shareholder_name,
+        invested_amount=invested_amount, shareholding_ratio=shareholding_ratio,
+    )
+    db.add(s)
+    db.flush()
+    return s.id
+
+
+def delete_shareholder(db: Session, customer_id: int, shareholder_id: int) -> None:
+    cp = _get_company_profile(db, customer_id)
+    s = db.get(Shareholder, shareholder_id)
+    if s is None or s.company_id != cp.id:
+        raise BizError(4041, "股东不存在")
+    db.delete(s)
+
+
+def list_directors(db: Session, customer_id: int) -> list[dict]:
+    cp = _get_company_profile(db, customer_id)
+    rows = db.scalars(
+        select(Director).where(Director.company_id == cp.id).order_by(Director.ordery)
+    ).all()
+    return [
+        {"id": d.id, "director_name": d.director_name, "ordery": d.ordery}
+        for d in rows
+    ]
+
+
+def add_director(
+    db: Session, customer_id: int, director_name: str, user_id: int
+) -> int:
+    cp = _get_company_profile(db, customer_id)
+    dup = db.scalar(
+        select(Director.id).where(
+            Director.company_id == cp.id, Director.director_name == director_name
+        )
+    )
+    if dup is not None:
+        raise BizError(4091, "同名董事已存在")
+    max_order = db.scalar(
+        select(func.max(Director.ordery)).where(Director.company_id == cp.id)
+    ) or 0
+    d = Director(
+        company_id=cp.id, director_name=director_name, ordery=max_order + 1
+    )
+    db.add(d)
+    db.flush()
+    return d.id
+
+
+def delete_director(db: Session, customer_id: int, director_id: int) -> None:
+    cp = _get_company_profile(db, customer_id)
+    d = db.get(Director, director_id)
+    if d is None or d.company_id != cp.id:
+        raise BizError(4041, "董事不存在")
+    db.delete(d)
+
+
+def order_directors(db: Session, customer_id: int, ordered_ids: list[int]) -> None:
+    cp = _get_company_profile(db, customer_id)
+    for idx, did in enumerate(ordered_ids, start=1):
+        d = db.get(Director, did)
+        if d is None or d.company_id != cp.id:
+            raise BizError(4041, f"董事 {did} 不存在")
+        d.ordery = idx
+
+
+def bind_spouse(db: Session, customer_id: int, spouse_customer_id: int, user_id: int) -> None:
+    c = _get_or_404(db, customer_id)
+    s = _get_or_404(db, spouse_customer_id)
+    if c.genre != Genre.PERSONAL or s.genre != Genre.PERSONAL:
+        raise BizError(4001, "配偶双方必须都是个人客户")
+    if s.custom_state == 90:
+        raise BizError(4001, "配偶客户已注销")
+    if customer_id == spouse_customer_id:
+        raise BizError(4001, "不能与自己绑定配偶")
+
+    cp1 = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == customer_id)
+    )
+    cp2 = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == spouse_customer_id)
+    )
+    if cp1 is None or cp2 is None:
+        raise BizError(4041, "个人扩展信息不存在")
+    if cp1.spouse_id or cp2.spouse_id:
+        raise BizError(4091, "任一方已绑定配偶，请先解绑")
+
+    # 双向关联 + 双方已婚
+    cp1.spouse_id = spouse_customer_id
+    cp2.spouse_id = customer_id
+    cp1.marital_status = 20
+    cp2.marital_status = 20
+
+
+def unbind_spouse(db: Session, customer_id: int, user_id: int) -> None:
+    c = _get_or_404(db, customer_id)
+    cp1 = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == customer_id)
+    )
+    if cp1 is None or cp1.spouse_id is None:
+        raise BizError(4041, "该客户未绑定配偶")
+    cp2 = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == cp1.spouse_id)
+    )
+    cp1.spouse_id = None
+    cp1.marital_status = 10
+    if cp2 is not None:
+        cp2.spouse_id = None
+        cp2.marital_status = 10
+
+
+# ===== 核心企业额度 =====
+
+def list_core_limits(db: Session, customer_id: int) -> list[dict]:
+    c = _get_or_404(db, customer_id)
+    if not c.is_core:
+        raise BizError(4001, "仅核心企业可管理授信额度")
+    rows = db.scalars(
+        select(CoreLimit)
+        .where(CoreLimit.customer_id == customer_id)
+        .order_by(CoreLimit.status, CoreLimit.valid_begin_date.desc())
+    ).all()
+    return [
+        {
+            "id": r.id,
+            "credit_amount": float(r.credit_amount),
+            "valid_begin_date": r.valid_begin_date,
+            "valid_end_date": r.valid_end_date,
+            "used_amount": float(r.used_amount),
+            "remaining_amount": float(r.remaining_amount),
+            "status": r.status,
+            "status_display": _disp("core_limit_status", r.status),
+            "remark": r.remark,
+        }
+        for r in rows
+    ]
+
+
+def add_core_limit(
+    db: Session, customer_id: int, credit_amount: float,
+    valid_begin_date, valid_end_date, remark: str | None, user_id: int,
+) -> int:
+    c = _get_or_404(db, customer_id)
+    if not c.is_core:
+        raise BizError(4001, "仅核心企业可新增授信额度")
+    if valid_end_date <= valid_begin_date:
+        raise BizError(4001, "额度到期日必须晚于起始日")
+
+    # 旧额度失效 + 写历史
+    olds = db.scalars(
+        select(CoreLimit).where(
+            CoreLimit.customer_id == customer_id, CoreLimit.status == 10
+        )
+    ).all()
+    lim = CoreLimit(
+        customer_id=customer_id, credit_amount=credit_amount,
+        valid_begin_date=valid_begin_date, valid_end_date=valid_end_date,
+        used_amount=0, remaining_amount=credit_amount,
+        status=10, remark=remark,
+    )
+    db.add(lim)
+    db.flush()
+    for old in olds:
+        old.status = 20
+    db.add(
+        CoreHistory(
+            customer_id=customer_id,
+            change_content={
+                "action": "新增额度",
+                "credit_amount": credit_amount,
+                "valid_begin_date": str(valid_begin_date),
+                "valid_end_date": str(valid_end_date),
+                "expired_old_ids": [o.id for o in olds],
+            },
+            changed_by=user_id,
+        )
+    )
+    # 异步刷新授信区域已用额度（容错）
+    try:
+        from app.customer.services import credit_region_service
+
+        if c.credit_region_id:
+            credit_region_service.recalc_used_amount(db, c.credit_region_id)
+    except Exception:  # noqa: BLE001 刷新失败不影响主流程
+        pass
+    return lim.id
+
+
+def update_core_limit(
+    db: Session, customer_id: int, limit_id: int, data: dict, user_id: int
+) -> None:
+    c = _get_or_404(db, customer_id)
+    lim = db.get(CoreLimit, limit_id)
+    if lim is None or lim.customer_id != customer_id:
+        raise BizError(4041, "额度记录不存在")
+
+    changes: dict = {}
+    for k, v in data.items():
+        if v is None:
+            continue
+        old_v = getattr(lim, k)
+        if old_v != v:
+            changes[k] = {"before": str(old_v), "after": str(v)}
+        setattr(lim, k, v)
+    # 重算剩余额
+    lim.remaining_amount = float(lim.credit_amount) - float(lim.used_amount)
+    if changes:
+        db.add(
+            CoreHistory(
+                customer_id=customer_id,
+                change_content=changes,
+                changed_by=user_id,
+            )
+        )
+
+
+def list_core_histories(db: Session, customer_id: int) -> list[dict]:
+    from app.user.models import User
+
+    _get_or_404(db, customer_id)
+    rows = db.execute(
+        select(CoreHistory, User.name)
+        .join(User, User.id == CoreHistory.changed_by)
+        .where(CoreHistory.customer_id == customer_id)
+        .order_by(CoreHistory.id.desc())
+    ).all()
+    return [
+        {
+            "id": h.id,
+            "change_content": h.change_content,
+            "changed_by_name": hname,
+            "updated_at": h.updated_at,
+        }
+        for h, hname in rows
+    ]
+
+
+# ===== 字典 / 统计 =====
+
+def customer_dict(
+    db: Session, genre: int | None = None, is_core: bool | None = None,
+    is_acceptor: bool | None = None, managementor_id: int | None = None,
+) -> list[dict]:
+    from app.user.models import User
+
+    stmt = select(Customer, User.name).join(
+        User, User.id == Customer.managementor_id
+    ).where(Customer.custom_state != 90)
+    if genre is not None:
+        stmt = stmt.where(Customer.genre == genre)
+    if is_core is not None:
+        stmt = stmt.where(Customer.is_core == is_core)
+    if is_acceptor is not None:
+        stmt = stmt.where(Customer.is_acceptor == is_acceptor)
+    if managementor_id is not None:
+        stmt = stmt.where(Customer.managementor_id == managementor_id)
+    rows = db.execute(stmt.order_by(Customer.short_name)).all()
+    return [
+        {
+            "id": c.id, "name": c.name, "short_name": c.short_name,
+            "genre": c.genre, "is_core": c.is_core, "is_acceptor": c.is_acceptor,
+            "custom_state": c.custom_state, "managementor_name": mname,
+        }
+        for c, mname in rows
+    ]
+
+
+def stats_overview(db: Session) -> dict:
+    total = db.scalar(select(func.count(Customer.id))) or 0
+    active = db.scalar(
+        select(func.count(Customer.id)).where(Customer.custom_state != 90)
+    ) or 0
+    core = db.scalar(
+        select(func.count(Customer.id)).where(Customer.is_core == True)  # noqa: E712
+    ) or 0
+    acceptor = db.scalar(
+        select(func.count(Customer.id)).where(Customer.is_acceptor == True)  # noqa: E712
+    ) or 0
+    credit_sum, amount_sum = db.execute(
+        select(
+            func.coalesce(func.sum(Customer.credit_amount), 0),
+            func.coalesce(func.sum(Customer.amount), 0),
+        )
+    ).one()
+    cls_rows = db.execute(
+        select(Customer.classification, func.count()).group_by(Customer.classification)
+    ).all()
+    return {
+        "total_count": total,
+        "active_count": active,
+        "core_count": core,
+        "acceptor_count": acceptor,
+        "total_credit_amount": float(credit_sum),
+        "total_amount": float(amount_sum),
+        "classification_distribution": {
+            _disp("classification", c): n for c, n in cls_rows
+        },
+    }
+
+
+def stats_industry_chart(db: Session) -> list[dict]:
+    from app.customer.models import Industry
+
+    rows = db.execute(
+        select(
+            Industry.name,
+            func.count(Customer.id),
+            func.coalesce(func.sum(Customer.amount), 0),
+        )
+        .join(Customer, Customer.industry_id == Industry.id)
+        .group_by(Industry.name)
+        .order_by(func.count(Customer.id).desc())
+    ).all()
+    return [
+        {"industry_name": name, "count": n, "total_amount": float(amt)}
+        for name, n, amt in rows
+    ]
+
+
+def region_summary(db: Session, region_id: int) -> dict:
+    """授信区域内成员授信/在保汇总（实时统计）。"""
+    agg = db.execute(
+        select(
+            func.count(Customer.id),
+            func.coalesce(func.sum(Customer.credit_amount), 0),
+            func.coalesce(func.sum(Customer.amount), 0),
+        ).where(Customer.credit_region_id == region_id)
+    ).one()
+    return {
+        "member_count": agg[0],
+        "total_credit_amount": float(agg[1]),
+        "total_amount": float(agg[2]),
+    }

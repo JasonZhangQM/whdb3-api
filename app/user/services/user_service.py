@@ -126,7 +126,7 @@ def list_users(db: Session, ctx: AuthContext, page: int, page_size: int,
     from app.core.deps import apply_data_scope_filter
     from app.user.models import Department
 
-    stmt = apply_data_scope_filter(stmt, ctx, owner_field="id", dept_field="dept_id")
+    stmt = apply_data_scope_filter(db, stmt, ctx, owner_field="id", dept_field="dept_id")
     if q:
         like = f"%{q}%"
         stmt = stmt.where(or_(User.username.like(like), User.name.like(like), User.email.like(like)))

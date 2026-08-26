@@ -57,6 +57,11 @@ class User(TimestampMixin, Base):
     last_login_at: Mapped[datetime | None]
     last_login_ip: Mapped[str | None] = mapped_column(String(64))
 
+    __table_args__ = (
+        # 部门+状态复合索引（用户列表按部门筛选的常用组合，与 M1 baseline 对齐）
+        Index("idx_users_dept_status", "dept_id", "status"),
+    )
+
 
 class Role(TimestampMixin, Base):
     __tablename__ = "user_roles"

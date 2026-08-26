@@ -77,6 +77,7 @@ def _main_column(stmt: Select, name: str):
 
 
 def apply_data_scope_filter(
+    db: Session,
     stmt: Select,
     ctx: AuthContext,
     owner_field: str = "created_by",
@@ -85,7 +86,11 @@ def apply_data_scope_filter(
     """层3 数据范围：业务模块 service 查询的统一入口。
 
     - owner_field/dept_field 由调用方传名（各模块归属字段命名不同，收口在参数）
-    - 三态语义：None 不追加 / [] 仅本人 / [ids] 部门 IN
+    - 三态语义：None 不追加 / [] 仅本人 / [ids] 部门范围
+    - 部门范围两种落地：
+      ① 表自带部门列（如 users.dept_id）：显式传 dept_field，按部门 id 直查
+      ② 按人归属的表（如客户按管护人、权证按创建人）：不传 dept_field，
+         部门 id 集合翻译为"部门内用户 id 集合"后按 owner_field 过滤
     """
     if ctx.is_super_admin or ctx.data_scope == 40:  # DataScope.ALL
         return stmt
@@ -94,7 +99,19 @@ def apply_data_scope_filter(
         return stmt.filter(_main_column(stmt, owner_field) == ctx.user_id)
 
     if ctx.dept_scope_ids:  # [ids]：部门范围
-        field = dept_field or "dept_id"
-        return stmt.filter(_main_column(stmt, field).in_(ctx.dept_scope_ids))
+        if dept_field is not None:
+            return stmt.filter(_main_column(stmt, dept_field).in_(ctx.dept_scope_ids))
+
+        # R3：core -> user 模型逆向引用，函数内局部 import（与 get_current_user 同款例外）
+        from sqlalchemy import false, select
+
+        from app.user.models import User
+
+        user_ids = db.scalars(
+            select(User.id).where(User.dept_id.in_(ctx.dept_scope_ids))
+        ).all()
+        if not user_ids:
+            return stmt.filter(false())  # 部门内无用户：恒假
+        return stmt.filter(_main_column(stmt, owner_field).in_(user_ids))
 
     return stmt  # dept_scope_ids 为空列表且非 SELF（如无部门用户）：不追加

@@ -103,7 +103,7 @@ def _verify_captcha(captcha_id: str | None, captcha_code: str | None) -> bool:
 
 
 def login(db: Session, req: LoginReq, ip: str | None, ua: str | None) -> LoginResult:
-    username = req.account
+    username = req.login_name
 
     # 1. 锁定检查（最前——锁定期连验证码口子也关死，防爆破）
     if redis_client.exists(KEY_LOGINLOCK.format(username=username)):
@@ -163,7 +163,11 @@ def refresh(db: Session, refresh_token: str, ip: str | None, ua: str | None) -> 
 
 
 def logout(db: Session, token: str, ip: str | None, ua: str | None) -> None:
-    payload = TokenService.verify_access_token(token)
+    """幂等登出：token 已失效（过期/黑名单）时不报错，直接返回。"""
+    try:
+        payload = TokenService.verify_access_token(token)
+    except BizError:
+        return
     user_id = int(payload["sub"])
     TokenService.revoke(user_id, payload["jti"], payload["exp"])
     _log(db, payload.get("username"), STATUS_SUCCESS, "登出", ip, ua, "logout", user_id)

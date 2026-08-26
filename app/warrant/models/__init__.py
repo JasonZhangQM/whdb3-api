@@ -1,0 +1,346 @@
+"""权证模块模型：19 张表（M2 范围，他权/项目绑定随 M3 合同模块落地）。
+
+核心设计（§0.1 / §0.3）：
+- 所有权人统一走 warrant_ownerships 中间表（支持共有），消除旧系统两种模式
+- warrants 主表 + 11 种类型扩展表（OneToOne，房产为 1:N 房产包模式）
+- 他权（warrant_hypothecs）与项目绑定（article_warrant_bindings）依赖 agrees/articles 表，M3 建
+"""
+
+from datetime import date, datetime
+
+from sqlalchemy import (
+    BigInteger,
+    ForeignKey,
+    Index,
+    Numeric,
+    SmallInteger,
+    String,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.dialects.mysql import JSON
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.db import Base
+
+
+class TimestampMixin:
+    """审计字段。"""
+
+    created_at: Mapped[datetime] = mapped_column(
+        server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+    )
+
+
+class Warrant(TimestampMixin, Base):
+    """担保物主表：评估 / 状态 / 查封拍卖信息。"""
+
+    __tablename__ = "warrants"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_num: Mapped[str] = mapped_column(String(128), unique=True, comment="权证编号")
+    warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="1房产5土地6在建11应收21股权31票据41车辆51动产55其他99他权")
+    # 评估
+    evaluate_method: Mapped[int | None] = mapped_column(SmallInteger, comment="评估方式")
+    evaluate_value: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="评估价值")
+    evaluate_date: Mapped[date | None]
+    evaluate_explain: Mapped[str | None] = mapped_column(String(255))
+    evaluate_company: Mapped[str | None] = mapped_column(String(128))
+    meeting_date: Mapped[date | None] = mapped_column(comment="最近上会日")
+    # 状态
+    warrant_state: Mapped[int] = mapped_column(
+        SmallInteger, default=10, index=True, comment="10未入库20已入库30已加保60无需入库110续抵出库210已借出310解保出库410已移交990已注销"
+    )
+    storage_explain: Mapped[str | None] = mapped_column(String(255))
+    # 查封拍卖
+    inquiry_date: Mapped[date | None] = mapped_column(comment="查询日期")
+    inquiry_detail: Mapped[str | None] = mapped_column(String(255), comment="查封详情")
+    auction_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="拍卖状态")
+    auction_date: Mapped[date | None]
+    listing_price: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="挂网价")
+    auction_remark: Mapped[str | None] = mapped_column(String(255))
+    transaction_date: Mapped[date | None] = mapped_column(comment="成交日")
+    auction_amount: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="成交价")
+    # 审计
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+
+
+class WarrantOwnership(TimestampMixin, Base):
+    """产权证/所有权人（统一中间表，支持多人按份共有）。"""
+
+    __tablename__ = "warrant_ownerships"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), index=True)
+    ownership_num: Mapped[str] = mapped_column(String(128), comment="产权证编号")
+    owner_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    share_ratio: Mapped[float | None] = mapped_column(Numeric(5, 2), comment="共有份额%，null=独有")
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+    __table_args__ = (
+        UniqueConstraint("warrant_id", "owner_id", name="uq_ownership_warrant_owner"),
+    )
+
+
+class WarrantHouse(TimestampMixin, Base):
+    """房产（type=1，1:N 多套房产包模式）。"""
+
+    __tablename__ = "warrant_houses"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), index=True)
+    house_locate: Mapped[str] = mapped_column(String(255), comment="坐落（唯一）")
+    house_app: Mapped[int] = mapped_column(BigInteger, comment="房产用途（字典）")
+    house_area: Mapped[float] = mapped_column(Numeric(12, 2), comment="面积")
+    house_name: Mapped[str | None] = mapped_column(String(128))
+    house_build_year: Mapped[int | None] = mapped_column(SmallInteger)
+    house_usage: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10自用20出租30空置")
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantGround(TimestampMixin, Base):
+    """土地（type=5）。"""
+
+    __tablename__ = "warrant_grounds"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    ground_locate: Mapped[str] = mapped_column(String(255))
+    ground_app: Mapped[int] = mapped_column(String(128), comment="土地用途")
+    ground_area: Mapped[float] = mapped_column(Numeric(12, 2))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantConstruction(TimestampMixin, Base):
+    """在建工程（type=6）。"""
+
+    __tablename__ = "warrant_constructions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    construct_locate: Mapped[str] = mapped_column(String(255))
+    construct_app: Mapped[str] = mapped_column(String(128), comment="工程用途")
+    construct_area: Mapped[float] = mapped_column(Numeric(12, 2))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantReceivable(TimestampMixin, Base):
+    """应收账款（type=11）。"""
+
+    __tablename__ = "warrant_receivables"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    receivable_detail: Mapped[str] = mapped_column(String(255))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantReceiveExtend(TimestampMixin, Base):
+    """应收单位明细。"""
+
+    __tablename__ = "warrant_receive_extends"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    receivable_id: Mapped[int] = mapped_column(
+        ForeignKey("warrant_receivables.id"), index=True
+    )
+    receive_unit: Mapped[str] = mapped_column(String(128), comment="应收单位名称")
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+    __table_args__ = (
+        UniqueConstraint("receivable_id", "receive_unit", name="uq_receive_extend_unit"),
+    )
+
+
+class WarrantStock(TimestampMixin, Base):
+    """股权（type=21）。"""
+
+    __tablename__ = "warrant_stocks"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    stock_type: Mapped[int] = mapped_column(SmallInteger, comment="10有限公司股权20股份公司股份30举办者权益")
+    target: Mapped[str] = mapped_column(String(128), comment="标的公司")
+    ratio: Mapped[float] = mapped_column(Numeric(5, 2), comment="持股%")
+    registered_capital: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
+    paid_capital: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
+    remark: Mapped[str | None] = mapped_column(String(255))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantDraft(TimestampMixin, Base):
+    """票据（type=31）。"""
+
+    __tablename__ = "warrant_drafts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    draft_detail: Mapped[str] = mapped_column(String(255))
+    denomination: Mapped[float] = mapped_column(Numeric(18, 2), comment="票面总额")
+    draft_type: Mapped[int] = mapped_column(SmallInteger, comment="10商业承兑20银行承兑30支票")
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantDraftExtend(TimestampMixin, Base):
+    """票据明细（关联核心企业/承兑人客户）。"""
+
+    __tablename__ = "warrant_draft_extends"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    draft_id: Mapped[int] = mapped_column(ForeignKey("warrant_drafts.id"), index=True)
+    draft_type: Mapped[int] = mapped_column(SmallInteger, comment="10电银承20银承11电商承12商承21支票")
+    draft_num: Mapped[str] = mapped_column(String(128), comment="票据编号")
+    acceptor_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id"), index=True, comment="承兑人"
+    )
+    core_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id"), index=True, comment="核心企业"
+    )
+    draft_amount: Mapped[float] = mapped_column(Numeric(18, 2))
+    issue_date: Mapped[date]
+    due_date: Mapped[date]
+    draft_state: Mapped[int] = mapped_column(
+        SmallInteger, default=10, index=True,
+        comment="10未入库20已入库30已加保120已归还210置换出库310解保出库410托收出库990已注销",
+    )
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+    __table_args__ = (Index("idx_draft_extend_num", "draft_num"),)
+
+
+class WarrantVehicle(TimestampMixin, Base):
+    """车辆（type=41）。"""
+
+    __tablename__ = "warrant_vehicles"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    frame_num: Mapped[str] = mapped_column(String(64), unique=True, comment="车架号")
+    plate_num: Mapped[str] = mapped_column(String(32), unique=True, comment="车牌号")
+    vehicle_brand: Mapped[str] = mapped_column(String(64))
+    remark: Mapped[str | None] = mapped_column(String(255))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantChattel(TimestampMixin, Base):
+    """动产（type=51）。"""
+
+    __tablename__ = "warrant_chattels"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    chattel_type: Mapped[int] = mapped_column(SmallInteger, comment="10存货20机器设备30医疗设备99动产")
+    chattel_detail: Mapped[str] = mapped_column(String(255))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantOther(TimestampMixin, Base):
+    """其他（type=55）。"""
+
+    __tablename__ = "warrant_others"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    other_type: Mapped[int] = mapped_column(
+        SmallInteger, comment="10购房合同20车辆合格证30专利40商标501软件著作权70账户99其他"
+    )
+    cost: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
+    other_detail: Mapped[str] = mapped_column(String(255))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantPatent(TimestampMixin, Base):
+    """商标（other_type=40 时 OneToOne）。"""
+
+    __tablename__ = "warrant_patents"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    other_id: Mapped[int] = mapped_column(ForeignKey("warrant_others.id"), unique=True)
+    patent_name: Mapped[str] = mapped_column(String(128))
+    reg_num: Mapped[str] = mapped_column(String(64), unique=True)
+    patent_ty: Mapped[int] = mapped_column(SmallInteger, comment="商标类型")
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantSoftware(TimestampMixin, Base):
+    """软件著作权（other_type=501 时 OneToOne）。"""
+
+    __tablename__ = "warrant_softwares"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    other_id: Mapped[int] = mapped_column(ForeignKey("warrant_others.id"), unique=True)
+    software_name: Mapped[str] = mapped_column(String(128))
+    reg_num: Mapped[str] = mapped_column(String(64), unique=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantStorage(TimestampMixin, Base):
+    """出入库历史。"""
+
+    __tablename__ = "warrant_storages"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), index=True)
+    storage_type: Mapped[int] = mapped_column(
+        SmallInteger, comment="10入库20续抵出库30已加保60无需入库110借出120归还310解保出库410移交"
+    )
+    storage_explain: Mapped[str | None] = mapped_column(String(255))
+    transfer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), comment="移交/接收者"
+    )
+    conservator_id: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="权证管理岗")
+    storage_date: Mapped[date]
+
+
+class WarrantEvaluate(TimestampMixin, Base):
+    """评估历史。"""
+
+    __tablename__ = "warrant_evaluates"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), index=True)
+    evaluate_method: Mapped[int] = mapped_column(SmallInteger)
+    evaluate_value: Mapped[float] = mapped_column(Numeric(18, 2))
+    evaluate_date: Mapped[date]
+    evaluate_explain: Mapped[str | None] = mapped_column(String(255))
+    evaluate_company: Mapped[str | None] = mapped_column(String(128))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantEvaluateRecheck(TimestampMixin, Base):
+    """评估复核（评估的延伸，OneToOne）。"""
+
+    __tablename__ = "warrant_evaluate_rechecks"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    evaluate_id: Mapped[int] = mapped_column(ForeignKey("warrant_evaluates.id"), index=True)
+    check_value: Mapped[float] = mapped_column(Numeric(18, 2), comment="核查价值")
+    recheck_value: Mapped[float] = mapped_column(Numeric(18, 2), comment="复核价值")
+    recheck_channel: Mapped[str] = mapped_column(String(128), comment="复核渠道")
+    remark: Mapped[str | None] = mapped_column(String(255))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantEvaluateCompany(TimestampMixin, Base):
+    """评估公司字典。"""
+
+    __tablename__ = "warrant_evaluate_companies"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), unique=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class WarrantHouseApp(TimestampMixin, Base):
+    """房产用途字典（树形分类，替代旧系统 100+ 硬编码枚举）。"""
+
+    __tablename__ = "warrant_house_apps"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(64))
+    parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+    status: Mapped[int] = mapped_column(SmallInteger, default=10)

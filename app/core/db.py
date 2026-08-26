@@ -1,6 +1,7 @@
 """数据库引擎与会话：SQLAlchemy 2.0 同步模式。
 
-事务边界约定：service 层用 `with db.begin():` 包裹"校验+写入"整体。
+事务边界约定：认证依赖已在会话上隐式开启事务（autobegin），
+路由层直接调 service 后 `db.commit()`；异常时 get_db close 即回滚。
 """
 
 from sqlalchemy import create_engine

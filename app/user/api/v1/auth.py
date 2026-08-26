@@ -1,10 +1,13 @@
-"""认证路由：登录 / 刷新 / 登出 / 验证码（接口文档 §1 组1，白名单）。"""
+"""认证路由：登录 / 刷新 / 登出 / 验证码 / 权限码（接口文档 §1 组1，白名单）。"""
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.deps import AuthContext, get_current_user
 from app.core.response import ok
+from app.user.models import Permission
 from app.user.schemas.auth import LoginReq, RefreshReq
 from app.user.services import auth_service
 
@@ -24,6 +27,15 @@ def login(req: LoginReq, request: Request, db: Session = Depends(get_db)):
     return ok(result)
 
 
+@router.get("/codes")
+def my_access_codes(ctx: AuthContext = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    """当前用户权限码（vben 按钮级 access codes；超管返回全量）。"""
+    if ctx.is_super_admin:
+        return ok(list(db.scalars(select(Permission.code).order_by(Permission.id))))
+    return ok(sorted(ctx.permission_codes))
+
+
 @router.post("/refresh")
 def refresh(req: RefreshReq, request: Request, db: Session = Depends(get_db)):
     """旋转式刷新：旧 refresh 作废，签发新 token 对。"""
@@ -35,9 +47,11 @@ def refresh(req: RefreshReq, request: Request, db: Session = Depends(get_db)):
 
 @router.post("/logout")
 def logout(request: Request, db: Session = Depends(get_db)):
-    """登出：access 进黑名单 + 删除 refresh（单点覆盖语义）。"""
+    """登出：access 进黑名单 + 删除 refresh。幂等——无 token / token 已失效也返回成功。"""
     token = request.headers.get("Authorization", "").removeprefix("Bearer ")
-    auth_service.logout(db, token, _client_ip(request), request.headers.get("user-agent"))
+    if token:
+        auth_service.logout(db, token, _client_ip(request),
+                            request.headers.get("user-agent"))
     return ok()
 
 

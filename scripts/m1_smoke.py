@@ -48,8 +48,9 @@ def main() -> None:
     check("must_change_password 标志透出", "must_change_password" in r["data"])
 
     r = client.get(f"{BASE}/users/me/menus", headers=bearer(token)).json()
+    # M2 后菜单含 Dashboard 等多入口，不依赖首节点顺序，只校验 /system 节点存在
     ok_tree = (r["code"] == 0 and isinstance(r["data"], list) and r["data"]
-               and r["data"][0].get("path") == "/system")
+               and any(n.get("path") == "/system" for n in r["data"]))
     check("/users/me/menus vben 路由树", ok_tree, str(r)[:200])
 
     # ---------- 2. refresh 旋转 ----------

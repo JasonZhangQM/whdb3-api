@@ -3,14 +3,27 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class LoginReq(BaseModel):
-    account: str  # 支持 username 或 email
+    """登录入参：vben 前端传 username；account 字段兼容 API 直调与旧脚本。"""
+
+    username: str | None = None
+    account: str | None = None  # 别名（支持 username 或 email 值）
     password: str
     captcha_id: str | None = None
     captcha_code: str | None = None
+
+    @model_validator(mode="after")
+    def _normalize(self) -> "LoginReq":
+        if not (self.username or self.account):
+            raise ValueError("username 不能为空")
+        return self
+
+    @property
+    def login_name(self) -> str:
+        return self.username or self.account or ""
 
 
 class TokenPair(BaseModel):

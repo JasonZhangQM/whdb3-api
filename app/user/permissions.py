@@ -27,6 +27,16 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
 # 菜单树：permission_code 即 type=10 菜单权限（seed 自动建权限记录并回挂 menu_id）
 MENUS: list[dict] = [
     {
+        "caption": "工作台",
+        "path": "/dashboard",
+        "redirect": "/dashboard/workspace",
+        "icon": "lucide:home",
+        "type": 10,  # 目录（无权限码：全员可见，登录落地页）
+        "children": [
+            {"caption": "工作台", "path": "/dashboard/workspace", "component": "dashboard/workspace/index", "type": 20},
+        ],
+    },
+    {
         "caption": "系统管理",
         "path": "/system",
         "icon": "lucide:settings",

@@ -13,10 +13,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.approval.api.v1 import router as approval_router
+from app.attachment.api.v1 import router as attachment_router
 from app.core.exceptions import BizError
 from app.core.health import router as health_router
 from app.core.logging import RequestIdMiddleware, setup_logging
+from app.customer.api.v1 import router as customer_router
+from app.institution.api.v1 import router as institution_router
 from app.user.api.v1 import router as user_router
+from app.warrant.api.v1 import router as warrant_router
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +36,32 @@ app = FastAPI(
 
 @app.exception_handler(BizError)
 async def biz_error_handler(request: Request, exc: BizError):
-    """业务异常 → 对应业务码（HTTP 统一 200，由 code 区分成败）。"""
+    """业务异常 → 对应业务码。
+
+    HTTP 状态映射：仅 token 失效类（4011/4012）→ 401（前端 axios 据此触发
+    refresh 静默续期）；登录表单层错误（4010 密码错 / 4013 锁定 / 4014 验证码）
+    保持 200，避免登录失败误触发刷新链；403x → 403；其余业务码 HTTP 200，
+    由响应体 code 区分成败。
+    """
+    status = 200
+    if exc.code in (4011, 4012):
+        status = 401
+    elif 4030 <= exc.code < 4040:
+        status = 403
     return JSONResponse(
-        status_code=200,
+        status_code=status,
         content={"code": exc.code, "message": exc.message, "data": exc.data},
     )
 
-# 模块路由（依赖层级顺序：user 在前）
-MODULE_ROUTERS = (user_router,)
+# 模块路由（依赖层级顺序：L1 基建在前，L2 主数据、L3 权证依次）
+MODULE_ROUTERS = (
+    user_router,
+    approval_router,
+    attachment_router,
+    institution_router,
+    customer_router,
+    warrant_router,
+)
 
 
 @app.exception_handler(RequestValidationError)
