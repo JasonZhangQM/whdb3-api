@@ -10,38 +10,19 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
 
 MENUS: list[dict] = [
     {
-        "caption": "基础数据",
-        "path": "/basic",
-        "icon": "lucide:database",
-        "type": 10,  # 目录（与机构/客户模块共同聚合，seed 按 path 幂等）
+        "caption": "权证管理",
+        "path": "/warrant",
+        "icon": "lucide:file-badge",
+        "type": 10,  # 一级目录：模块即目录，模块内页面挂子级
         "children": [
             {
-                "caption": "权证管理",
-                "path": "/basic/warrants",
+                "caption": "权证列表",
+                "path": "/warrant/list",
                 "component": "warrant/index",
                 "type": 20,
                 "permission_code": "warrant:list",
             },
         ],
     },
-    {
-        "caption": "审批中心",
-        "path": "/approval",
-        "icon": "lucide:file-check",
-        "type": 10,  # 目录（登录即可见，无权限码）
-        "children": [
-            {
-                "caption": "我的申请",
-                "path": "/approval/my-submitted",
-                "component": "approval/my-submitted/index",
-                "type": 20,
-            },
-            {
-                "caption": "待我审批",
-                "path": "/approval/my-tasks",
-                "component": "approval/my-tasks/index",
-                "type": 20,
-            },
-        ],
-    },
+    # 审批中心菜单由 app/approval/permissions.py 单一来源声明（单页面结构）。
 ]

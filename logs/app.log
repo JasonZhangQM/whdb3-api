@@ -1598,3 +1598,5 @@ Traceback (most recent call last):
 KeyError: 'dept_id'
 2026-08-26 16:02:14,465 INFO [8971e1b89cf2] app.approval.services: approval applied: flow=customer_update instance=11 biz=customer/1
 2026-08-26 16:02:35,671 INFO [ac3285685962] app.approval.services: approval applied: flow=customer_update instance=13 biz=customer/1
+2026-08-26 17:26:39,784 INFO [f5c5856b6b63] app.approval.services: approval applied: flow=customer_create instance=15 biz=customer/None
+2026-08-26 19:03:13,413 INFO [94b98e05dfa4] app.approval.services: approval applied: flow=customer_update instance=17 biz=customer/1

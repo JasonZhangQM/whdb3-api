@@ -10,14 +10,14 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
 
 MENUS: list[dict] = [
     {
-        "caption": "基础数据",
-        "path": "/basic",
-        "icon": "lucide:database",
-        "type": 10,  # 目录（与机构/权证模块共同聚合，seed 按 path 幂等）
+        "caption": "客户管理",
+        "path": "/customer",
+        "icon": "lucide:users",
+        "type": 10,  # 一级目录：模块即目录，模块内页面挂子级
         "children": [
             {
-                "caption": "客户管理",
-                "path": "/basic/customers",
+                "caption": "客户列表",
+                "path": "/customer/list",
                 "component": "custom/index",
                 "type": 20,
                 "permission_code": "customer:list",

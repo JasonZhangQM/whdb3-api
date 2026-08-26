@@ -98,6 +98,9 @@ def main() -> None:
         r2 = client.get(f"{BASE}/users", headers=bearer(token),
                         params={"q": "testpm"}).json()
         existed_id = r2["data"]["items"][0]["id"]
+        # 归位部门（m2_smoke 等脚本可能把 testpm 挪去别的部门，破坏本部门隔离断言前提）
+        client.patch(f"{BASE}/users/{existed_id}", headers=bearer(token),
+                     json={"dept_id": dept_id})
         r = client.post(f"{BASE}/users/{existed_id}/password", headers=bearer(token),
                         json={}).json()
         check("用户已存在→重置密码（幂等）", r["code"] == 0 and "initial_password" in r["data"],

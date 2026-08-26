@@ -9,14 +9,14 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
 
 MENUS: list[dict] = [
     {
-        "caption": "基础数据",
-        "path": "/basic",
-        "icon": "lucide:database",
-        "type": 10,  # 目录
+        "caption": "机构管理",
+        "path": "/institution",
+        "icon": "lucide:landmark",
+        "type": 10,  # 一级目录：模块即目录，模块内页面挂子级
         "children": [
             {
-                "caption": "机构管理",
-                "path": "/basic/institutions",
+                "caption": "机构列表",
+                "path": "/institution/list",
                 "component": "institution/index",
                 "type": 20,
                 "permission_code": "institution:list",

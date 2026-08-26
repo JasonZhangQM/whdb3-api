@@ -15,6 +15,7 @@ from sqlalchemy import select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.approval.models import ApprovalFlowDef, ApprovalFlowNode  # noqa: E402
+from app.approval import permissions as approval_perms  # noqa: E402
 from app.core.db import SessionLocal  # noqa: E402
 from app.customer import permissions as customer_perms  # noqa: E402
 from app.institution import permissions as institution_perms  # noqa: E402
@@ -38,15 +39,20 @@ ADMIN_INIT_PASSWORD = "Admin@whdb3"
 
 ORDINAL_STEP = 100  # 菜单/权限排序步长，便于后续插入
 
+# 废弃菜单路径前缀（菜单结构调整时在此登记，seed 自动清理残留旧菜单）
+LEGACY_MENU_PREFIXES: tuple[str, ...] = ("/basic",)  # M2：基础数据目录拆为模块一级目录
+
 # ---- 模块聚合：新增模块的 permissions.py 在此登记 ----
 ALL_MENUS: list[dict] = (
     user_perms.MENUS
+    + approval_perms.MENUS
     + institution_perms.MENUS
     + customer_perms.MENUS
     + warrant_perms.MENUS
 )
 ALL_ACTIONS: list[tuple[str, str]] = (
     user_perms.ACTION_PERMISSIONS
+    + approval_perms.ACTION_PERMISSIONS
     + institution_perms.ACTION_PERMISSIONS
     + customer_perms.ACTION_PERMISSIONS
     + warrant_perms.ACTION_PERMISSIONS
@@ -96,10 +102,7 @@ APPROVAL_FLOWS: list[dict] = [
 
 
 def seed_menus(db: Session) -> dict[str, int]:
-    """递归建菜单（按 path 幂等），返回 permission_code -> menu_id 映射。
-
-    多模块声明同一目录（如 /basic）时按 path 幂等合并，children 挂到同一目录下。
-    """
+    """递归建菜单（按 path 幂等），返回 permission_code -> menu_id 映射。"""
 
     def upsert(nodes: list[dict], parent_id: int, start_order: int) -> None:
         for i, node in enumerate(nodes):
@@ -169,6 +172,22 @@ def seed_permissions(db: Session, menu_ids: dict[str, int]) -> dict[str, int]:
             (len(menu_ids) + i + 1) * ORDINAL_STEP,
         )
     return ids
+
+
+def cleanup_legacy_menus(db: Session) -> None:
+    """删除废弃前缀下的旧菜单树。
+
+    必须在 seed_permissions 之后执行：权限 menu_id 已重挂到新菜单，
+    旧菜单无引用可安全删除（parent_id 无物理外键，直接按前缀批量删）。
+    """
+    for prefix in LEGACY_MENU_PREFIXES:
+        deleted = (
+            db.query(Menu)
+            .filter(Menu.path.like(f"{prefix}%"))
+            .delete(synchronize_session=False)
+        )
+        if deleted:
+            print(f"已清理废弃菜单 {prefix}*：{deleted} 条")
 
 
 def seed_roles(db: Session, perm_ids: dict[str, int]) -> None:
@@ -259,6 +278,7 @@ def main() -> None:
         with db.begin():
             menu_ids = seed_menus(db)
             perm_ids = seed_permissions(db, menu_ids)
+            cleanup_legacy_menus(db)
             seed_roles(db, perm_ids)
             seed_approval_flows(db)
             seed_super_admin(db)
