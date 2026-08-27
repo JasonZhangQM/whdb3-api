@@ -1,6 +1,6 @@
 """M2 验收冒烟：机构 / 客户（审批三场景）/ 权证 / 审批引擎 / 附件 / data_scope 隔离。
 
-用法：python scripts/m2_smoke.py（服务需在 127.0.0.1:8102 运行，seed 已执行）
+用法：python scripts/m2_smoke.py（服务需在 127.0.0.1:8100 运行，seed 已执行）
 可重复执行：区域/行业走 ORM 幂等插入；客户/权证按名称查回复用；临时申请走撤回/驳回终结。
 
 场景总览：
@@ -23,7 +23,7 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-BASE = "http://127.0.0.1:8102/api/v1"
+BASE = "http://127.0.0.1:8100/api/v1"
 ADMIN_PWD = "Admin@whdb3"
 
 # 固定测试数据（幂等复用）

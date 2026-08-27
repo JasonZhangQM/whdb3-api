@@ -11,7 +11,7 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-BASE = "http://127.0.0.1:8102/api/v1"
+BASE = "http://127.0.0.1:8100/api/v1"
 ADMIN_PWD = "Admin@whdb3"
 ALT_PWD = "Test@Pass123"
 

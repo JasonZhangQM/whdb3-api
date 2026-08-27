@@ -109,6 +109,10 @@ def update_my_profile(db: Session, ctx: AuthContext, req) -> User:
     if user is None:
         raise BizError(4041, "用户不存在")
     with db.begin_nested():
+        # phone 唯一约束 uk_users_phone 预检（否则 IntegrityError 落 5001）
+        if req.phone and req.phone != user.phone:
+            if db.scalar(select(User).where(User.phone == req.phone, User.id != ctx.user_id)):
+                raise BizError(4090, "手机号已被其他用户使用")
         for f in ("name", "phone", "avatar_url", "gender"):
             v = getattr(req, f)
             if v is not None:
@@ -199,6 +203,8 @@ def create(db: Session, req: UserCreate) -> dict:
         raise BizError(4090, "登录名已存在")
     if db.scalar(select(User).where(User.email == req.email)):
         raise BizError(4090, "邮箱已存在")
+    if req.phone and db.scalar(select(User).where(User.phone == req.phone)):
+        raise BizError(4090, "手机号已存在")
 
     roles = list(db.scalars(select(Role).where(Role.id.in_(req.role_ids))))
     if len(roles) != len(set(req.role_ids)):
@@ -232,6 +238,10 @@ def update(db: Session, ctx: AuthContext, user_id: int, req: UserUpdate) -> None
             if db.scalar(select(User).where(User.email == req.email, User.id != user_id)):
                 raise BizError(4090, "邮箱已存在")
             user.email = req.email
+        # phone 唯一约束 uk_users_phone 预检（否则 IntegrityError 落 5001）
+        if req.phone and req.phone != user.phone:
+            if db.scalar(select(User).where(User.phone == req.phone, User.id != user_id)):
+                raise BizError(4090, "手机号已被其他用户使用")
         for f in ("name", "phone", "gender", "dept_id", "position"):
             v = getattr(req, f)
             if v is not None:
