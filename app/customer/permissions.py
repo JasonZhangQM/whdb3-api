@@ -22,6 +22,13 @@ MENUS: list[dict] = [
                 "type": 20,
                 "permission_code": "customer:list",
             },
+            {
+                "caption": "客户标签",
+                "path": "/customer/tags",
+                "component": "custom/tags",
+                "type": 20,
+                "permission_code": "customer:list",
+            },
         ],
     },
 ]

@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import BizError
+from app.core.tree import build_tree
 from app.customer.enums import Genre
 from app.customer.models import Customer, Group
 
@@ -42,10 +43,10 @@ def tree(db: Session) -> list[dict]:
     else:
         sums = {}
 
-    nodes: dict[int, dict] = {}
-    roots: list[dict] = []
-    for r in rows:
-        nodes[r.id] = {
+    return build_tree(
+        rows,
+        parent_getter=lambda r: r.parent_id,
+        node_mapper=lambda r: {
             "id": r.id, "code": r.code, "name": r.name, "parent_id": r.parent_id,
             "parent_customer_id": r.parent_customer_id,
             "parent_customer_name": parent_names.get(r.parent_customer_id or 0),
@@ -53,16 +54,8 @@ def tree(db: Session) -> list[dict]:
             "total_insure_amount": float(sums.get(r.id, 0)),
             "member_count": counts.get(r.id, 0),
             "status": r.status,
-            "children": [],
-        }
-    for r in rows:
-        node = nodes[r.id]
-        parent = nodes.get(r.parent_id)
-        if parent is not None:
-            parent["children"].append(node)
-        else:
-            roots.append(node)
-    return roots
+        },
+    )
 
 
 def get_or_404(db: Session, group_id: int) -> Group:

@@ -94,11 +94,15 @@ async def unhandled_handler(request: Request, exc: Exception):
 
 app.add_middleware(RequestIdMiddleware)
 
-# 健康检查 + 字典聚合 + 业务模块路由
+# 健康检查 + 业务模块路由
 app.include_router(health_router, prefix="/api/v1")
-app.include_router(dict_router, prefix="/api/v1")
 for module_router in MODULE_ROUTERS:
     app.include_router(module_router, prefix="/api/v1")
+
+# 字典聚合路由必须最后注册：/dicts/{name} 通配路由会遮蔽业务模块的
+# 单段字典路径（/dicts/tags、/dicts/genders、/dicts/customers 等），
+# FastAPI 按注册顺序匹配，先注册业务路由、通配路由兜底。
+app.include_router(dict_router, prefix="/api/v1")
 
 # 静态资源（头像等本地上传文件）
 MEDIA_ROOT = Path(__file__).resolve().parent.parent / "media"

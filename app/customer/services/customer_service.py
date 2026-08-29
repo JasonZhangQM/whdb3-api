@@ -17,7 +17,9 @@ from app.customer.models import (
     CoreLimit,
     Customer,
     CustomerExtend,
+    CustomerTagRelation,
     Director,
+    ExtraTag,
     PersonalProfile,
     Shareholder,
 )
@@ -35,6 +37,22 @@ def _disp(group: str, value: int | None) -> str | None:
     if value is None:
         return None
     return LABELS[group].get(value, str(value))
+
+
+def _replace_tags(db: Session, customer_id: int, tag_ids: list[int]) -> None:
+    """整体替换客户标签（校验存在性 + 删旧插新，同一事务内完成）。"""
+    if tag_ids:
+        valid_ids = set(
+            db.scalars(select(ExtraTag.id).where(ExtraTag.id.in_(tag_ids))).all()
+        )
+        missing = set(tag_ids) - valid_ids
+        if missing:
+            raise BizError(4041, f"标签不存在: {sorted(missing)}")
+    db.query(CustomerTagRelation).filter(
+        CustomerTagRelation.customer_id == customer_id
+    ).delete(synchronize_session=False)
+    for tid in dict.fromkeys(tag_ids):  # 去重且保序
+        db.add(CustomerTagRelation(customer_id=customer_id, tag_id=tid))
 
 
 # ===== 列表 =====
@@ -225,7 +243,11 @@ def get_detail(db: Session, customer_id: int) -> dict:
         "director_count": 0,
         "extend_count": 0,
         "latest_extend": None,
-        "tags": c.tags,
+        "tags": db.scalars(
+            select(CustomerTagRelation.tag_id)
+            .where(CustomerTagRelation.customer_id == customer_id)
+            .order_by(CustomerTagRelation.tag_id)
+        ).all(),
         "created_at": c.created_at,
     }
 
@@ -428,12 +450,13 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
 
     customer = Customer(
         **data,
-        tags=tags or None,
         create_by=user_id,
         classification=Classification.NORMAL,
     )
     db.add(customer)
     db.flush()
+    if tags:
+        _replace_tags(db, customer.id, tags)
 
     if customer.genre == Genre.COMPANY and company:
         db.add(CompanyProfile(customer_id=customer.id, **company))
@@ -474,7 +497,7 @@ def update_free_fields(db: Session, customer_id: int, body: CustomerUpdate) -> N
     for k, v in data.items():
         setattr(c, k, v)
     if tags is not None:
-        c.tags = tags or None
+        _replace_tags(db, customer_id, tags)
 
 
 def delete_customer(db: Session, customer_id: int) -> None:

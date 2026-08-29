@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import AuthContext, get_current_user, require_perm
 from app.core.db import get_db
 from app.core.response import ok
+from app.core.tree import build_tree
 from app.warrant.enums import LABELS
 from app.warrant.models import WarrantHouseApp
 from app.warrant.schemas import EvaluateCompanyCreate
@@ -66,15 +67,14 @@ def house_apps(db: Session = Depends(get_db), _: AuthContext = Depends(get_curre
     rows = db.scalars(
         select(WarrantHouseApp).where(WarrantHouseApp.status == 10).order_by(WarrantHouseApp.id)
     ).all()
-    nodes = {r.id: {"id": r.id, "name": r.name, "children": []} for r in rows}
-    tree = []
-    for r in rows:
-        node = nodes[r.id]
-        if r.parent_id and r.parent_id in nodes:
-            nodes[r.parent_id]["children"].append(node)
-        elif not r.parent_id:
-            tree.append(node)
-    return ok(tree)
+    return ok(
+        build_tree(
+            rows,
+            parent_getter=lambda r: r.parent_id,
+            node_mapper=lambda r: {"id": r.id, "name": r.name},
+            parent_id_null=None,  # WarrantHouseApp.parent_id 用 NULL 表示根
+        )
+    )
 
 
 @router.get("/evaluate-companies")

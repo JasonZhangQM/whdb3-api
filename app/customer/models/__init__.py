@@ -74,6 +74,24 @@ class ExtraTag(Base):
     )
 
 
+class CustomerTagRelation(Base):
+    """客户 ↔ 标签多对多关联（强外键，替代 customers.tags JSON 弱关联）。"""
+
+    __tablename__ = "customer_tag_relations"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "tag_id", name="uq_customer_tag"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id", ondelete="CASCADE"), index=True
+    )
+    tag_id: Mapped[int] = mapped_column(
+        ForeignKey("customer_extra_tags.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
+
+
 class Group(Base):
     """集团（聚合多个企业客户，parent_customer_id 指向母公司客户）。"""
 
@@ -160,7 +178,6 @@ class Customer(Base):
     last_review_date: Mapped[date | None] = mapped_column(comment="最近保后")
     day_space: Mapped[int] = mapped_column(BigInteger, default=0, comment="距上次更新间隔日")
     last_synced_at: Mapped[datetime | None] = mapped_column(comment="冗余字段最后刷新时间")
-    tags: Mapped[list | None] = mapped_column(JSON, comment="标签 id 数组")
     created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
     updated_at: Mapped[datetime] = mapped_column(
         server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")

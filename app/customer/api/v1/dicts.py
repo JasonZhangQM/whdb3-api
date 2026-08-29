@@ -26,6 +26,29 @@ def list_tags(db: Session = Depends(get_db), _: AuthContext = Depends(get_curren
     return ok(region_service.list_tags(db))
 
 
+@router.get("/tags/{tag_id}/customers")
+def list_tag_customers(
+    tag_id: int,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(get_current_user),
+):
+    """标签下的所有客户（详情抽屉 Tab 用）。"""
+    return ok(region_service.list_tag_customers(db, tag_id))
+
+
+@router.delete("/tags/{tag_id}/customers/{customer_id}")
+def remove_tag_customer(
+    tag_id: int,
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:update")),
+):
+    """移除 标签↔客户 关联（详情抽屉操作列）。"""
+    region_service.remove_tag_customer(db, tag_id, customer_id)
+    db.commit()
+    return ok(message="已移除该客户的标签关联")
+
+
 @router.post("/tags")
 def create_tag(
     body: TagCreate,
@@ -48,6 +71,34 @@ def delete_tag(
     region_service.delete_tag(db, tag_id)
     db.commit()
     return ok(message="标签已删除")
+
+
+@router.put("/tags/{tag_id}")
+def update_tag(
+    tag_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:update")),
+):
+    """编辑标签（name/type 自由字段，留 None 保持不变）。"""
+    name = body.get("name")
+    type_ = body.get("type")
+    region_service.update_tag(db, tag_id, name, type_)
+    db.commit()
+    return ok(message="标签已更新")
+
+
+@router.patch("/tags/{tag_id}/status")
+def toggle_tag_status(
+    tag_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:update")),
+):
+    """启用/停用标签（target: 10 启用 / 20 停用）。"""
+    region_service.toggle_tag_status(db, tag_id, body["target"])
+    db.commit()
+    return ok(message="标签状态已变更")
 
 
 # ===== 客户下拉字典 =====

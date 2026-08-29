@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import BizError
+from app.core.tree import build_tree
 from app.customer.models import CreditRegion, Customer
 
 
@@ -34,19 +35,11 @@ def tree(db: Session) -> list[dict]:
     """授信区域树（带额度/已用/成员数）。"""
     rows = db.scalars(select(CreditRegion).order_by(CreditRegion.code)).all()
     counts = _member_counts(db)
-    nodes: dict[int, dict] = {}
-    roots: list[dict] = []
-    for r in rows:
-        nodes[r.id] = _node_fields(r, counts.get(r.id, 0))
-        nodes[r.id]["children"] = []
-    for r in rows:
-        node = nodes[r.id]
-        parent = nodes.get(r.parent_id)
-        if parent is not None:
-            parent["children"].append(node)
-        else:
-            roots.append(node)
-    return roots
+    return build_tree(
+        rows,
+        parent_getter=lambda r: r.parent_id,
+        node_mapper=lambda r: _node_fields(r, counts.get(r.id, 0)),
+    )
 
 
 def get_or_404(db: Session, region_id: int) -> CreditRegion:
