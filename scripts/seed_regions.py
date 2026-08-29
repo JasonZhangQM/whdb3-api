@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select, text  # noqa: E402
 
 from app.core.db import SessionLocal  # noqa: E402
-from app.customer.models import Region  # noqa: E402
+from app.user.models import Region  # noqa: E402
 
 DATA_PATH = Path(__file__).resolve().parent / "regions.json"
 
@@ -122,7 +122,7 @@ def seed_regions(db) -> dict[str, int]:
     nodes = _fix_parent_chain(nodes)  # 修正直辖市等缺失中间层级的 parent_code
     print(f"解析 {len(raw)} 条原始数据 → {len(nodes)} 个节点")
 
-    # 清空旧数据（物理外键 customers.region_id → customer_regions.id，
+    # 清空旧数据（物理外键 customers.region_id → user_regions.id，
     # 临时关闭外键检查；客户 region_id 会被 MySQL 自动置 NULL）
     db.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
     db.query(Region).delete(synchronize_session=False)

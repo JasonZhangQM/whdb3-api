@@ -31,13 +31,6 @@ class Classification(IntEnum):
     LOSS = 50       # 损失
 
 
-class RegionLevel(IntEnum):
-    PROVINCE = 10
-    CITY = 20
-    DISTRICT = 30
-    TOWNSHIP = 40
-
-
 class IndTyp(IntEnum):
     PRIMARY = 10   # 一产
     SECONDARY = 20  # 二产
@@ -105,7 +98,6 @@ LABELS: dict[str, dict[int, str]] = {
     "custom_typ": {10: "新增", 20: "存量", 30: "存量新增"},
     "custom_state": {10: "正常", 20: "反担保", 30: "小贷", 90: "注销"},
     "classification": {10: "正常", 20: "关注", 30: "次级", 40: "可疑", 50: "损失"},
-    "region_level": {10: "省", 20: "市", 30: "区县", 40: "乡镇街道"},
     "ind_typ": {10: "一产", 20: "二产", 30: "三产"},
     "tag_type": {10: "行业", 20: "业务"},
     "typing": {10: "微型", 20: "小型", 30: "中型", 40: "大型", 90: "未划型"},

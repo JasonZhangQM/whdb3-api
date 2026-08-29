@@ -77,7 +77,8 @@ def prepare_base_data() -> dict:
     from sqlalchemy import select
 
     from app.core.db import SessionLocal
-    from app.customer.models import Industry, Region
+    from app.customer.models import Industry
+    from app.user.models import Region
 
     ids: dict[str, int] = {}
     with SessionLocal() as db, db.begin():

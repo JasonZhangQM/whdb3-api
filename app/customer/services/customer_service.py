@@ -110,7 +110,7 @@ def list_customers(
     region_ids = {c.region_id for c in customers if c.region_id}
     region_names = {}
     if region_ids:
-        from app.customer.models import Region
+        from app.user.models import Region
 
         region_names = dict(
             db.execute(select(Region.id, Region.name).where(Region.id.in_(region_ids))).all()
@@ -231,7 +231,7 @@ def get_detail(db: Session, customer_id: int) -> dict:
 
     # 关联名称
     if c.region_id:
-        from app.customer.models import Region
+        from app.user.models import Region
 
         detail["region_name"] = db.scalar(
             select(Region.name).where(Region.id == c.region_id)
@@ -407,7 +407,9 @@ def _validate_create_payload(db: Session, data: dict) -> None:
 
 def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
     """添加客户 → 直接落库（不走审批）。"""
-    from app.customer.models import Group, Region, Industry as IndustryModel
+    from app.user.models import Region
+
+    from app.customer.models import Group, Industry as IndustryModel
 
     data = body.model_dump()
     _validate_create_payload(db, data)

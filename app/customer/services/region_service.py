@@ -1,63 +1,10 @@
-"""行政区域 / 行业 / 标签字典服务。"""
+"""行业 / 标签字典服务（行政区域已迁至 app/user/services/region_service.py）。"""
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import BizError
-from app.customer.enums import LABELS
-from app.customer.models import ExtraTag, Industry, Region
-
-
-def region_tree(db: Session) -> list[dict]:
-    """全量区域树：一次性查出，Python 侧 O(n) 组装（约几千条）。"""
-    rows = db.scalars(
-        select(Region).where(Region.status == 10).order_by(Region.code)
-    ).all()
-    nodes: dict[int, dict] = {}
-    roots: list[dict] = []
-    for r in rows:
-        nodes[r.id] = {
-            "id": r.id, "code": r.code, "name": r.name,
-            "level": r.level, "parent_id": r.parent_id, "children": [],
-        }
-    for r in rows:
-        node = nodes[r.id]
-        parent = nodes.get(r.parent_id)
-        if parent is not None:
-            parent["children"].append(node)
-        else:
-            roots.append(node)
-    return roots
-
-
-def region_children(db: Session, region_id: int) -> list[dict]:
-    rows = db.scalars(
-        select(Region)
-        .where(Region.parent_id == region_id, Region.status == 10)
-        .order_by(Region.ordery, Region.code)
-    ).all()
-    return [
-        {"id": r.id, "code": r.code, "name": r.name, "level": r.level,
-         "parent_id": r.parent_id}
-        for r in rows
-    ]
-
-
-def region_search(db: Session, q: str) -> list[dict]:
-    """按名称/代码搜索区域。"""
-    like = f"%{q}%"
-    rows = db.scalars(
-        select(Region)
-        .where(or_(Region.name.like(like), Region.code.like(like)))
-        .order_by(Region.code)
-        .limit(50)
-    ).all()
-    return [
-        {"id": r.id, "code": r.code, "name": r.name, "level": r.level,
-         "level_display": LABELS["region_level"].get(r.level),
-         "parent_id": r.parent_id}
-        for r in rows
-    ]
+from app.customer.models import ExtraTag, Industry
 
 
 def industry_tree(db: Session) -> list[dict]:

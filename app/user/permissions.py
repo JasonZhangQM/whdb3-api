@@ -22,6 +22,7 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
     ("menu:create", "菜单新增"),
     ("menu:update", "菜单修改"),
     ("menu:delete", "菜单删除"),
+    ("region:list", "行政区划查看"),
 ]
 
 # 菜单树：permission_code 即 type=10 菜单权限（seed 自动建权限记录并回挂 menu_id）
@@ -46,6 +47,7 @@ MENUS: list[dict] = [
             {"caption": "部门管理", "path": "/system/departments", "component": "system/dept/index", "type": 20, "permission_code": "dept:list"},
             {"caption": "角色管理", "path": "/system/roles", "component": "system/role/index", "type": 20, "permission_code": "role:list"},
             {"caption": "菜单管理", "path": "/system/menus", "component": "system/menu/index", "type": 20, "permission_code": "menu:list"},
+            {"caption": "行政区划", "path": "/system/regions", "component": "system/region/index", "type": 20, "permission_code": "region:list"},
             {"caption": "操作日志", "path": "/system/operation-logs", "component": "system/log/operation", "type": 20, "permission_code": "log:operation"},
             {"caption": "登录日志", "path": "/system/login-logs", "component": "system/log/login", "type": 20, "permission_code": "log:login"},
         ],

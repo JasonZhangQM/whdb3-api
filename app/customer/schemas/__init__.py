@@ -6,16 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-# ===== 行政区域 & 字典 =====
-class RegionNode(BaseModel):
-    id: int
-    code: str
-    name: str
-    level: Literal[10, 20, 30, 40]
-    parent_id: int
-    children: list["RegionNode"] = []
-
-
+# ===== 字典 =====
 class IndustryNode(BaseModel):
     id: int
     code: str

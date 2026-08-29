@@ -64,6 +64,7 @@ MENU_PERM_NAMES: dict[str, str] = {
     "dept:list": "部门列表",
     "role:list": "角色列表",
     "menu:list": "菜单列表",
+    "region:list": "行政区划查看",
     "log:operation": "操作日志查询",
     "log:login": "登录日志查询",
     "institution:list": "机构列表",

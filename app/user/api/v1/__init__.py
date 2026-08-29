@@ -8,10 +8,11 @@ from app.user.api.v1 import (
     dicts,
     logs,
     menus,
+    regions,
     roles,
     users,
 )
 
 router = APIRouter()
-for sub in (auth, users, departments, roles, menus, logs, dicts):
+for sub in (auth, users, departments, roles, menus, regions, logs, dicts):
     router.include_router(sub.router)

@@ -1,4 +1,4 @@
-"""客户模块模型：14 张表。
+"""客户模块模型：13 张表（行政区域已迁至 user 模块作为基础数据）。
 
 核心设计（§4.3）：
 - 强外键替代弱关联（核心企业/承兑人 FK customers.id）
@@ -23,20 +23,6 @@ from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
-
-
-class Region(Base):
-    """行政区域树（省/市/区县/乡镇街道，6 位国标行政区划代码）。"""
-
-    __tablename__ = "customer_regions"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    code: Mapped[str] = mapped_column(String(12), unique=True, comment="行政区划代码")
-    name: Mapped[str] = mapped_column(String(64))
-    level: Mapped[int] = mapped_column(SmallInteger, comment="10省20市30区县40乡镇街道")
-    parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
-    ordery: Mapped[int] = mapped_column(BigInteger, default=0)
-    status: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10启用20停用")
 
 
 class CreditRegion(Base):
@@ -131,7 +117,7 @@ class Customer(Base):
     linkman: Mapped[str | None] = mapped_column(String(64))
     contact_num: Mapped[str | None] = mapped_column(String(64))
     region_id: Mapped[int | None] = mapped_column(
-        ForeignKey("customer_regions.id"), index=True, comment="行政区域"
+        ForeignKey("user_regions.id"), index=True, comment="行政区域"
     )
     credit_region_id: Mapped[int | None] = mapped_column(
         ForeignKey("customer_credit_regions.id"), index=True, comment="授信区域"

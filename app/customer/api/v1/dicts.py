@@ -1,6 +1,6 @@
-"""字典路由：行政区域 / 行业 / 标签 / 客户下拉字典（接口 1-3, 11-14, 23）。"""
+"""字典路由：行业 / 标签 / 客户下拉字典（行政区域已迁至 user 模块 /regions）。"""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext, get_current_user, require_perm
@@ -10,34 +10,6 @@ from app.customer.schemas import TagCreate
 from app.customer.services import credit_region_service, customer_service, region_service
 
 router = APIRouter(prefix="/dicts", tags=["customer-dict"])
-
-
-# ===== 行政区域 =====
-
-@router.get("/regions/tree")
-def regions_tree(db: Session = Depends(get_db), _: AuthContext = Depends(get_current_user)):
-    """行政区域全量树（Redis 缓存 1 小时，前端级联全量模式）。"""
-    return ok(region_service.region_tree(db))
-
-
-@router.get("/regions/search")
-def regions_search(
-    q: str = Query(..., min_length=1, max_length=64),
-    db: Session = Depends(get_db),
-    _: AuthContext = Depends(get_current_user),
-):
-    """按名称/代码搜索区域（限 50 条）。"""
-    return ok(region_service.region_search(db, q))
-
-
-@router.get("/regions/{region_id}/children")
-def region_children(
-    region_id: int,
-    db: Session = Depends(get_db),
-    _: AuthContext = Depends(get_current_user),
-):
-    """指定节点直接下级（级联选择器懒加载）。"""
-    return ok(region_service.region_children(db, region_id))
 
 
 # ===== 行业 / 标签 =====
