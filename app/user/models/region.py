@@ -11,7 +11,6 @@ class Region(Base):
 
     __tablename__ = "user_regions"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(12), unique=True, comment="行政区划代码")
     name: Mapped[str] = mapped_column(String(64))
     level: Mapped[int] = mapped_column(SmallInteger, comment="10省20市30区县40乡镇街道")

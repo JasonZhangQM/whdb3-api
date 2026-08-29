@@ -14,7 +14,6 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
-    text,
 )
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
@@ -27,7 +26,7 @@ class Institution(Base):
 
     __tablename__ = "institutions"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     name: Mapped[str] = mapped_column(String(128), unique=True, comment="机构全称")
     short_name: Mapped[str] = mapped_column(String(32), unique=True, comment="简称")
     institution_type: Mapped[int] = mapped_column(
@@ -57,11 +56,6 @@ class Institution(Base):
         comment="冗余字段最后刷新时间"
     )
     status: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="10正常20停用90注销")
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
-    )
 
 
 class InstitutionContact(Base):
@@ -69,7 +63,7 @@ class InstitutionContact(Base):
 
     __tablename__ = "institution_contacts"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     institution_id: Mapped[int] = mapped_column(
         ForeignKey("institutions.id"), index=True
     )
@@ -79,8 +73,6 @@ class InstitutionContact(Base):
     email: Mapped[str | None] = mapped_column(String(128))
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, comment="首选联系人")
     remark: Mapped[str | None] = mapped_column(String(255))
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
         UniqueConstraint("institution_id", "name", name="uq_contact_inst_name"),
@@ -92,7 +84,7 @@ class InstitutionBranch(Base):
 
     __tablename__ = "institution_branches"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     institution_id: Mapped[int] = mapped_column(
         ForeignKey("institutions.id"), index=True
     )
@@ -101,8 +93,6 @@ class InstitutionBranch(Base):
     branch_addr: Mapped[str | None] = mapped_column(String(255))
     contact_num: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="10正常20停用90注销")
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
         UniqueConstraint("institution_id", "name", name="uq_branch_inst_name"),
@@ -114,7 +104,7 @@ class InstitutionCreditAgreement(Base):
 
     __tablename__ = "institution_credit_agreements"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     institution_id: Mapped[int] = mapped_column(
         ForeignKey("institutions.id"), index=True
     )
@@ -132,11 +122,6 @@ class InstitutionCreditAgreement(Base):
         SmallInteger, default=10, index=True, comment="10生效20失效30已用完90已终止"
     )
     remark: Mapped[str | None] = mapped_column(String(255))
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
-    )
 
     __table_args__ = (
         Index("idx_agreement_inst_status_type", "institution_id", "status", "agreement_type"),
@@ -148,7 +133,7 @@ class InstitutionCreditHistory(Base):
 
     __tablename__ = "institution_credit_histories"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     institution_id: Mapped[int] = mapped_column(
         ForeignKey("institutions.id"), index=True
     )
@@ -160,4 +145,3 @@ class InstitutionCreditHistory(Base):
     )
     change_content: Mapped[dict] = mapped_column(JSON, comment="{field,before,after,...}")
     changed_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))

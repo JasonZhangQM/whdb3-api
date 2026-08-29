@@ -199,7 +199,7 @@ def get_detail(db: Session, customer_id: int) -> dict:
     c = _get_or_404(db, customer_id)
     users = dict(
         db.execute(
-            select(User.id, User.name).where(User.id.in_([c.managementor_id, c.controler_id, c.create_by]))
+            select(User.id, User.name).where(User.id.in_([c.managementor_id, c.controler_id, c.created_by]))
         ).all()
     )
 
@@ -450,7 +450,7 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
 
     customer = Customer(
         **data,
-        create_by=user_id,
+        created_by=user_id,
         classification=Classification.NORMAL,
     )
     db.add(customer)

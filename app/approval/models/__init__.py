@@ -27,13 +27,12 @@ class ApprovalFlowDef(Base):
 
     __tablename__ = "approval_flow_defs"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     code: Mapped[str] = mapped_column(String(64), unique=True, comment="流程编码")
     name: Mapped[str] = mapped_column(String(64), comment="流程名称")
     version: Mapped[int] = mapped_column(SmallInteger, default=1, comment="版本号")
     status: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10启用20停用")
     description: Mapped[str | None] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (Index("idx_flow_def_code", "code"),)
 
@@ -49,7 +48,7 @@ class ApprovalFlowNode(Base):
 
     __tablename__ = "approval_flow_nodes"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     flow_def_id: Mapped[int] = mapped_column(
         ForeignKey("approval_flow_defs.id"), index=True
     )
@@ -80,7 +79,7 @@ class ApprovalInstance(Base):
 
     __tablename__ = "approval_instances"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     flow_code: Mapped[str] = mapped_column(String(64), index=True, comment="流程编码")
     biz_type: Mapped[str] = mapped_column(String(32), index=True, comment="业务对象类型")
     # 创建场景无业务行，biz_id 可空（用 payload 唯一性约束兜底）
@@ -108,7 +107,7 @@ class ApprovalTask(Base):
 
     __tablename__ = "approval_tasks"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     instance_id: Mapped[int] = mapped_column(
         ForeignKey("approval_instances.id"), index=True
     )

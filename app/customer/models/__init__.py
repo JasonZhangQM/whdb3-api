@@ -17,7 +17,6 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
-    text,
 )
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
@@ -30,7 +29,7 @@ class CreditRegion(Base):
 
     __tablename__ = "customer_credit_regions"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     code: Mapped[str] = mapped_column(String(32), unique=True)
     name: Mapped[str] = mapped_column(String(128))
     parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
@@ -39,11 +38,6 @@ class CreditRegion(Base):
     platform_name: Mapped[str | None] = mapped_column(String(128), comment="平台名称")
     description: Mapped[str | None] = mapped_column(String(255))
     status: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10启用20停用")
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
-    )
 
 
 class Industry(Base):
@@ -51,7 +45,7 @@ class Industry(Base):
 
     __tablename__ = "customer_industries"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     code: Mapped[str] = mapped_column(String(16), unique=True)
     name: Mapped[str] = mapped_column(String(128))
     ind_typ: Mapped[int] = mapped_column(SmallInteger, comment="10一产20二产30三产")
@@ -63,15 +57,10 @@ class ExtraTag(Base):
 
     __tablename__ = "customer_extra_tags"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     name: Mapped[str] = mapped_column(String(255), unique=True)
     type: Mapped[int] = mapped_column(SmallInteger, comment="10行业20业务标签")
     status: Mapped[int] = mapped_column(SmallInteger, default=10)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
-    )
 
 
 class CustomerTagRelation(Base):
@@ -82,14 +71,13 @@ class CustomerTagRelation(Base):
         UniqueConstraint("customer_id", "tag_id", name="uq_customer_tag"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id", ondelete="CASCADE"), index=True
     )
     tag_id: Mapped[int] = mapped_column(
         ForeignKey("customer_extra_tags.id", ondelete="CASCADE"), index=True
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
 
 
 class Group(Base):
@@ -97,7 +85,7 @@ class Group(Base):
 
     __tablename__ = "customer_groups"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     code: Mapped[str] = mapped_column(String(32), unique=True)
     name: Mapped[str] = mapped_column(String(128), unique=True)
     parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
@@ -111,11 +99,6 @@ class Group(Base):
     credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="集团总授信额度")
     description: Mapped[str | None] = mapped_column(String(255))
     status: Mapped[int] = mapped_column(SmallInteger, default=10)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
-    )
 
 
 class Customer(Base):
@@ -123,7 +106,7 @@ class Customer(Base):
 
     __tablename__ = "customers"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     name: Mapped[str] = mapped_column(String(128), index=True)
     short_name: Mapped[str] = mapped_column(String(32), unique=True)
     genre: Mapped[int] = mapped_column(SmallInteger, index=True, comment="1企业2个人")
@@ -152,7 +135,6 @@ class Customer(Base):
         ForeignKey("users.id"), index=True, comment="管护经理"
     )
     controler_id: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="风控专员")
-    create_by: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="创建人")
     # 核心企业专属
     core_rate: Mapped[float | None] = mapped_column(Numeric(6, 2), comment="核心企业费率%")
     core_remark: Mapped[str | None] = mapped_column(String(255), comment="核心企业备注")
@@ -178,10 +160,6 @@ class Customer(Base):
     last_review_date: Mapped[date | None] = mapped_column(comment="最近保后")
     day_space: Mapped[int] = mapped_column(BigInteger, default=0, comment="距上次更新间隔日")
     last_synced_at: Mapped[datetime | None] = mapped_column(comment="冗余字段最后刷新时间")
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
-    )
 
 
 class CompanyProfile(Base):
@@ -189,7 +167,7 @@ class CompanyProfile(Base):
 
     __tablename__ = "customer_company_profiles"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id"), unique=True, index=True
     )
@@ -209,7 +187,7 @@ class PersonalProfile(Base):
 
     __tablename__ = "customer_personal_profiles"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id"), unique=True, index=True
     )
@@ -227,7 +205,7 @@ class Shareholder(Base):
 
     __tablename__ = "customer_shareholders"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     company_id: Mapped[int] = mapped_column(
         ForeignKey("customer_company_profiles.id"), index=True
     )
@@ -245,7 +223,7 @@ class Director(Base):
 
     __tablename__ = "customer_directors"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     company_id: Mapped[int] = mapped_column(
         ForeignKey("customer_company_profiles.id"), index=True
     )
@@ -262,15 +240,13 @@ class CustomerExtend(Base):
 
     __tablename__ = "customer_extends"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
     sales_revenue: Mapped[float] = mapped_column(Numeric(18, 2), comment="销售收入")
     total_assets: Mapped[float] = mapped_column(Numeric(18, 2), comment="总资产")
     people_engaged: Mapped[float] = mapped_column(Numeric(12, 2), comment="从业人数")
     data_date: Mapped[date] = mapped_column(comment="快照基准日")
     typing: Mapped[int] = mapped_column(SmallInteger, default=90, comment="划型结果")
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
         UniqueConstraint("customer_id", "data_date", name="uq_extend_date"),
@@ -282,7 +258,7 @@ class CoreLimit(Base):
 
     __tablename__ = "customer_core_limits"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
     credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), comment="授信总额")
     valid_begin_date: Mapped[date]
@@ -304,10 +280,7 @@ class CoreHistory(Base):
 
     __tablename__ = "customer_core_histories"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
     change_content: Mapped[dict] = mapped_column(JSON)
     changed_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
-    )

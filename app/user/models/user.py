@@ -12,6 +12,7 @@ from sqlalchemy import (
     Index,
     SmallInteger,
     String,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.mysql import JSON
@@ -20,22 +21,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 
 
-class TimestampMixin:
-    """审计字段：所有业务表统一。naive datetime（本地时区习惯）。"""
-
-    created_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP")
-    )
-    # MySQL 8+：默认值 + 行更新时自动刷新，一条 server_default 表达
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
-    )
-
-
-class User(TimestampMixin, Base):
+class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, comment="登录名")
     name: Mapped[str] = mapped_column(String(64), comment="姓名")
     email: Mapped[str] = mapped_column(String(255), unique=True, comment="邮箱")
@@ -63,10 +51,9 @@ class User(TimestampMixin, Base):
     )
 
 
-class Role(TimestampMixin, Base):
+class Role(Base):
     __tablename__ = "user_roles"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(64), unique=True, comment="super_admin/dept_manager/...")
     name: Mapped[str] = mapped_column(String(64))
     description: Mapped[str | None] = mapped_column(String(255))
@@ -75,23 +62,27 @@ class Role(TimestampMixin, Base):
 
 
 class UserRole(Base):
-    """用户-角色中间表。"""
+    """用户-角色中间表（id 主键 + 复合唯一，统一 Base 审计字段）。"""
 
     __tablename__ = "user_user_roles"
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     role_id: Mapped[int] = mapped_column(
-        ForeignKey("user_roles.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("user_roles.id", ondelete="CASCADE")
     )
-    __table_args__ = (Index("idx_user_roles_role", "role_id"),)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "role_id", name="uq_user_role_pair"),
+        # role_id FK 的支撑索引（沿用 M1 名字）
+        Index("idx_user_roles_role", "role_id"),
+    )
 
 
-class Permission(TimestampMixin, Base):
+class Permission(Base):
     __tablename__ = "user_permissions"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(128), unique=True, comment="资源:操作，如 customer:create")
     name: Mapped[str] = mapped_column(String(64), comment="显示名")
     module: Mapped[str] = mapped_column(String(32), index=True, comment="所属模块")
@@ -103,22 +94,25 @@ class Permission(TimestampMixin, Base):
 
 
 class RolePermission(Base):
-    """角色-权限中间表。"""
+    """角色-权限中间表（id 主键 + 复合唯一，统一 Base 审计字段）。"""
 
     __tablename__ = "user_role_permissions"
 
     role_id: Mapped[int] = mapped_column(
-        ForeignKey("user_roles.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("user_roles.id", ondelete="CASCADE"), index=True
     )
     permission_id: Mapped[int] = mapped_column(
-        ForeignKey("user_permissions.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("user_permissions.id", ondelete="CASCADE")
+    )
+
+    __table_args__ = (
+        UniqueConstraint("role_id", "permission_id", name="uq_role_permission_pair"),
     )
 
 
-class Menu(TimestampMixin, Base):
+class Menu(Base):
     __tablename__ = "user_menus"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True, comment="0=顶级")
     caption: Mapped[str] = mapped_column(String(64), comment="菜单名")
     icon: Mapped[str | None] = mapped_column(String(64))
@@ -134,10 +128,9 @@ class Menu(TimestampMixin, Base):
     )
 
 
-class Department(TimestampMixin, Base):
+class Department(Base):
     __tablename__ = "user_departments"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True, comment="0=顶级")
     name: Mapped[str] = mapped_column(String(64))
     # use_alter：与 users.dept_id 互为循环外键，建表后 ALTER 补加（避免建表顺序死锁）
@@ -153,7 +146,6 @@ class Department(TimestampMixin, Base):
 class OperationLog(Base):
     __tablename__ = "user_operation_logs"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     username: Mapped[str | None] = mapped_column(String(64))
     user_name: Mapped[str | None] = mapped_column(String(64))
@@ -180,7 +172,6 @@ class OperationLog(Base):
 class LoginLog(Base):
     __tablename__ = "user_login_logs"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     username: Mapped[str | None] = mapped_column(String(64), index=True)
     login_type: Mapped[int | None] = mapped_column(String(32), comment="login/logout/refresh/lock")
