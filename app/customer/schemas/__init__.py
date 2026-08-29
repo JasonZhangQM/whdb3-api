@@ -233,20 +233,22 @@ class CustomerCreate(BaseModel):
 
 
 class CustomerUpdate(BaseModel):
-    """仅自由字段——敏感字段走 CustomerChangeRequest。"""
+    """客户修改（所有可修改字段直接生效，客户审批场景已移除）。"""
 
+    name: str | None = None
+    short_name: str | None = None
+    credit_amount: float | None = None
+    custom_state: int | None = None
+    custom_typ: int | None = None
+    managementor_id: int | None = None
     contact_addr: str | None = None
     linkman: str | None = None
     contact_num: str | None = None
     region_id: int | None = None
     industry_id: int | None = None
+    group_id: int | None = None
+    classification: int | None = None
     tags: list[int] | None = None
-
-
-class CustomerChangeRequest(BaseModel):
-    """敏感字段修改申请：仅传目标值，后端生成 diff。"""
-
-    values: dict[str, str | int | float]
 
 
 class CustomerTransferReq(BaseModel):

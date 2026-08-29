@@ -72,33 +72,8 @@ MENU_PERM_NAMES: dict[str, str] = {
 }
 
 # 审批流定义（总体方案 §5.3：流程定义走代码版本管理，新增 flow_code 需评审）
-# M2 首发：客户创建 / 敏感修改 / 批量移交，单节点或签（部门负责人）
-APPROVAL_FLOWS: list[dict] = [
-    {
-        "code": "customer_create",
-        "name": "客户创建审批",
-        "description": "新建客户（含企业/个人扩展），审批通过后落库",
-        "nodes": [
-            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
-        ],
-    },
-    {
-        "code": "customer_update",
-        "name": "客户敏感修改审批",
-        "description": "名称/证件号/状态/授信额度等敏感字段变更，通过后应用 diff",
-        "nodes": [
-            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
-        ],
-    },
-    {
-        "code": "customer_transfer",
-        "name": "客户批量移交审批",
-        "description": "批量变更管护经理（≤200），通过后一条 UPDATE 批量生效",
-        "nodes": [
-            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
-        ],
-    },
-]
+# M2 首发：客户审批场景已移除；后续合同签批 / 放款通知 / 代偿审批按需补充
+APPROVAL_FLOWS: list[dict] = []
 
 
 def seed_menus(db: Session) -> dict[str, int]:

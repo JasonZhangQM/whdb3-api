@@ -1,10 +1,9 @@
-"""客户主路由：列表/详情/审批三场景/子资源/核心企业额度/统计（接口 24-50）。
+"""客户主路由：列表/详情/创建/批量移交/子资源/核心企业额度/统计。
 
-路由顺序约定：静态路径（transfer-requests / stats/*）先于 /customers/{id} 注册。
+客户审批场景已移除，所有写操作直接生效。
 """
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext, require_perm
@@ -16,7 +15,6 @@ from app.customer.schemas import (
     ControlerChangeReq,
     CoreLimitCreate,
     CoreLimitUpdate,
-    CustomerChangeRequest,
     CustomerCreate,
     CustomerExtendCreate,
     CustomerTransferReq,
@@ -27,15 +25,8 @@ from app.customer.schemas import (
     SpouseBindReq,
 )
 from app.customer.services import customer_service, group_service
-from app.customer.services import executors as _executors  # noqa: F401  import 即注册审批生效函数
 
 router = APIRouter(prefix="/customers", tags=["customer"])
-
-
-class CustomerTagsUpdate(BaseModel):
-    """单独更新标签（接口 35）。"""
-
-    tags: list[int] = []
 
 
 # ===== 列表 / 统计（静态路径优先注册）=====
@@ -69,15 +60,15 @@ def list_customers(
 
 
 @router.post("/transfer-requests")
-def submit_transfer(
+def batch_transfer(
     body: CustomerTransferReq,
     db: Session = Depends(get_db),
     user: AuthContext = Depends(require_perm("customer:transfer")),
 ):
-    """批量管护经理移交申请（customer_transfer 审批流，≤200 个客户）。"""
-    instance_id = customer_service.submit_transfer(db, body, user.user_id)
+    """批量管护经理移交（直接生效，≤200 个客户）。"""
+    count = customer_service.batch_transfer(db, body, user.user_id)
     db.commit()
-    return ok({"instance_id": instance_id}, message="移交申请已提交审批")
+    return ok({"count": count}, message=f"已移交 {count} 个客户")
 
 
 @router.get("/stats/overview")
@@ -118,7 +109,7 @@ def stats_region_summary(
     return ok(customer_service.region_summary(db, region_id))
 
 
-# ===== 详情 / 审批三场景 =====
+# ===== 详情 / 创建 / 修改 =====
 
 @router.post("")
 def create_customer(
@@ -126,10 +117,10 @@ def create_customer(
     db: Session = Depends(get_db),
     user: AuthContext = Depends(require_perm("customer:create")),
 ):
-    """添加客户 → 创建审批实例（customer_create，通过后才落库）。"""
-    instance_id = customer_service.submit_create(db, body, user.user_id)
+    """添加客户 → 直接落库（不走审批）。"""
+    customer_id = customer_service.create_customer(db, body, user.user_id)
     db.commit()
-    return ok({"instance_id": instance_id}, message="已提交审批")
+    return ok({"id": customer_id}, message="客户创建成功")
 
 
 @router.get("/{customer_id}")
@@ -138,7 +129,7 @@ def get_customer(
     db: Session = Depends(get_db),
     _: AuthContext = Depends(require_perm("customer:detail")),
 ):
-    """客户详情（含扩展信息/集团/核心企业额度概要/pending 审批横幅）。"""
+    """客户详情（含扩展信息/集团/核心企业额度概要）。"""
     return ok(customer_service.get_detail(db, customer_id))
 
 
@@ -149,7 +140,7 @@ def update_customer(
     db: Session = Depends(get_db),
     _: AuthContext = Depends(require_perm("customer:update")),
 ):
-    """修改自由字段（敏感字段会被 422 引导走 change-requests）。"""
+    """修改客户（所有字段直接生效，含原敏感字段）。"""
     customer_service.update_free_fields(db, customer_id, body)
     db.commit()
     return ok(message="修改成功")
@@ -161,25 +152,10 @@ def delete_customer(
     db: Session = Depends(get_db),
     _: AuthContext = Depends(require_perm("customer:delete")),
 ):
-    """删除客户（逻辑注销；拦截：pending 审批/核心企业额度）。"""
+    """删除客户（逻辑注销；拦截：核心企业额度）。"""
     customer_service.delete_customer(db, customer_id)
     db.commit()
     return ok(message="客户已注销")
-
-
-@router.post("/{customer_id}/change-requests")
-def submit_change_request(
-    customer_id: int,
-    body: CustomerChangeRequest,
-    db: Session = Depends(get_db),
-    user: AuthContext = Depends(require_perm("customer:update")),
-):
-    """敏感字段修改申请（customer_update 审批流，payload=字段级 diff）。"""
-    instance_id = customer_service.submit_change_request(
-        db, customer_id, body, user.user_id
-    )
-    db.commit()
-    return ok({"instance_id": instance_id}, message="变更申请已提交审批")
 
 
 @router.patch("/{customer_id}/controler")
@@ -243,14 +219,12 @@ def change_classification(
 @router.patch("/{customer_id}/tags")
 def update_tags(
     customer_id: int,
-    body: CustomerTagsUpdate,
+    body: CustomerUpdate,
     db: Session = Depends(get_db),
     _: AuthContext = Depends(require_perm("customer:update")),
 ):
     """更新客户行业/业务标签。"""
-    customer_service.update_free_fields(
-        db, customer_id, CustomerUpdate(tags=body.tags)
-    )
+    customer_service.update_free_fields(db, customer_id, body)
     db.commit()
     return ok(message="标签已更新")
 

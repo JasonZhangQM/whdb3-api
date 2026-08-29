@@ -1,10 +1,6 @@
-"""客户主服务：列表/详情/审批三场景接入/子资源/统计。
+"""客户主服务：列表/详情/创建/批量移交/子资源/统计。
 
-字段分级（§3.5）：
-- 敏感字段（name/short_name/credit_code/license_num/custom_state/credit_amount/custom_typ）
-  → customer_update 审批流
-- 归属字段（managementor）→ customer_transfer 移交流
-- 自由字段（contact_addr/linkman/contact_num/region_id/industry_id/tags）→ 直接 PATCH
+所有字段直接写入（客户审批场景已移除，后续如有需要按新业务要求重新接入）。
 """
 
 from datetime import datetime
@@ -12,7 +8,6 @@ from datetime import datetime
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.approval import services as approval_service
 from app.core.deps import AuthContext, apply_data_scope_filter
 from app.core.exceptions import BizError
 from app.customer.enums import Classification, Genre, LABELS
@@ -26,22 +21,7 @@ from app.customer.models import (
     PersonalProfile,
     Shareholder,
 )
-from app.customer.schemas import (
-    CustomerChangeRequest,
-    CustomerCreate,
-    CustomerTransferReq,
-    CustomerUpdate,
-)
-
-# 敏感字段白名单（走 customer_update 审批流）
-SENSITIVE_FIELDS = {
-    "name", "short_name", "credit_code", "license_num",
-    "custom_state", "credit_amount", "custom_typ",
-}
-
-FLOW_CREATE = "customer_create"
-FLOW_UPDATE = "customer_update"
-FLOW_TRANSFER = "customer_transfer"
+from app.customer.schemas import CustomerCreate, CustomerTransferReq, CustomerUpdate
 
 
 def _get_or_404(db: Session, customer_id: int) -> Customer:
@@ -245,7 +225,6 @@ def get_detail(db: Session, customer_id: int) -> dict:
         "director_count": 0,
         "extend_count": 0,
         "latest_extend": None,
-        "pending_requests": [],
         "tags": c.tags,
         "created_at": c.created_at,
     }
@@ -376,37 +355,13 @@ def get_detail(db: Session, customer_id: int) -> dict:
             "total_used_amount": float(total_used or 0),
         }
 
-    # pending 审批横幅
-    from app.approval.models import ApprovalInstance
-
-    pendings = db.scalars(
-        select(ApprovalInstance)
-        .where(
-            ApprovalInstance.biz_type == "customer",
-            ApprovalInstance.biz_id == customer_id,
-            ApprovalInstance.status == 10,
-        )
-        .order_by(ApprovalInstance.id.desc())
-    ).all()
-    detail["pending_requests"] = [
-        {
-            "instance_id": p.id,
-            "flow_code": p.flow_code,
-            "status": p.status,
-            "summary": p.summary,
-            "submitted_at": p.submitted_at,
-        }
-        for p in pendings
-    ]
     return detail
 
 
-# ===== 审批三场景 =====
+# ===== 创建 / 批量移交（直写，无审批）=====
 
 def _validate_create_payload(db: Session, data: dict) -> None:
-    """创建校验：唯一性（含 pending 草稿）+ 外键存在性。"""
-    from app.approval.models import ApprovalInstance
-
+    """创建校验：唯一性 + 外键存在性。"""
     name = data.get("name")
     short_name = data.get("short_name")
     dup = db.scalar(
@@ -416,16 +371,6 @@ def _validate_create_payload(db: Session, data: dict) -> None:
     )
     if dup is not None:
         raise BizError(4091, "客户名称或简称已存在")
-    # pending 草稿中的唯一性
-    pending = db.scalars(
-        select(ApprovalInstance.payload).where(
-            ApprovalInstance.flow_code == FLOW_CREATE,
-            ApprovalInstance.status == 10,
-        )
-    ).all()
-    for pl in pending:
-        if pl.get("name") == name or pl.get("short_name") == short_name:
-            raise BizError(4091, "同名客户正在审批中，不可重复提交")
 
     genre = data.get("genre")
     if genre == Genre.COMPANY:
@@ -439,10 +384,6 @@ def _validate_create_payload(db: Session, data: dict) -> None:
         )
         if dup_code is not None:
             raise BizError(4091, "统一社会信用代码已存在")
-        for pl in pending:
-            pc = (pl.get("company") or {}).get("credit_code")
-            if pc == company["credit_code"]:
-                raise BizError(4091, "该信用代码正在审批中")
     elif genre == Genre.PERSONAL:
         personal = data.get("personal") or {}
         if not personal.get("license_num"):
@@ -454,10 +395,6 @@ def _validate_create_payload(db: Session, data: dict) -> None:
         )
         if dup_license is not None:
             raise BizError(4091, "身份证号已存在")
-        for pl in pending:
-            pl_num = (pl.get("personal") or {}).get("license_num")
-            if pl_num == personal["license_num"]:
-                raise BizError(4091, "该身份证号正在审批中")
 
     # 外键存在性
     from app.user.models import User
@@ -468,8 +405,8 @@ def _validate_create_payload(db: Session, data: dict) -> None:
         raise BizError(4041, "风控专员不存在")
 
 
-def submit_create(db: Session, body: CustomerCreate, user_id: int) -> int:
-    """添加客户 → 创建审批实例（payload=完整草稿）。"""
+def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
+    """添加客户 → 直接落库（不走审批）。"""
     from app.customer.models import Group, Region, Industry as IndustryModel
 
     data = body.model_dump()
@@ -483,15 +420,6 @@ def submit_create(db: Session, body: CustomerCreate, user_id: int) -> int:
     if data.get("group_id") and db.get(Group, data["group_id"]) is None:
         raise BizError(4041, "集团不存在")
 
-    summary = f"新增客户 {data['name']}（{'企业' if data['genre'] == 1 else '个人'}）"
-    return approval_service.submit(
-        db, FLOW_CREATE, "customer", None, data, summary, user_id
-    )
-
-
-def apply_create(db: Session, instance) -> None:
-    """customer_create 审批通过 → 落库（executor，由 executors.py 注册）。"""
-    data = dict(instance.payload)
     company = data.pop("company", None)
     personal = data.pop("personal", None)
     tags = data.pop("tags", [])
@@ -499,7 +427,7 @@ def apply_create(db: Session, instance) -> None:
     customer = Customer(
         **data,
         tags=tags or None,
-        create_by=instance.submitted_by,
+        create_by=user_id,
         classification=Classification.NORMAL,
     )
     db.add(customer)
@@ -510,74 +438,11 @@ def apply_create(db: Session, instance) -> None:
     elif customer.genre == Genre.PERSONAL and personal:
         db.add(PersonalProfile(customer_id=customer.id, **personal))
 
-
-def submit_change_request(
-    db: Session, customer_id: int, body: CustomerChangeRequest, user_id: int
-) -> int:
-    """敏感字段修改申请：生成字段级 diff payload。"""
-    c = _get_or_404(db, customer_id)
-
-    invalid = set(body.values.keys()) - SENSITIVE_FIELDS
-    if invalid:
-        raise BizError(4001, f"非敏感字段请走普通修改接口: {', '.join(invalid)}")
-    if not body.values:
-        raise BizError(4001, "修改内容为空")
-
-    # 生成 diff（含 credit_code/license_num 所在扩展表字段）
-    diff: dict[str, dict] = {}
-    for field, new_value in body.values.items():
-        if field == "credit_code":
-            cp = db.scalar(
-                select(CompanyProfile).where(CompanyProfile.customer_id == customer_id)
-            )
-            old_value = cp.credit_code if cp else None
-        elif field == "license_num":
-            pp = db.scalar(
-                select(PersonalProfile).where(PersonalProfile.customer_id == customer_id)
-            )
-            old_value = pp.license_num if pp else None
-        else:
-            old_value = getattr(c, field, None)
-        if old_value == new_value:
-            continue
-        diff[field] = {"before": old_value, "after": new_value}
-
-    if not diff:
-        raise BizError(4001, "与当前值相同，无需修改")
-
-    summary = f"修改客户 {c.name}：{', '.join(diff.keys())}"
-    return approval_service.submit(
-        db, FLOW_UPDATE, "customer", customer_id, diff, summary, user_id
-    )
+    return customer.id
 
 
-def apply_change(db: Session, instance) -> None:
-    """customer_update 审批通过 → 应用 diff（executor）。"""
-    c = _get_or_404(db, instance.biz_id)
-    diff = instance.payload
-
-    for field, change in diff.items():
-        new_value = change["after"]
-        if field == "credit_code":
-            cp = db.scalar(
-                select(CompanyProfile).where(CompanyProfile.customer_id == c.id)
-            )
-            if cp:
-                cp.credit_code = new_value
-        elif field == "license_num":
-            pp = db.scalar(
-                select(PersonalProfile).where(PersonalProfile.customer_id == c.id)
-            )
-            if pp:
-                pp.license_num = new_value
-        else:
-            setattr(c, field, new_value)
-
-
-def submit_transfer(
-    db: Session, body: CustomerTransferReq, user_id: int
-) -> int:
-    """批量管护经理移交申请：payload = 批量 ID 列表（≤200）。"""
+def batch_transfer(db: Session, body: CustomerTransferReq, user_id: int) -> int:
+    """批量管护经理移交 → 直接一条 UPDATE（不走审批，≤200 个客户）。"""
     from app.user.models import User
 
     if db.get(User, body.to_managementor_id) is None:
@@ -587,30 +452,13 @@ def submit_transfer(
     for cid in body.customer_ids:
         _get_or_404(db, cid)
 
-    payload = {
-        "customer_ids": body.customer_ids,
-        "to_managementor_id": body.to_managementor_id,
-        "reason": body.reason,
-    }
-    summary = (
-        f"移交 {len(body.customer_ids)} 个客户至 "
-        f"{db.get(User, body.to_managementor_id).name}"
-    )
-    return approval_service.submit(
-        db, FLOW_TRANSFER, "customer_batch", None, payload, summary, user_id
-    )
-
-
-def apply_transfer(db: Session, instance) -> None:
-    """customer_transfer 审批通过 → 一条 UPDATE 批量生效（executor）。"""
-    payload = instance.payload
-    to_id = payload["to_managementor_id"]
     db.query(Customer).filter(
-        Customer.id.in_(payload["customer_ids"])
+        Customer.id.in_(body.customer_ids)
     ).update(
-        {"managementor_id": to_id},
+        {"managementor_id": body.to_managementor_id},
         synchronize_session=False,
     )
+    return len(body.customer_ids)
 
 
 # ===== 自由字段 PATCH / 删除 =====
@@ -629,9 +477,7 @@ def update_free_fields(db: Session, customer_id: int, body: CustomerUpdate) -> N
 
 def delete_customer(db: Session, customer_id: int) -> None:
     c = _get_or_404(db, customer_id)
-    # 拦截：pending 审批 / 核心企业额度 / 业务引用（M3+ 合同/项目）
-    if approval_service.has_pending_instance(db, "customer", customer_id):
-        raise BizError(4091, "客户存在待审流程，不可删除")
+    # 拦截：核心企业额度 / 业务引用（M3+ 合同/项目）
     has_limit = db.scalar(
         select(CoreLimit.id).where(CoreLimit.customer_id == customer_id).limit(1)
     )
