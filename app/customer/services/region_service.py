@@ -24,6 +24,7 @@ def industry_tree(db: Session) -> list[dict]:
 
 def list_tags(db: Session) -> list[dict]:
     from app.customer.models import CustomerTagRelation
+    from app.user.models import User
 
     rows = db.scalars(select(ExtraTag).order_by(ExtraTag.type, ExtraTag.id)).all()
     # 一条 GROUP BY 批量统计各标签引用数（替代逐行 JSON_CONTAINS，走中间表索引）
@@ -33,9 +34,15 @@ def list_tags(db: Session) -> list[dict]:
             .group_by(CustomerTagRelation.tag_id)
         ).all()
     )
+    # 批量取创建人姓名（列表尾列展示，避免 N+1）
+    creator_ids = {t.created_by for t in rows if t.created_by}
+    creator_names = dict(
+        db.execute(select(User.id, User.name).where(User.id.in_(creator_ids))).all()
+    ) if creator_ids else {}
     return [
         {"id": t.id, "name": t.name, "type": t.type,
-         "in_use": usage.get(t.id, 0) > 0}
+         "in_use": usage.get(t.id, 0) > 0,
+         "created_by_name": creator_names.get(t.created_by) or ""}
         for t in rows
     ]
 

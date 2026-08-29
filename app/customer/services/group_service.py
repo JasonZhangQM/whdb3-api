@@ -109,8 +109,21 @@ def tree(db: Session) -> list[dict]:
             "credit_amount": float(r.credit_amount),
             "total_insure_amount": float(merged(r.id)[0]),
             "member_count": merged(r.id)[1],
+            "status": r.status,
         },
     )
+
+
+def _find_tree_node(nodes: list[dict], gid: int) -> dict | None:
+    """在树中按 id 查找节点（get_detail 取 children 复用树口径）。"""
+    for n in nodes:
+        if n["id"] == gid:
+            return n
+        if n["children"]:
+            found = _find_tree_node(n["children"], gid)
+            if found:
+                return found
+    return None
 
 
 def get_or_404(db: Session, group_id: int) -> Group:
@@ -148,6 +161,8 @@ def get_detail(db: Session, group_id: int) -> dict:
     # 汇总为合并口径（本集团 + 子集团，全量实时 SUM）；
     # members 仍为直接成员 Top20 展示列表
     summary = _summary(db, group_id)
+    # 子集团列表复用树口径（每个子集团节点自带合并口径统计与 status）
+    node = _find_tree_node(tree(db), group_id)
     detail = {
         "id": g.id, "code": g.code, "name": g.name, "parent_id": g.parent_id,
         "parent_customer_id": g.parent_customer_id,
@@ -155,7 +170,8 @@ def get_detail(db: Session, group_id: int) -> dict:
         "credit_amount": float(g.credit_amount),
         "total_insure_amount": summary["total_amount"],
         "member_count": summary["member_count"],
-        "children": [],
+        "status": g.status,
+        "children": node["children"] if node else [],
         "description": g.description,
         "created_by_name": creator,
         "created_at": g.created_at,

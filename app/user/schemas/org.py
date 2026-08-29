@@ -26,6 +26,7 @@ class DeptNode(BaseModel):
     status_display: str
     description: str | None = None
     member_count: int = 0
+    created_by_name: str = ""
     children: list["DeptNode"] = []
 
 
@@ -58,6 +59,7 @@ class RoleListItem(BaseModel):
     user_count: int = 0
     permission_count: int = 0
     created_at: datetime
+    created_by_name: str = ""
 
 
 class RoleDetail(RoleListItem):

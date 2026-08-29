@@ -120,8 +120,12 @@ def list_customers(
         stmt.offset((page - 1) * page_size).limit(page_size)
     ).all()
 
-    # 批量取关联名称（避免 N+1）
-    user_ids = {c.managementor_id for c in customers} | {c.controler_id for c in customers}
+    # 批量取关联名称（避免 N+1）；created_by 一并取，列表尾列展示创建人
+    user_ids = (
+        {c.managementor_id for c in customers}
+        | {c.controler_id for c in customers}
+        | {c.created_by for c in customers if c.created_by}
+    )
     users = dict(
         db.execute(select(User.id, User.name).where(User.id.in_(user_ids))).all()
     ) if user_ids else {}
@@ -186,6 +190,7 @@ def list_customers(
                 "last_provide_date": c.last_provide_date,
                 "last_review_date": c.last_review_date,
                 "day_space": c.day_space,
+                "created_by_name": users.get(c.created_by) or "",
             }
         )
     return items, total

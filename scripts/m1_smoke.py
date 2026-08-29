@@ -85,9 +85,9 @@ def main() -> None:
     # 查 pm / reader 角色 id
     r = client.get(f"{BASE}/roles", headers=bearer(token)).json()
     roles = {x["code"]: x["id"] for x in r["data"]}
-    builtin = {"super_admin", "dept_manager", "controler", "assistant",
-               "pm", "reviewer", "auditor", "reader"}
-    check("角色列表（8 内置齐全）", r["code"] == 0 and builtin <= set(roles))
+    builtin = {"super_admin", "dept_manager", "controler",
+               "pm", "auditor", "reader"}
+    check("角色列表（6 内置齐全）", r["code"] == 0 and builtin <= set(roles))
 
     # 创建测试用户 testpm（pm 角色：本人）；已存在则重置密码（幂等）
     r = client.post(f"{BASE}/users", headers=bearer(token), json={

@@ -48,6 +48,11 @@ def dept_tree(db: Session) -> list[DeptNode]:
     depts = list(db.scalars(select(Department).order_by(Department.ordery, Department.id)))
     counts = _dept_member_counts(db)
     by_id = {d.id: d for d in depts}
+    # 批量取创建人姓名（列表尾列展示，避免 N+1）
+    creator_ids = {d.created_by for d in depts if d.created_by}
+    creator_names = dict(
+        db.execute(select(User.id, User.name).where(User.id.in_(creator_ids))).all()
+    ) if creator_ids else {}
 
     def assemble(parent_id: int) -> list[DeptNode]:
         nodes = []
@@ -62,6 +67,7 @@ def dept_tree(db: Session) -> list[DeptNode]:
                 ordery=d.ordery, status=d.status,
                 status_display=STATUS_DISPLAY.get(d.status, ""),
                 description=d.description, member_count=counts.get(d.id, 0),
+                created_by_name=creator_names.get(d.created_by) or "",
                 children=assemble(d.id),
             ))
         return nodes
@@ -152,6 +158,11 @@ def list_roles(db: Session) -> list[RoleListItem]:
         select(RolePermission.role_id, func.count(RolePermission.permission_id))
         .group_by(RolePermission.role_id)
     ).all())
+    # 批量取创建人姓名（列表尾列展示，避免 N+1）
+    creator_ids = {r.created_by for r in roles if r.created_by}
+    creator_names = dict(
+        db.execute(select(User.id, User.name).where(User.id.in_(creator_ids))).all()
+    ) if creator_ids else {}
     return [RoleListItem(
         id=r.id, code=r.code, name=r.name, description=r.description,
         is_builtin=r.is_builtin, data_scope=r.data_scope,
@@ -159,6 +170,7 @@ def list_roles(db: Session) -> list[RoleListItem]:
         user_count=user_counts.get(r.id, 0),
         permission_count=perm_counts.get(r.id, 0),
         created_at=r.created_at,
+        created_by_name=creator_names.get(r.created_by) or "",
     ) for r in roles]
 
 
@@ -267,6 +279,11 @@ def list_permissions(db: Session) -> list[dict]:
 def list_menus(db: Session) -> list[dict]:
     """全部菜单树（配置页用，含按钮）。"""
     menus = list(db.scalars(select(Menu).order_by(Menu.ordery, Menu.id)))
+    # 批量取创建人姓名（列表尾列展示，避免 N+1）
+    creator_ids = {m.created_by for m in menus if m.created_by}
+    creator_names = dict(
+        db.execute(select(User.id, User.name).where(User.id.in_(creator_ids))).all()
+    ) if creator_ids else {}
 
     def assemble(parent_id: int) -> list[dict]:
         nodes = []
@@ -277,7 +294,9 @@ def list_menus(db: Session) -> list[dict]:
                 id=m.id, parent_id=m.parent_id, caption=m.caption, icon=m.icon,
                 path=m.path, component=m.component, ordery=m.ordery, type=m.type,
                 visible=m.visible, keep_alive=m.keep_alive, redirect=m.redirect,
-                permission_code=m.permission_code, children=assemble(m.id),
+                permission_code=m.permission_code,
+                created_by_name=creator_names.get(m.created_by) or "",
+                children=assemble(m.id),
             ))
         return nodes
 

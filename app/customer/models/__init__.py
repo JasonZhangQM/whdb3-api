@@ -101,6 +101,7 @@ class Group(Base):
     )
     credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="集团总授信额度")
     description: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10启用20停用")
 
 
 class Customer(Base):

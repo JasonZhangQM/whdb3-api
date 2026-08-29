@@ -26,6 +26,7 @@ class UserListItem(BaseModel):
     is_super_admin: bool
     last_login_at: datetime | None
     created_at: datetime
+    created_by_name: str = ""
 
 
 class UserDetail(UserListItem):

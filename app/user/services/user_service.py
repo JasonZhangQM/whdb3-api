@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext
@@ -123,8 +123,9 @@ def update_my_profile(db: Session, ctx: AuthContext, req) -> User:
 
 def list_users(db: Session, ctx: AuthContext, page: int, page_size: int,
                q: str | None = None, status: int | None = None,
-               dept_id: int | None = None, position: str | None = None) -> tuple[list, int]:
-    """列表（data_scope 过滤 + 分页）。"""
+               dept_id: int | None = None, position: str | None = None,
+               role: str | None = None) -> tuple[list, int]:
+    """列表（data_scope 过滤 + 分页）。role 为角色 code（如 pm/controler）时按拥有该角色过滤。"""
     stmt = select(User)
     # data_scope 过滤：非全量时按部门范围（用户表的归属字段即 dept_id）
     from app.core.deps import apply_data_scope_filter
@@ -140,10 +141,24 @@ def list_users(db: Session, ctx: AuthContext, page: int, page_size: int,
         stmt = stmt.where(User.dept_id == dept_id)
     if position:
         stmt = stmt.where(User.position == position)
+    if role:
+        # EXISTS 子查询：用户拥有指定 code 的角色（含多角色并集场景）
+        stmt = stmt.where(exists(
+            select(UserRole.id).where(
+                UserRole.user_id == User.id,
+                UserRole.role_id == Role.id,
+                Role.code == role,
+            )
+        ))
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
     users = list(db.scalars(
         stmt.order_by(User.id).offset((page - 1) * page_size).limit(page_size)
     ))
+    # 批量取创建人姓名（列表尾列展示，避免 N+1）
+    creator_ids = {u.created_by for u in users if u.created_by}
+    creator_names = dict(
+        db.execute(select(User.id, User.name).where(User.id.in_(creator_ids))).all()
+    ) if creator_ids else {}
     items = []
     for u in users:
         roles = _roles_of(db, u.id)
@@ -155,6 +170,7 @@ def list_users(db: Session, ctx: AuthContext, page: int, page_size: int,
             position=u.position, dept_id=u.dept_id, dept_name=dept.name if dept else None,
             role_names=[r.name for r in roles], is_super_admin=u.is_super_admin,
             last_login_at=u.last_login_at, created_at=u.created_at,
+            created_by_name=creator_names.get(u.created_by) or "",
         ))
     return items, total or 0
 

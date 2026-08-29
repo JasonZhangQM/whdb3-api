@@ -102,12 +102,13 @@ def my_menus(ctx: AuthContext = Depends(get_current_user),
 @router.get("")
 def list_users(page: int = 1, page_size: int = 20, q: str | None = None,
                status: int | None = None, dept_id: int | None = None,
-               position: str | None = None,
+               position: str | None = None, role: str | None = None,
                ctx: AuthContext = Depends(require_perm("user:list")),
                db: Session = Depends(get_db)):
-    """用户列表（data_scope 过滤 + 分页）。"""
+    """用户列表（data_scope 过滤 + 分页；role 按角色 code 过滤，如 pm/controler）。"""
     items, total = user_service.list_users(
-        db, ctx, page, page_size, q=q, status=status, dept_id=dept_id, position=position
+        db, ctx, page, page_size, q=q, status=status, dept_id=dept_id,
+        position=position, role=role,
     )
     return page_result([i.model_dump() for i in items], total, page, page_size)
 
