@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext, get_current_user, require_perm
 from app.core.db import get_db
+from app.core.exceptions import BizError
 from app.core.response import ok
 from app.user.services import region_service
 
@@ -37,6 +38,19 @@ def regions_search(
 ):
     """按名称/代码搜索区域（限 50 条）。"""
     return ok(region_service.region_search(db, q))
+
+
+@router.get("/{region_id}")
+def region_detail(
+    region_id: int,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(get_current_user),
+):
+    """单节点详情（带完整路径，编辑回显用）。"""
+    data = region_service.region_detail(db, region_id)
+    if data is None:
+        raise BizError(4041, "区域不存在")
+    return ok(data)
 
 
 @router.get("/{region_id}/children")
