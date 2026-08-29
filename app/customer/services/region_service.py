@@ -34,7 +34,7 @@ def list_tags(db: Session) -> list[dict]:
         ).all()
     )
     return [
-        {"id": t.id, "name": t.name, "type": t.type, "status": t.status,
+        {"id": t.id, "name": t.name, "type": t.type,
          "in_use": usage.get(t.id, 0) > 0}
         for t in rows
     ]
@@ -87,7 +87,7 @@ def create_tag(db: Session, name: str, type_: int, user_id: int) -> int:
     dup = db.scalar(select(ExtraTag.id).where(ExtraTag.name == name))
     if dup is not None:
         raise BizError(4091, "标签名已存在")
-    t = ExtraTag(name=name, type=type_, status=10, created_by=user_id)
+    t = ExtraTag(name=name, type=type_, created_by=user_id)
     db.add(t)
     db.flush()
     return t.id
@@ -122,11 +122,3 @@ def update_tag(db: Session, tag_id: int, name: str | None, type_: int | None) ->
         t.name = name
     if type_ is not None:
         t.type = type_
-
-
-def toggle_tag_status(db: Session, tag_id: int, target: int) -> None:
-    """启用/停用标签。"""
-    t = db.get(ExtraTag, tag_id)
-    if t is None:
-        raise BizError(4041, "标签不存在")
-    t.status = target

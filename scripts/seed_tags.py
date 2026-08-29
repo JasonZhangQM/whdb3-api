@@ -60,12 +60,12 @@ def seed_tags() -> None:
         for name in INDUSTRY_TAGS:
             if name not in existing:
                 to_create.append(ExtraTag(
-                    name=name, type=10, status=10, created_by=ADMIN_USER_ID,
+                    name=name, type=10, created_by=ADMIN_USER_ID,
                 ))
         for name in BIZ_TAGS:
             if name not in existing:
                 to_create.append(ExtraTag(
-                    name=name, type=20, status=10, created_by=ADMIN_USER_ID,
+                    name=name, type=20, created_by=ADMIN_USER_ID,
                 ))
         if to_create:
             db.add_all(to_create)

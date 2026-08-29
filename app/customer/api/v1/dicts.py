@@ -88,19 +88,6 @@ def update_tag(
     return ok(message="标签已更新")
 
 
-@router.patch("/tags/{tag_id}/status")
-def toggle_tag_status(
-    tag_id: int,
-    body: dict,
-    db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:update")),
-):
-    """启用/停用标签（target: 10 启用 / 20 停用）。"""
-    region_service.toggle_tag_status(db, tag_id, body["target"])
-    db.commit()
-    return ok(message="标签状态已变更")
-
-
 # ===== 客户下拉字典 =====
 
 @router.get("/customers")

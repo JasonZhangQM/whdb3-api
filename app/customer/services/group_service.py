@@ -109,7 +109,6 @@ def tree(db: Session) -> list[dict]:
             "credit_amount": float(r.credit_amount),
             "total_insure_amount": float(merged(r.id)[0]),
             "member_count": merged(r.id)[1],
-            "status": r.status,
         },
     )
 
@@ -156,7 +155,6 @@ def get_detail(db: Session, group_id: int) -> dict:
         "credit_amount": float(g.credit_amount),
         "total_insure_amount": summary["total_amount"],
         "member_count": summary["member_count"],
-        "status": g.status,
         "children": [],
         "description": g.description,
         "created_by_name": creator,
@@ -205,7 +203,7 @@ def create(db: Session, code: str, name: str, parent_id: int | None,
         code=code, name=name, parent_id=parent_id or None,
         parent_customer_id=parent_customer_id,
         credit_amount=credit_amount, description=description,
-        status=10, created_by=user_id,
+        created_by=user_id,
     )
     db.add(g)
     db.flush()
@@ -215,7 +213,7 @@ def create(db: Session, code: str, name: str, parent_id: int | None,
 
 def update(db: Session, group_id: int, name: str, parent_id: int | None,
            parent_customer_id: int | None, credit_amount: float,
-           description: str | None, status: int) -> None:
+           description: str | None) -> None:
     g = get_or_404(db, group_id)
 
     # 父集团变更：校验存在性 + 不可挂到自身或其子孙（防成环）。
@@ -226,17 +224,6 @@ def update(db: Session, group_id: int, name: str, parent_id: int | None,
             if parent_id in _subtree_ids(_children_map(db), group_id):
                 raise BizError(4091, "父集团不可设为自身或其子孙集团")
         g.parent_id = parent_id or None
-
-    # 启用 → 停用：仍有成员或子集团时拦截（与删除口径一致）
-    if status == 20 and g.status == 10:
-        member = db.scalar(
-            select(Customer.id).where(Customer.group_id == group_id).limit(1)
-        )
-        if member is not None:
-            raise BizError(4091, "集团仍有成员企业（含母公司），不可停用")
-        child = db.scalar(select(Group.id).where(Group.parent_id == group_id).limit(1))
-        if child is not None:
-            raise BizError(4091, "集团存在子集团，不可停用")
 
     # 换母公司：旧母公司自动脱离，新母公司自动加入（同事务原子完成）
     if parent_customer_id is not None and parent_customer_id != g.parent_customer_id:
@@ -253,7 +240,6 @@ def update(db: Session, group_id: int, name: str, parent_id: int | None,
     g.name = name
     g.credit_amount = credit_amount
     g.description = description
-    g.status = status
 
 
 def delete(db: Session, group_id: int) -> None:
@@ -286,9 +272,7 @@ def list_members(db: Session, group_id: int, page: int, page_size: int):
 
 
 def add_members(db: Session, group_id: int, customer_ids: list[int]) -> int:
-    g = get_or_404(db, group_id)
-    if g.status != 10:
-        raise BizError(4091, "集团已停用")
+    get_or_404(db, group_id)
     added = 0
     for cid in customer_ids:
         c = db.get(Customer, cid)

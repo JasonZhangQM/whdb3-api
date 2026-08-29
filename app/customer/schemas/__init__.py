@@ -20,7 +20,6 @@ class TagItem(BaseModel):
     id: int
     name: str
     type: Literal[10, 20]
-    status: int
     in_use: bool
 
 
@@ -40,7 +39,6 @@ class GroupTreeNode(BaseModel):
     credit_amount: float
     total_insure_amount: float
     member_count: int
-    status: Literal[10, 20]
     children: list["GroupTreeNode"] = []
 
 
@@ -67,7 +65,6 @@ class GroupUpdate(BaseModel):
     parent_customer_id: int | None = None
     credit_amount: float = 0
     description: str | None = None
-    status: Literal[10, 20] = 10
 
 
 class GroupMemberAddReq(BaseModel):

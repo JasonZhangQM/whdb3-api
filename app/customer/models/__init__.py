@@ -62,7 +62,6 @@ class ExtraTag(Base):
 
     name: Mapped[str] = mapped_column(String(255), unique=True)
     type: Mapped[int] = mapped_column(SmallInteger, comment="10行业20业务标签")
-    status: Mapped[int] = mapped_column(SmallInteger, default=10)
 
 
 class CustomerTagRelation(Base):
@@ -102,7 +101,6 @@ class Group(Base):
     )
     credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="集团总授信额度")
     description: Mapped[str | None] = mapped_column(String(255))
-    status: Mapped[int] = mapped_column(SmallInteger, default=10)
 
 
 class Customer(Base):
