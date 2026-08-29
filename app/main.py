@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.approval.api.v1 import router as approval_router
 from app.attachment.api.v1 import router as attachment_router
+from app.core.dicts import router as dict_router
 from app.core.exceptions import BizError
 from app.core.health import router as health_router
 from app.core.logging import RequestIdMiddleware, setup_logging
@@ -93,8 +94,9 @@ async def unhandled_handler(request: Request, exc: Exception):
 
 app.add_middleware(RequestIdMiddleware)
 
-# 健康检查 + 业务模块路由
+# 健康检查 + 字典聚合 + 业务模块路由
 app.include_router(health_router, prefix="/api/v1")
+app.include_router(dict_router, prefix="/api/v1")
 for module_router in MODULE_ROUTERS:
     app.include_router(module_router, prefix="/api/v1")
 

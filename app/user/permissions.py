@@ -59,7 +59,7 @@ BUILTIN_ROLES: list[dict] = [
     {"code": "super_admin", "name": "超级管理员", "data_scope": 40, "description": "全部数据，系统内置"},
     {"code": "dept_manager", "name": "部门负责人", "data_scope": 30, "description": "本部门及下级"},
     {"code": "controler", "name": "风控专员", "data_scope": 20, "description": "本部门"},
-    {"code": "assistant", "name": "协助项目经理", "data_scope": 10, "description": "本人"},
+    {"code": "assistant", "name": "项目助理", "data_scope": 10, "description": "本人"},
     {"code": "pm", "name": "项目经理", "data_scope": 10, "description": "本人"},
     {"code": "reviewer", "name": "保后专员", "data_scope": 20, "description": "本部门"},
     {"code": "auditor", "name": "审计", "data_scope": 40, "description": "全部只读"},
