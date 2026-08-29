@@ -18,30 +18,86 @@ def _member_counts(db: Session) -> dict[int, int]:
     return dict(rows)
 
 
+def _children_map(db: Session) -> dict[int, list[int]]:
+    """集团 parent_id → children id 映射（一次查询，供子树聚合复用）。
+
+    先 flush：SessionLocal autoflush=False，session 中未落库的
+    parent_id 变更（如同事务内先挂父子再反向挂）若不 flush，
+    防环校验会读到旧树导致漏判。
+    """
+    db.flush()
+    result: dict[int, list[int]] = {}
+    for pid, cid in db.execute(select(Group.parent_id, Group.id)).all():
+        result.setdefault(pid, []).append(cid)
+    return result
+
+
+def _subtree_ids(children_map: dict[int, list[int]], root: int) -> list[int]:
+    """root 自身 + 全部子孙集团 id（BFS；visited 防脏数据成环时死循环）。"""
+    ids = [root]
+    seen = {root}
+    queue = [root]
+    while queue:
+        for cid in children_map.get(queue.pop(0), []):
+            if cid not in seen:
+                seen.add(cid)
+                ids.append(cid)
+                queue.append(cid)
+    return ids
+
+
+def _summary(db: Session, group_id: int) -> dict:
+    """集团合并汇总（含子集团）：成员数 / 授信 / 在保（实时 SUM）。
+
+    P0 修复：金额与成员数均为合并口径——担保集团授信管控需要
+    覆盖子集团，防止父集团额度统计漏算。
+    """
+    ids = _subtree_ids(_children_map(db), group_id)
+    agg = db.execute(
+        select(
+            func.count(Customer.id),
+            func.coalesce(func.sum(Customer.credit_amount), 0),
+            func.coalesce(func.sum(Customer.amount), 0),
+        ).where(Customer.group_id.in_(ids))
+    ).one()
+    return {
+        "member_count": agg[0],
+        "total_credit_amount": float(agg[1]),
+        "total_amount": float(agg[2]),
+    }
+
+
 def tree(db: Session) -> list[dict]:
-    """集团树（带成员数/在保汇总/母公司名称）。"""
+    """集团树（成员数/在保汇总为合并口径：本集团 + 全部子集团）。"""
     rows = db.scalars(select(Group).order_by(Group.code)).all()
     counts = _member_counts(db)
-    # 母公司名与集团在保汇总
+    children_map = _children_map(db)
+    # 母公司名与各集团直接成员在保 SUM
     parent_names = {}
+    sums: dict[int, float] = {}
     if rows:
-        ids = [r.id for r in rows]
         parent_ids = [r.parent_customer_id for r in rows if r.parent_customer_id]
         if parent_ids:
             parent_rows = db.execute(
                 select(Customer.id, Customer.name).where(Customer.id.in_(parent_ids))
             ).all()
             parent_names = dict(parent_rows)
-        # 各集团在保汇总（实时 SUM，作树节点展示）
+        # 直接成员在保 SUM（实时聚合作底数，节点值再叠加子孙集团）
         sums = dict(
             db.execute(
                 select(Customer.group_id, func.coalesce(func.sum(Customer.amount), 0))
-                .where(Customer.group_id.in_(ids))
+                .where(Customer.group_id.in_([r.id for r in rows]))
                 .group_by(Customer.group_id)
             ).all()
         )
-    else:
-        sums = {}
+
+    def merged(gid: int) -> tuple[float, int]:
+        """合并口径：本集团 + 子孙集团的在保额与成员数。"""
+        ids = _subtree_ids(children_map, gid)
+        return (
+            sum(sums.get(i, 0) for i in ids),
+            sum(counts.get(i, 0) for i in ids),
+        )
 
     return build_tree(
         rows,
@@ -51,8 +107,8 @@ def tree(db: Session) -> list[dict]:
             "parent_customer_id": r.parent_customer_id,
             "parent_customer_name": parent_names.get(r.parent_customer_id or 0),
             "credit_amount": float(r.credit_amount),
-            "total_insure_amount": float(sums.get(r.id, 0)),
-            "member_count": counts.get(r.id, 0),
+            "total_insure_amount": float(merged(r.id)[0]),
+            "member_count": merged(r.id)[1],
             "status": r.status,
         },
     )
@@ -90,15 +146,16 @@ def get_detail(db: Session, group_id: int) -> dict:
         .limit(20)
     ).all()
 
-    # 树节点同款字段 + 成员列表
-    counts = _member_counts(db)
+    # 汇总为合并口径（本集团 + 子集团，全量实时 SUM）；
+    # members 仍为直接成员 Top20 展示列表
+    summary = _summary(db, group_id)
     detail = {
         "id": g.id, "code": g.code, "name": g.name, "parent_id": g.parent_id,
         "parent_customer_id": g.parent_customer_id,
         "parent_customer_name": None,
         "credit_amount": float(g.credit_amount),
-        "total_insure_amount": sum(float(c.amount) for c, _ in members),
-        "member_count": counts.get(group_id, 0),
+        "total_insure_amount": summary["total_amount"],
+        "member_count": summary["member_count"],
         "status": g.status,
         "children": [],
         "description": g.description,
@@ -113,28 +170,39 @@ def get_detail(db: Session, group_id: int) -> dict:
     return detail
 
 
-def create(db: Session, code: str, name: str, parent_id: int,
+def _validate_parent_customer(
+    db: Session, customer_id: int, exclude_group_id: int | None = None
+) -> Customer:
+    """校验母公司客户资格（create / update 换母公司复用）。
+
+    exclude_group_id：换母公司场景新母公司若已在本集团可放行。
+    """
+    c = db.get(Customer, customer_id)
+    if c is None:
+        raise BizError(4041, "母公司客户不存在")
+    if c.genre != Genre.COMPANY:
+        raise BizError(4001, "母公司必须是企业客户")
+    if c.custom_state == 90:
+        raise BizError(4001, "母公司客户已注销")
+    if c.group_id is not None and c.group_id != exclude_group_id:
+        raise BizError(4091, "母公司客户已属于其他集团")
+    return c
+
+
+def create(db: Session, code: str, name: str, parent_id: int | None,
            parent_customer_id: int, credit_amount: float,
            description: str | None, user_id: int) -> int:
     # 校验
     dup = db.scalar(select(Group.id).where(Group.code == code))
     if dup is not None:
         raise BizError(4091, "集团编码已存在")
-    parent_customer = db.get(Customer, parent_customer_id)
-    if parent_customer is None:
-        raise BizError(4041, "母公司客户不存在")
-    if parent_customer.genre != Genre.COMPANY:
-        raise BizError(4001, "母公司必须是企业客户")
-    if parent_customer.custom_state == 90:
-        raise BizError(4001, "母公司客户已注销")
-    if parent_customer.group_id is not None:
-        raise BizError(4091, "母公司客户已属于其他集团")
+    parent_customer = _validate_parent_customer(db, parent_customer_id)
     if parent_id:
         get_or_404(db, parent_id)
 
     # 写入（事务）：集团 + 母公司自动加入
     g = Group(
-        code=code, name=name, parent_id=parent_id,
+        code=code, name=name, parent_id=parent_id or None,
         parent_customer_id=parent_customer_id,
         credit_amount=credit_amount, description=description,
         status=10, created_by=user_id,
@@ -146,11 +214,43 @@ def create(db: Session, code: str, name: str, parent_id: int,
 
 
 def update(db: Session, group_id: int, name: str, parent_id: int | None,
-           credit_amount: float, description: str | None, status: int) -> None:
+           parent_customer_id: int | None, credit_amount: float,
+           description: str | None, status: int) -> None:
     g = get_or_404(db, group_id)
+
+    # 父集团变更：校验存在性 + 不可挂到自身或其子孙（防成环）。
+    # 入参兼容 0=顶级（历史约定），存储统一 NULL
+    if parent_id is not None and (parent_id or None) != g.parent_id:
+        if parent_id:
+            get_or_404(db, parent_id)
+            if parent_id in _subtree_ids(_children_map(db), group_id):
+                raise BizError(4091, "父集团不可设为自身或其子孙集团")
+        g.parent_id = parent_id or None
+
+    # 启用 → 停用：仍有成员或子集团时拦截（与删除口径一致）
+    if status == 20 and g.status == 10:
+        member = db.scalar(
+            select(Customer.id).where(Customer.group_id == group_id).limit(1)
+        )
+        if member is not None:
+            raise BizError(4091, "集团仍有成员企业（含母公司），不可停用")
+        child = db.scalar(select(Group.id).where(Group.parent_id == group_id).limit(1))
+        if child is not None:
+            raise BizError(4091, "集团存在子集团，不可停用")
+
+    # 换母公司：旧母公司自动脱离，新母公司自动加入（同事务原子完成）
+    if parent_customer_id is not None and parent_customer_id != g.parent_customer_id:
+        new_parent = _validate_parent_customer(
+            db, parent_customer_id, exclude_group_id=group_id
+        )
+        if g.parent_customer_id:
+            old_parent = db.get(Customer, g.parent_customer_id)
+            if old_parent is not None and old_parent.group_id == group_id:
+                old_parent.group_id = None
+        new_parent.group_id = group_id
+        g.parent_customer_id = parent_customer_id
+
     g.name = name
-    if parent_id is not None:
-        g.parent_id = parent_id
     g.credit_amount = credit_amount
     g.description = description
     g.status = status
@@ -158,12 +258,12 @@ def update(db: Session, group_id: int, name: str, parent_id: int | None,
 
 def delete(db: Session, group_id: int) -> None:
     g = get_or_404(db, group_id)
-    # 拦截：仍有成员企业（母公司除外也不能删——母公司也在成员里）
+    # 拦截：集团下任一成员（母公司也是成员，且不可单独移除）或子集团存在时不可删
     member = db.scalar(
         select(Customer.id).where(Customer.group_id == group_id).limit(1)
     )
     if member is not None:
-        raise BizError(4091, "集团仍有成员企业，请先移除全部成员（含母公司自动脱离需删除集团）")
+        raise BizError(4091, "集团仍有成员企业（含母公司），请先移除全部成员后再删除")
     child = db.scalar(select(Group.id).where(Group.parent_id == group_id).limit(1))
     if child is not None:
         raise BizError(4091, "集团存在子集团，不可删除")
@@ -215,17 +315,6 @@ def remove_member(db: Session, group_id: int, customer_id: int) -> None:
 
 
 def group_summary(db: Session, group_id: int) -> dict:
-    """集团内成员授信/在保汇总（实时统计）。"""
+    """集团（含子集团）成员授信/在保合并汇总（实时统计）。"""
     get_or_404(db, group_id)
-    agg = db.execute(
-        select(
-            func.count(Customer.id),
-            func.coalesce(func.sum(Customer.credit_amount), 0),
-            func.coalesce(func.sum(Customer.amount), 0),
-        ).where(Customer.group_id == group_id)
-    ).one()
-    return {
-        "member_count": agg[0],
-        "total_credit_amount": float(agg[1]),
-        "total_amount": float(agg[2]),
-    }
+    return _summary(db, group_id)

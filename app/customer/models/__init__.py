@@ -32,7 +32,9 @@ class CreditRegion(Base):
 
     code: Mapped[str] = mapped_column(String(32), unique=True)
     name: Mapped[str] = mapped_column(String(128))
-    parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, default=None, index=True, comment="上级区域，NULL=顶级"
+    )
     credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="区域授信总额度")
     used_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="已用额度(冗余,异步刷新)")
     platform_name: Mapped[str | None] = mapped_column(String(128), comment="平台名称")
@@ -88,7 +90,9 @@ class Group(Base):
 
     code: Mapped[str] = mapped_column(String(32), unique=True)
     name: Mapped[str] = mapped_column(String(128), unique=True)
-    parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+    parent_id: Mapped[int | None] = mapped_column(
+        BigInteger, default=None, index=True, comment="上级集团，NULL=顶级"
+    )
     parent_customer_id: Mapped[int | None] = mapped_column(
         # use_alter：customers.group_id ↔ customer_groups.parent_customer_id 循环依赖，
         # 该约束改为建表后 ALTER 添加（MySQL 不允许引用未建表）

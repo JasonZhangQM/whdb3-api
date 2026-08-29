@@ -34,13 +34,13 @@ class GroupTreeNode(BaseModel):
     id: int
     code: str
     name: str
-    parent_id: int
+    parent_id: int | None
     parent_customer_id: int | None
     parent_customer_name: str | None
     credit_amount: float
     total_insure_amount: float
     member_count: int
-    status: int
+    status: Literal[10, 20]
     children: list["GroupTreeNode"] = []
 
 
@@ -54,7 +54,7 @@ class GroupDetail(GroupTreeNode):
 class GroupCreate(BaseModel):
     code: str = Field(..., max_length=32)
     name: str = Field(..., max_length=128)
-    parent_id: int = 0
+    parent_id: int | None = None
     parent_customer_id: int
     credit_amount: float = 0
     description: str | None = None
@@ -63,6 +63,8 @@ class GroupCreate(BaseModel):
 class GroupUpdate(BaseModel):
     name: str
     parent_id: int | None = None
+    # 换母公司（None=不修改；传新值时旧母公司自动脱离、新母公司自动加入）
+    parent_customer_id: int | None = None
     credit_amount: float = 0
     description: str | None = None
     status: Literal[10, 20] = 10
@@ -77,12 +79,12 @@ class CreditRegionTreeNode(BaseModel):
     id: int
     code: str
     name: str
-    parent_id: int
+    parent_id: int | None
     platform_name: str | None
     credit_amount: float
     used_amount: float
     member_count: int
-    status: int
+    status: Literal[10, 20]
     children: list["CreditRegionTreeNode"] = []
 
 
@@ -98,7 +100,7 @@ class CreditRegionDetail(CreditRegionTreeNode):
 class CreditRegionCreate(BaseModel):
     code: str = Field(..., max_length=32)
     name: str = Field(..., max_length=128)
-    parent_id: int = 0
+    parent_id: int | None = None
     credit_amount: float = 0
     platform_name: str | None = None
     description: str | None = None

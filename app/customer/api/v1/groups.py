@@ -57,7 +57,8 @@ def update_group(
 ):
     group_service.update(
         db, group_id, body.name, body.parent_id,
-        body.credit_amount, body.description, body.status,
+        body.parent_customer_id, body.credit_amount,
+        body.description, body.status,
     )
     db.commit()
     return ok(message="修改成功")

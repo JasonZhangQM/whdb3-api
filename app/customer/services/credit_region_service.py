@@ -96,7 +96,7 @@ def get_detail(db: Session, region_id: int) -> dict:
     return detail
 
 
-def create(db: Session, code: str, name: str, parent_id: int,
+def create(db: Session, code: str, name: str, parent_id: int | None,
            credit_amount: float, platform_name: str | None,
            description: str | None, user_id: int) -> int:
     dup = db.scalar(select(CreditRegion.id).where(CreditRegion.code == code))
@@ -105,7 +105,7 @@ def create(db: Session, code: str, name: str, parent_id: int,
     if parent_id:
         get_or_404(db, parent_id)
     r = CreditRegion(
-        code=code, name=name, parent_id=parent_id,
+        code=code, name=name, parent_id=parent_id or None,
         credit_amount=credit_amount, platform_name=platform_name,
         description=description, status=10, created_by=user_id,
     )
