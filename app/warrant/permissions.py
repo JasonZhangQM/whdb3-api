@@ -1,6 +1,7 @@
 """权证模块权限与菜单声明（seed 聚合消费）。"""
 
 ACTION_PERMISSIONS: list[tuple[str, str]] = [
+    ("warrant:list", "权证列表查看"),
     ("warrant:create", "权证新增"),
     ("warrant:update", "权证修改（评估/明细/所有权人）"),
     ("warrant:delete", "权证删除"),

@@ -6,6 +6,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.deps import AuthContext
 from app.core.exceptions import BizError
 from app.customer.models import Customer
 from app.warrant.enums import LABELS, WarrantType
@@ -34,19 +35,14 @@ from app.warrant.schemas import (
     ReceiveExtendCreate,
     TypeDetailUpdate,
 )
+from app.warrant.services.warrant_service import _disp, _get_or_404, _get_warrant_with_scope
 
 
-def _disp(group: str, value: int | None) -> str | None:
-    if value is None:
-        return None
-    return LABELS[group].get(value, str(value))
-
-
-def _get_warrant(db: Session, warrant_id: int) -> Warrant:
-    w = db.get(Warrant, warrant_id)
-    if w is None:
-        raise BizError(4041, "权证不存在")
-    return w
+def _get_warrant(db: Session, warrant_id: int, ctx: AuthContext | None = None) -> Warrant:
+    """获取权证：有 ctx 则做数据级权限校验，无 ctx 则基础 404。"""
+    if ctx is not None:
+        return _get_warrant_with_scope(db, warrant_id, ctx)
+    return _get_or_404(db, warrant_id)
 
 
 # ===== 创建（创建权证时由 warrant_service.create 调用）=====
@@ -123,9 +119,9 @@ def _add_house(db: Session, warrant_id: int, house, user_id: int) -> None:
 
 # ===== 详情聚合（按类型返回扩展块）=====
 
-def get_type_detail(db: Session, warrant_id: int) -> dict:
+def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     """按权证类型聚合扩展信息（详情页 type-detail 块）。"""
-    w = _get_warrant(db, warrant_id)
+    w = _get_warrant(db, warrant_id, ctx)
     wtype = WarrantType(w.warrant_type)
     result: dict = {}
 
@@ -252,9 +248,9 @@ def _ground_dict(g: WarrantGround) -> dict:
 
 # ===== 更新（整体替换式）=====
 
-def update_type_detail(db: Session, warrant_id: int, body: TypeDetailUpdate, user_id: int) -> None:
+def update_type_detail(db: Session, warrant_id: int, body: TypeDetailUpdate, user_id: int, ctx: AuthContext) -> None:
     """按类型整体替换扩展信息：先清旧再写新（调用方包事务）。"""
-    w = _get_warrant(db, warrant_id)
+    w = _get_warrant(db, warrant_id, ctx)
     wtype = WarrantType(w.warrant_type)
     ext = getattr(body, _type_field(wtype))
     if ext is None:
@@ -346,9 +342,9 @@ def _delete_ext(db: Session, warrant_id: int, wtype: WarrantType) -> None:
 
 # ===== 票据明细 =====
 
-def list_draft_extends(db: Session, warrant_id: int) -> dict:
+def list_draft_extends(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     """票据明细列表（关联核心企业/承兑人名称）。"""
-    _get_warrant(db, warrant_id)
+    _get_warrant(db, warrant_id, ctx)
     draft_id = db.scalar(
         select(WarrantDraft.id).where(WarrantDraft.warrant_id == warrant_id)
     )
@@ -390,9 +386,9 @@ def list_draft_extends(db: Session, warrant_id: int) -> dict:
     return {"items": items}
 
 
-def add_draft_extend(db: Session, warrant_id: int, body: DraftExtendCreate, user_id: int) -> int:
+def add_draft_extend(db: Session, warrant_id: int, body: DraftExtendCreate, user_id: int, ctx: AuthContext) -> int:
     """添加票据明细（校验：承兑人存在、核心企业 is_core、票据号唯一）。"""
-    w = _get_warrant(db, warrant_id)
+    w = _get_warrant(db, warrant_id, ctx)
     if WarrantType(w.warrant_type) != WarrantType.DRAFT:
         raise BizError(4001, "仅票据类型权证可添加票据明细")
     draft_id = db.scalar(
@@ -422,8 +418,9 @@ def add_draft_extend(db: Session, warrant_id: int, body: DraftExtendCreate, user
 
 
 def update_draft_extend(
-    db: Session, warrant_id: int, extend_id: int, body: DraftExtendUpdate, user_id: int
+    db: Session, warrant_id: int, extend_id: int, body: DraftExtendUpdate, user_id: int, ctx: AuthContext
 ) -> None:
+    _get_warrant(db, warrant_id, ctx)
     e = _get_draft_extend(db, warrant_id, extend_id)
     data = body.model_dump(exclude_unset=True)
     for k, v in data.items():
@@ -431,8 +428,8 @@ def update_draft_extend(
     e.updated_by = user_id
 
 
-def delete_draft_extend(db: Session, warrant_id: int, extend_id: int) -> None:
-    _get_draft_extend(db, warrant_id, extend_id)
+def delete_draft_extend(db: Session, warrant_id: int, extend_id: int, ctx: AuthContext) -> None:
+    _get_warrant(db, warrant_id, ctx)
     from app.warrant.models import WarrantDraftExtend as DE
 
     db.query(DE).filter(DE.id == extend_id).delete(synchronize_session=False)
@@ -452,8 +449,8 @@ def _get_draft_extend(db: Session, warrant_id: int, extend_id: int) -> WarrantDr
 
 # ===== 应收明细 =====
 
-def list_receive_extends(db: Session, warrant_id: int) -> dict:
-    _get_warrant(db, warrant_id)
+def list_receive_extends(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
+    _get_warrant(db, warrant_id, ctx)
     recv_id = db.scalar(
         select(WarrantReceivable.id).where(WarrantReceivable.warrant_id == warrant_id)
     )
@@ -469,8 +466,8 @@ def list_receive_extends(db: Session, warrant_id: int) -> dict:
     }
 
 
-def add_receive_extend(db: Session, warrant_id: int, body: ReceiveExtendCreate, user_id: int) -> int:
-    w = _get_warrant(db, warrant_id)
+def add_receive_extend(db: Session, warrant_id: int, body: ReceiveExtendCreate, user_id: int, ctx: AuthContext) -> int:
+    w = _get_warrant(db, warrant_id, ctx)
     if WarrantType(w.warrant_type) != WarrantType.RECEIVABLE:
         raise BizError(4001, "仅应收账款类型权证可添加应收单位")
     recv_id = db.scalar(
@@ -494,8 +491,8 @@ def add_receive_extend(db: Session, warrant_id: int, body: ReceiveExtendCreate, 
     return e.id
 
 
-def delete_receive_extend(db: Session, warrant_id: int, extend_id: int) -> None:
-    _get_warrant(db, warrant_id)
+def delete_receive_extend(db: Session, warrant_id: int, extend_id: int, ctx: AuthContext) -> None:
+    _get_warrant(db, warrant_id, ctx)
     e = db.get(WarrantReceiveExtend, extend_id)
     if e is None:
         raise BizError(4041, "应收单位不存在")
@@ -509,8 +506,8 @@ def delete_receive_extend(db: Session, warrant_id: int, extend_id: int) -> None:
 
 # ===== 所有权人 =====
 
-def list_owners(db: Session, warrant_id: int) -> dict:
-    _get_warrant(db, warrant_id)
+def list_owners(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
+    _get_warrant(db, warrant_id, ctx)
     rows = db.execute(
         select(WarrantOwnership, Customer.name)
         .join(Customer, Customer.id == WarrantOwnership.owner_id)
@@ -531,9 +528,10 @@ def list_owners(db: Session, warrant_id: int) -> dict:
     }
 
 
-def add_owner(db: Session, warrant_id: int, body: OwnershipCreate, user_id: int) -> int:
+def add_owner(db: Session, warrant_id: int, body: OwnershipCreate, user_id: int, ctx: AuthContext) -> int:
     from app.warrant.services import warrant_service
 
+    _get_warrant(db, warrant_id, ctx)
     warrant_service._add_owners(db, warrant_id, [body], user_id)
     o = db.scalar(
         select(WarrantOwnership)
@@ -545,14 +543,16 @@ def add_owner(db: Session, warrant_id: int, body: OwnershipCreate, user_id: int)
     return o.id
 
 
-def update_owner(db: Session, warrant_id: int, owner_row_id: int, body: OwnershipUpdate) -> None:
+def update_owner(db: Session, warrant_id: int, owner_row_id: int, body: OwnershipUpdate, ctx: AuthContext) -> None:
+    _get_warrant(db, warrant_id, ctx)
     o = _get_owner(db, warrant_id, owner_row_id)
     data = body.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(o, k, v)
 
 
-def delete_owner(db: Session, warrant_id: int, owner_row_id: int) -> None:
+def delete_owner(db: Session, warrant_id: int, owner_row_id: int, ctx: AuthContext) -> None:
+    _get_warrant(db, warrant_id, ctx)
     o = _get_owner(db, warrant_id, owner_row_id)
     db.delete(o)
 

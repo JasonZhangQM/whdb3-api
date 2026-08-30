@@ -68,6 +68,21 @@ def _get_or_404(db: Session, warrant_id: int) -> Warrant:
     return w
 
 
+def _get_warrant_with_scope(
+    db: Session, warrant_id: int, ctx: AuthContext
+) -> Warrant:
+    """获取权证 + 数据级权限校验（无权限返回 404 避免枚举 id）。"""
+    if ctx.is_super_admin or ctx.data_scope == 40:  # ALL
+        return _get_or_404(db, warrant_id)
+
+    stmt = select(Warrant).where(Warrant.id == warrant_id)
+    stmt = apply_data_scope_filter(db, stmt, ctx, owner_field="created_by")
+    w = db.scalar(stmt)
+    if w is None:
+        raise BizError(4041, "权证不存在")
+    return w
+
+
 # ===== 列表 =====
 
 def list_warrants(
@@ -192,10 +207,10 @@ def _storage_brief(s: WarrantStorage, transfer_name, conservator_name) -> dict:
 
 # ===== 详情（一次性聚合）=====
 
-def get_detail(db: Session, warrant_id: int) -> dict:
+def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     from app.warrant.services import ext_service
 
-    w = _get_or_404(db, warrant_id)
+    w = _get_warrant_with_scope(db, warrant_id, ctx)
     user_ids = {w.created_by}
     # 所有权人
     owners_rows = db.execute(
@@ -298,7 +313,7 @@ def get_detail(db: Session, warrant_id: int) -> dict:
         "evaluates": evaluate_items,
     }
     # 按类型聚合扩展信息
-    detail.update(ext_service.get_type_detail(db, warrant_id))
+    detail.update(ext_service.get_type_detail(db, warrant_id, ctx))
     return detail
 
 
@@ -353,96 +368,26 @@ def _add_owners(db: Session, warrant_id: int, owners, user_id: int) -> None:
         )
 
 
-def update(db: Session, warrant_id: int, body: WarrantUpdate) -> None:
-    w = _get_or_404(db, warrant_id)
+def update(db: Session, warrant_id: int, body: WarrantUpdate, ctx: AuthContext) -> None:
+    w = _get_warrant_with_scope(db, warrant_id, ctx)
     data = body.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(w, k, v)
 
 
-def delete(db: Session, warrant_id: int) -> None:
+def delete(db: Session, warrant_id: int, ctx: AuthContext) -> None:
     """删除拦截：已入库 / 已绑定项目（M3）/ 有评估外引用。"""
-    w = _get_or_404(db, warrant_id)
+    w = _get_warrant_with_scope(db, warrant_id, ctx)
     if w.warrant_state not in (WarrantState.NOT_STORED, WarrantState.CANCELLED):
         raise BizError(4091, "权证已入库或已流转，不可删除，请走注销流程")
-    # 级联清理扩展与子资源（物理删除，权证无软删设计）
-    ext_ids = _collect_ext_ids(db, warrant_id)
-    for model, ids in ext_ids.items():
-        if ids:
-            db.query(model).filter(model.id.in_(ids)).delete(synchronize_session=False)
-    db.query(WarrantStorage).filter(WarrantStorage.warrant_id == warrant_id).delete(
-        synchronize_session=False
-    )
-    db.query(WarrantEvaluate).filter(WarrantEvaluate.warrant_id == warrant_id).delete(
-        synchronize_session=False
-    )
-    db.query(WarrantOwnership).filter(WarrantOwnership.warrant_id == warrant_id).delete(
-        synchronize_session=False
-    )
+    # DB FK ondelete=CASCADE 自动清理全部子表（ownership/house/ground/.../evaluate/storage）
     db.delete(w)
-
-
-def _collect_ext_ids(db: Session, warrant_id: int) -> dict:
-    """收集各扩展表关联行 id（删除前置清理用）。"""
-    from app.warrant.models import (
-        WarrantChattel,
-        WarrantConstruction,
-        WarrantOther,
-        WarrantReceivable,
-        WarrantReceiveExtend,
-        WarrantSoftware,
-        WarrantStock,
-        WarrantVehicle,
-        WarrantPatent,
-    )
-
-    result: dict = {}
-    for model in (
-        WarrantHouse, WarrantGround, WarrantConstruction, WarrantStock,
-        WarrantVehicle, WarrantChattel, WarrantDraft,
-    ):
-        result[model] = list(
-            db.scalars(select(model.id).where(model.warrant_id == warrant_id))
-        )
-    # 应收：主表 + 明细
-    recv_ids = list(
-        db.scalars(select(WarrantReceivable.id).where(WarrantReceivable.warrant_id == warrant_id))
-    )
-    if recv_ids:
-        result[WarrantReceivable] = recv_ids
-        result[WarrantReceiveExtend] = list(
-            db.scalars(
-                select(WarrantReceiveExtend.id).where(WarrantReceiveExtend.receivable_id.in_(recv_ids))
-            )
-        )
-    # 其他：主表 + 商标/软著
-    other_ids = list(
-        db.scalars(select(WarrantOther.id).where(WarrantOther.warrant_id == warrant_id))
-    )
-    if other_ids:
-        result[WarrantOther] = other_ids
-        result[WarrantPatent] = list(
-            db.scalars(select(WarrantPatent.id).where(WarrantPatent.other_id.in_(other_ids)))
-        )
-        result[WarrantSoftware] = list(
-            db.scalars(select(WarrantSoftware.id).where(WarrantSoftware.other_id.in_(other_ids)))
-        )
-    # 票据明细
-    if result.get(WarrantDraft):
-        result[WarrantDraftExtend] = list(
-            db.scalars(
-                select(WarrantDraftExtend.id).where(
-                    WarrantDraftExtend.draft_id.in_(result[WarrantDraft])
-                )
-            )
-        )
-    return {k: v for k, v in result.items() if v}
 
 
 # ===== 出入库（联动主表状态）=====
 
-def add_storage(db: Session, warrant_id: int, body: StorageCreate, user_id: int) -> int:
-    w = _get_or_404(db, warrant_id)
+def add_storage(db: Session, warrant_id: int, body: StorageCreate, user_id: int, ctx: AuthContext) -> int:
+    w = _get_warrant_with_scope(db, warrant_id, ctx)
     s = WarrantStorage(
         warrant_id=warrant_id,
         storage_type=body.storage_type,
@@ -466,8 +411,8 @@ def _apply_state(db: Session, w: Warrant, storage_type: int) -> None:
 
 # ===== 评估（联动主表最新评估）=====
 
-def add_evaluate(db: Session, warrant_id: int, body, user_id: int) -> int:
-    w = _get_or_404(db, warrant_id)
+def add_evaluate(db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext) -> int:
+    w = _get_warrant_with_scope(db, warrant_id, ctx)
     e = WarrantEvaluate(
         warrant_id=warrant_id, **body.model_dump(), created_by=user_id
     )
@@ -482,7 +427,8 @@ def add_evaluate(db: Session, warrant_id: int, body, user_id: int) -> int:
     return e.id
 
 
-def add_recheck(db: Session, warrant_id: int, evaluate_id: int, body, user_id: int) -> int:
+def add_recheck(db: Session, warrant_id: int, evaluate_id: int, body, user_id: int, ctx: AuthContext) -> int:
+    _get_warrant_with_scope(db, warrant_id, ctx)
     e = db.get(WarrantEvaluate, evaluate_id)
     if e is None or e.warrant_id != warrant_id:
         raise BizError(4041, "评估记录不存在")
@@ -503,11 +449,11 @@ def add_recheck(db: Session, warrant_id: int, evaluate_id: int, body, user_id: i
 
 # ===== 批量操作 =====
 
-def batch_storage(db: Session, warrant_ids: list[int], body, user_id: int) -> int:
+def batch_storage(db: Session, warrant_ids: list[int], body, user_id: int, ctx: AuthContext) -> int:
     """批量出入库：全部成功或全部回滚（调用方事务）。"""
     count = 0
     for wid in warrant_ids:
-        w = _get_or_404(db, wid)
+        w = _get_warrant_with_scope(db, wid, ctx)
         db.add(
             WarrantStorage(
                 warrant_id=wid,
@@ -523,7 +469,7 @@ def batch_storage(db: Session, warrant_ids: list[int], body, user_id: int) -> in
     return count
 
 
-def batch_transfer(db: Session, warrant_ids: list[int], to_conservator_id: int, reason: str, user_id: int) -> int:
+def batch_transfer(db: Session, warrant_ids: list[int], to_conservator_id: int, reason: str, user_id: int, ctx: AuthContext) -> int:
     """批量移交（权证管理岗变更 + 移交记录 + 状态联动）。"""
     from app.user.models import User
 
@@ -533,7 +479,7 @@ def batch_transfer(db: Session, warrant_ids: list[int], to_conservator_id: int, 
 
     today = date.today()
     for wid in warrant_ids:
-        w = _get_or_404(db, wid)
+        w = _get_warrant_with_scope(db, wid, ctx)
         db.add(
             WarrantStorage(
                 warrant_id=wid,
@@ -548,12 +494,12 @@ def batch_transfer(db: Session, warrant_ids: list[int], to_conservator_id: int, 
     return len(warrant_ids)
 
 
-def batch_cancel(db: Session, warrant_ids: list[int], reason: str, user_id: int) -> int:
+def batch_cancel(db: Session, warrant_ids: list[int], reason: str, user_id: int, ctx: AuthContext) -> int:
     from datetime import date
 
     today = date.today()
     for wid in warrant_ids:
-        w = _get_or_404(db, wid)
+        w = _get_warrant_with_scope(db, wid, ctx)
         if w.warrant_state == WarrantState.CANCELLED:
             raise BizError(4091, f"权证 {w.warrant_num} 已注销")
         w.warrant_state = WarrantState.CANCELLED

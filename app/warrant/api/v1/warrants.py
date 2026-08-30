@@ -95,7 +95,7 @@ def batch_storage(
     user: AuthContext = Depends(require_perm("warrant:storage")),
 ):
     """批量出入库（全部成功或全部回滚，联动主表状态）。"""
-    count = warrant_service.batch_storage(db, body.warrant_ids, body, user.user_id)
+    count = warrant_service.batch_storage(db, body.warrant_ids, body, user.user_id, user)
     db.commit()
     return ok({"count": count}, message=f"已对 {count} 个权证执行出入库")
 
@@ -108,7 +108,7 @@ def batch_transfer(
 ):
     """批量移交（权证管理岗变更 + 移交记录 + 状态联动）。"""
     count = warrant_service.batch_transfer(
-        db, body.warrant_ids, body.to_conservator_id, body.reason, user.user_id
+        db, body.warrant_ids, body.to_conservator_id, body.reason, user.user_id, user
     )
     db.commit()
     return ok({"count": count}, message=f"已移交 {count} 个权证")
@@ -121,7 +121,7 @@ def batch_cancel(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """批量注销（状态置已注销 + 解保出库记录）。"""
-    count = warrant_service.batch_cancel(db, body.warrant_ids, body.reason, user.user_id)
+    count = warrant_service.batch_cancel(db, body.warrant_ids, body.reason, user.user_id, user)
     db.commit()
     return ok({"count": count}, message=f"已注销 {count} 个权证")
 
@@ -132,10 +132,10 @@ def batch_cancel(
 def get_warrant(
     warrant_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:detail")),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """权证详情（一次性聚合扩展信息+所有权人+出入库+评估复核）。"""
-    return ok(warrant_service.get_detail(db, warrant_id))
+    return ok(warrant_service.get_detail(db, warrant_id, ctx))
 
 
 @router.patch("/{warrant_id}")
@@ -143,10 +143,10 @@ def update_warrant(
     warrant_id: int,
     body: WarrantUpdate,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:update")),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """修改主表字段（评估/状态/查封拍卖）。"""
-    warrant_service.update(db, warrant_id, body)
+    warrant_service.update(db, warrant_id, body, ctx)
     db.commit()
     return ok(message="修改成功")
 
@@ -155,10 +155,10 @@ def update_warrant(
 def delete_warrant(
     warrant_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:delete")),
+    ctx: AuthContext = Depends(require_perm("warrant:delete")),
 ):
     """删除权证（拦截：已入库/已流转走注销流程；级联清理扩展）。"""
-    warrant_service.delete(db, warrant_id)
+    warrant_service.delete(db, warrant_id, ctx)
     db.commit()
     return ok(message="删除成功")
 
@@ -167,10 +167,10 @@ def delete_warrant(
 def get_type_detail(
     warrant_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:detail")),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """按类型获取扩展信息（warrant_houses / grounds / ...）。"""
-    return ok(ext_service.get_type_detail(db, warrant_id))
+    return ok(ext_service.get_type_detail(db, warrant_id, ctx))
 
 
 @router.put("/{warrant_id}/type-detail")
@@ -181,7 +181,7 @@ def update_type_detail(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """按类型整体替换扩展信息。"""
-    ext_service.update_type_detail(db, warrant_id, body, user.user_id)
+    ext_service.update_type_detail(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok(message="扩展信息已更新")
 
@@ -192,10 +192,10 @@ def update_type_detail(
 def list_owners(
     warrant_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:detail")),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """产权证/所有权人列表。"""
-    return ok(ext_service.list_owners(db, warrant_id))
+    return ok(ext_service.list_owners(db, warrant_id, ctx))
 
 
 @router.post("/{warrant_id}/owners")
@@ -206,7 +206,7 @@ def add_owner(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加产权证（所有权人 + 编号 + 共有份额）。"""
-    oid = ext_service.add_owner(db, warrant_id, body, user.user_id)
+    oid = ext_service.add_owner(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": oid}, message="产权证已添加")
 
@@ -217,10 +217,10 @@ def update_owner(
     owner_row_id: int,
     body: OwnershipUpdate,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:update")),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """修改产权证（编号/份额）。"""
-    ext_service.update_owner(db, warrant_id, owner_row_id, body)
+    ext_service.update_owner(db, warrant_id, owner_row_id, body, ctx)
     db.commit()
     return ok(message="修改成功")
 
@@ -230,10 +230,10 @@ def delete_owner(
     warrant_id: int,
     owner_row_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:update")),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除产权证。"""
-    ext_service.delete_owner(db, warrant_id, owner_row_id)
+    ext_service.delete_owner(db, warrant_id, owner_row_id, ctx)
     db.commit()
     return ok(message="删除成功")
 
@@ -244,10 +244,10 @@ def delete_owner(
 def list_storages(
     warrant_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:detail")),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """出入库历史列表。"""
-    detail = warrant_service.get_detail(db, warrant_id)
+    detail = warrant_service.get_detail(db, warrant_id, ctx)
     return ok({"items": detail["storages"]})
 
 
@@ -259,7 +259,7 @@ def add_storage(
     user: AuthContext = Depends(require_perm("warrant:storage")),
 ):
     """新增出入库记录（联动更新主表 warrant_state）。"""
-    sid = warrant_service.add_storage(db, warrant_id, body, user.user_id)
+    sid = warrant_service.add_storage(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": sid}, message="出入库记录已添加")
 
@@ -268,10 +268,10 @@ def add_storage(
 def list_evaluates(
     warrant_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:detail")),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """评估历史列表（含复核）。"""
-    detail = warrant_service.get_detail(db, warrant_id)
+    detail = warrant_service.get_detail(db, warrant_id, ctx)
     return ok({"items": detail["evaluates"]})
 
 
@@ -283,7 +283,7 @@ def add_evaluate(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """新增评估记录（联动更新主表最新评估字段）。"""
-    eid = warrant_service.add_evaluate(db, warrant_id, body, user.user_id)
+    eid = warrant_service.add_evaluate(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": eid}, message="评估记录已添加")
 
@@ -297,7 +297,7 @@ def add_recheck(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """新增评估复核（一条评估仅一条复核）。"""
-    rid = warrant_service.add_recheck(db, warrant_id, evaluate_id, body, user.user_id)
+    rid = warrant_service.add_recheck(db, warrant_id, evaluate_id, body, user.user_id, user)
     db.commit()
     return ok({"id": rid}, message="复核记录已添加")
 
@@ -308,10 +308,10 @@ def add_recheck(
 def list_draft_extends(
     warrant_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:detail")),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """票据明细列表（关联核心企业/承兑人名称）。"""
-    return ok(ext_service.list_draft_extends(db, warrant_id))
+    return ok(ext_service.list_draft_extends(db, warrant_id, ctx))
 
 
 @router.post("/{warrant_id}/draft-extends")
@@ -322,7 +322,7 @@ def add_draft_extend(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加票据明细（校验承兑人存在、核心企业 is_core、票据号唯一）。"""
-    eid = ext_service.add_draft_extend(db, warrant_id, body, user.user_id)
+    eid = ext_service.add_draft_extend(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": eid}, message="票据明细已添加")
 
@@ -336,7 +336,7 @@ def update_draft_extend(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """修改票据明细（状态/金额/到期日）。"""
-    ext_service.update_draft_extend(db, warrant_id, extend_id, body, user.user_id)
+    ext_service.update_draft_extend(db, warrant_id, extend_id, body, user.user_id, user)
     db.commit()
     return ok(message="修改成功")
 
@@ -346,10 +346,10 @@ def delete_draft_extend(
     warrant_id: int,
     extend_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:update")),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除票据明细。"""
-    ext_service.delete_draft_extend(db, warrant_id, extend_id)
+    ext_service.delete_draft_extend(db, warrant_id, extend_id, ctx)
     db.commit()
     return ok(message="删除成功")
 
@@ -360,10 +360,10 @@ def delete_draft_extend(
 def list_receive_extends(
     warrant_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:detail")),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """应收账款明细（应收单位）列表。"""
-    return ok(ext_service.list_receive_extends(db, warrant_id))
+    return ok(ext_service.list_receive_extends(db, warrant_id, ctx))
 
 
 @router.post("/{warrant_id}/receive-extends")
@@ -374,7 +374,7 @@ def add_receive_extend(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加应收单位（同一权证下不重复）。"""
-    eid = ext_service.add_receive_extend(db, warrant_id, body, user.user_id)
+    eid = ext_service.add_receive_extend(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": eid}, message="应收单位已添加")
 
@@ -384,9 +384,9 @@ def delete_receive_extend(
     warrant_id: int,
     extend_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("warrant:update")),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除应收单位。"""
-    ext_service.delete_receive_extend(db, warrant_id, extend_id)
+    ext_service.delete_receive_extend(db, warrant_id, extend_id, ctx)
     db.commit()
     return ok(message="删除成功")

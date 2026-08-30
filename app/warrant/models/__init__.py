@@ -60,7 +60,7 @@ class WarrantOwnership(Base):
     __tablename__ = "warrant_ownerships"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), index=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
     ownership_num: Mapped[str] = mapped_column(String(128), comment="产权证编号")
     owner_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
     share_ratio: Mapped[float | None] = mapped_column(Numeric(5, 2), comment="共有份额%，null=独有")
@@ -77,7 +77,7 @@ class WarrantHouse(Base):
     __tablename__ = "warrant_houses"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), index=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
     house_locate: Mapped[str] = mapped_column(String(255), comment="坐落（唯一）")
     house_app: Mapped[int] = mapped_column(BigInteger, comment="房产用途（字典）")
     house_area: Mapped[float] = mapped_column(Numeric(12, 2), comment="面积")
@@ -93,9 +93,9 @@ class WarrantGround(Base):
     __tablename__ = "warrant_grounds"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     ground_locate: Mapped[str] = mapped_column(String(255))
-    ground_app: Mapped[int] = mapped_column(String(128), comment="土地用途")
+    ground_app: Mapped[str] = mapped_column(String(128), comment="土地坐落/宗地号")
     ground_area: Mapped[float] = mapped_column(Numeric(12, 2))
 
 
@@ -106,7 +106,7 @@ class WarrantConstruction(Base):
     __tablename__ = "warrant_constructions"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     construct_locate: Mapped[str] = mapped_column(String(255))
     construct_app: Mapped[str] = mapped_column(String(128), comment="工程用途")
     construct_area: Mapped[float] = mapped_column(Numeric(12, 2))
@@ -119,7 +119,7 @@ class WarrantReceivable(Base):
     __tablename__ = "warrant_receivables"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     receivable_detail: Mapped[str] = mapped_column(String(255))
 
 
@@ -131,7 +131,7 @@ class WarrantReceiveExtend(Base):
 
 
     receivable_id: Mapped[int] = mapped_column(
-        ForeignKey("warrant_receivables.id"), index=True
+        ForeignKey("warrant_receivables.id", ondelete="CASCADE"), index=True
     )
     receive_unit: Mapped[str] = mapped_column(String(128), comment="应收单位名称")
 
@@ -147,7 +147,7 @@ class WarrantStock(Base):
     __tablename__ = "warrant_stocks"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     stock_type: Mapped[int] = mapped_column(SmallInteger, comment="10有限公司股权20股份公司股份30举办者权益")
     target: Mapped[str] = mapped_column(String(128), comment="标的公司")
     ratio: Mapped[float] = mapped_column(Numeric(5, 2), comment="持股%")
@@ -163,7 +163,7 @@ class WarrantDraft(Base):
     __tablename__ = "warrant_drafts"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     draft_detail: Mapped[str] = mapped_column(String(255))
     denomination: Mapped[float] = mapped_column(Numeric(18, 2), comment="票面总额")
     draft_type: Mapped[int] = mapped_column(SmallInteger, comment="10商业承兑20银行承兑30支票")
@@ -176,7 +176,7 @@ class WarrantDraftExtend(Base):
     __tablename__ = "warrant_draft_extends"
 
 
-    draft_id: Mapped[int] = mapped_column(ForeignKey("warrant_drafts.id"), index=True)
+    draft_id: Mapped[int] = mapped_column(ForeignKey("warrant_drafts.id", ondelete="CASCADE"), index=True)
     draft_type: Mapped[int] = mapped_column(SmallInteger, comment="10电银承20银承11电商承12商承21支票")
     draft_num: Mapped[str] = mapped_column(String(128), comment="票据编号")
     acceptor_id: Mapped[int] = mapped_column(
@@ -204,7 +204,7 @@ class WarrantVehicle(Base):
     __tablename__ = "warrant_vehicles"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     frame_num: Mapped[str] = mapped_column(String(64), unique=True, comment="车架号")
     plate_num: Mapped[str] = mapped_column(String(32), unique=True, comment="车牌号")
     vehicle_brand: Mapped[str] = mapped_column(String(64))
@@ -218,7 +218,7 @@ class WarrantChattel(Base):
     __tablename__ = "warrant_chattels"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     chattel_type: Mapped[int] = mapped_column(SmallInteger, comment="10存货20机器设备30医疗设备99动产")
     chattel_detail: Mapped[str] = mapped_column(String(255))
 
@@ -230,7 +230,7 @@ class WarrantOther(Base):
     __tablename__ = "warrant_others"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), unique=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     other_type: Mapped[int] = mapped_column(
         SmallInteger, comment="10购房合同20车辆合格证30专利40商标501软件著作权70账户99其他"
     )
@@ -245,7 +245,7 @@ class WarrantPatent(Base):
     __tablename__ = "warrant_patents"
 
 
-    other_id: Mapped[int] = mapped_column(ForeignKey("warrant_others.id"), unique=True)
+    other_id: Mapped[int] = mapped_column(ForeignKey("warrant_others.id", ondelete="CASCADE"), unique=True)
     patent_name: Mapped[str] = mapped_column(String(128))
     reg_num: Mapped[str] = mapped_column(String(64), unique=True)
     patent_ty: Mapped[int] = mapped_column(SmallInteger, comment="商标类型")
@@ -258,7 +258,7 @@ class WarrantSoftware(Base):
     __tablename__ = "warrant_softwares"
 
 
-    other_id: Mapped[int] = mapped_column(ForeignKey("warrant_others.id"), unique=True)
+    other_id: Mapped[int] = mapped_column(ForeignKey("warrant_others.id", ondelete="CASCADE"), unique=True)
     software_name: Mapped[str] = mapped_column(String(128))
     reg_num: Mapped[str] = mapped_column(String(64), unique=True)
 
@@ -270,7 +270,7 @@ class WarrantStorage(Base):
     __tablename__ = "warrant_storages"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), index=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
     storage_type: Mapped[int] = mapped_column(
         SmallInteger, comment="10入库20续抵出库30已加保60无需入库110借出120归还310解保出库410移交"
     )
@@ -288,7 +288,7 @@ class WarrantEvaluate(Base):
     __tablename__ = "warrant_evaluates"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"), index=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
     evaluate_method: Mapped[int] = mapped_column(SmallInteger)
     evaluate_value: Mapped[float] = mapped_column(Numeric(18, 2))
     evaluate_date: Mapped[date]
@@ -303,7 +303,7 @@ class WarrantEvaluateRecheck(Base):
     __tablename__ = "warrant_evaluate_rechecks"
 
 
-    evaluate_id: Mapped[int] = mapped_column(ForeignKey("warrant_evaluates.id"), index=True)
+    evaluate_id: Mapped[int] = mapped_column(ForeignKey("warrant_evaluates.id", ondelete="CASCADE"), index=True)
     check_value: Mapped[float] = mapped_column(Numeric(18, 2), comment="核查价值")
     recheck_value: Mapped[float] = mapped_column(Numeric(18, 2), comment="复核价值")
     recheck_channel: Mapped[str] = mapped_column(String(128), comment="复核渠道")
@@ -328,5 +328,5 @@ class WarrantHouseApp(Base):
 
 
     name: Mapped[str] = mapped_column(String(64))
-    parent_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True)
+    parent_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, default=None, index=True)
     status: Mapped[int] = mapped_column(SmallInteger, default=10)
