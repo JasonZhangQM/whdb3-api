@@ -195,6 +195,13 @@ def get_detail(db: Session, user_id: int):
     from app.user.schemas.log import OperationLogBrief
     from app.user.schemas.user import UserDetail
 
+    # 取创建人姓名供详情展示（列表页已复用，详情补一次）
+    creator_names = {}
+    if user.created_by:
+        cu = db.get(User, user.created_by)
+        if cu:
+            creator_names[user.created_by] = cu.name
+
     return UserDetail(
         id=user.id, username=user.username, name=user.name, email=user.email,
         phone=user.phone, avatar_url=user.avatar_url, gender=user.gender,
@@ -204,6 +211,7 @@ def get_detail(db: Session, user_id: int):
         dept_path_name="/".join(dept_path) if dept_path else None,
         role_names=[r.name for r in roles], is_super_admin=user.is_super_admin,
         last_login_at=user.last_login_at, created_at=user.created_at,
+        created_by_name=creator_names.get(user.created_by) or "",
         roles=[{"id": r.id, "code": r.code, "name": r.name, "data_scope": r.data_scope} for r in roles],
         permission_count=0,  # 见 context 缓存口径，详情页实时算代价高，M1 简化
         recent_logs=[OperationLogBrief(

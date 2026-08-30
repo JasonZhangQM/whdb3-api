@@ -215,8 +215,13 @@ def get_detail(db: Session, customer_id: int) -> dict:
         "genre": c.genre,
         "custom_typ": c.custom_typ,
         "custom_state": c.custom_state,
+        "contact_addr": c.contact_addr,
+        "linkman": c.linkman,
+        "contact_num": c.contact_num,
         "is_core": c.is_core,
         "is_acceptor": c.is_acceptor,
+        "core_rate": float(c.core_rate) if c.core_rate is not None else None,
+        "core_remark": c.core_remark,
         "managementor_name": users.get(c.managementor_id, ""),
         "credit_amount": float(c.credit_amount),
         "amount": float(c.amount),
@@ -253,6 +258,7 @@ def get_detail(db: Session, customer_id: int) -> dict:
             .where(CustomerTagRelation.customer_id == customer_id)
             .order_by(CustomerTagRelation.tag_id)
         ).all(),
+        "created_by_name": users.get(c.created_by) or "",
         "created_at": c.created_at,
     }
 
