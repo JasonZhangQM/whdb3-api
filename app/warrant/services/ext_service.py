@@ -109,11 +109,11 @@ def create_ext(db: Session, warrant_id: int, wtype: WarrantType, body, user_id: 
 
 
 def _add_house(db: Session, warrant_id: int, house, user_id: int) -> None:
-    dup = db.scalar(
-        select(WarrantHouse.id).where(WarrantHouse.house_locate == house.house_locate)
-    )
-    if dup is not None:
-        raise BizError(4091, f"房产坐落已存在: {house.house_locate}")
+    """添加一套房产。
+
+    注意：坐落不做全局重复检查——同一坐落的房产换证后会产生多套证，
+    产权证编号（warrant_ownerships.ownership_num）才是唯一键。
+    """
     db.add(WarrantHouse(warrant_id=warrant_id, **house.model_dump(), created_by=user_id))
 
 
