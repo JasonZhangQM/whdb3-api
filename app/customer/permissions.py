@@ -1,8 +1,8 @@
 """客户模块权限与菜单声明（seed 聚合消费）。"""
 
 ACTION_PERMISSIONS: list[tuple[str, str]] = [
-    ("customer:create", "客户新增（发起创建审批）"),
-    ("customer:update", "客户修改（自由字段/敏感修改审批）"),
+    ("customer:create", "客户新增"),
+    ("customer:update", "客户修改"),
     ("customer:delete", "客户删除"),
     ("customer:transfer", "批量管护移交（发起移交审批）"),
     ("customer:detail", "客户详情"),
