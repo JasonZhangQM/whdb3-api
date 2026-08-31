@@ -182,20 +182,20 @@ class CustomerListItem(CustomerBrief):
 
 class CompanyProfileCreate(BaseModel):
     credit_code: str
-    decisionor: Literal[11, 12, 13, 15, 21, 23]
-    custom_nature: Literal[11, 21, 31, 41, 51, 61, 71]
-    industry_c: int
+    decisionor: int | None = None
+    custom_nature: int | None = None
+    industry_c: int | None = None
     capital: float = 0
     paid_capital: float = 0
-    registered_addr: str
-    representative: str
+    registered_addr: str | None = None
+    representative: str | None = None
 
 
 class PersonalProfileCreate(BaseModel):
     license_num: str = Field(..., min_length=18, max_length=18)
-    license_addr: str
-    marital_status: Literal[10, 20, 30, 40]
-    household_nature: Literal[10, 20]
+    license_addr: str | None = None
+    marital_status: int | None = None
+    household_nature: int | None = None
 
 
 class CustomerCreate(BaseModel):
@@ -207,7 +207,7 @@ class CustomerCreate(BaseModel):
     contact_addr: str | None = None
     linkman: str | None = None
     contact_num: str | None = None
-    region_id: int
+    region_id: int | None = None
     credit_region_id: int | None = None
     industry_id: int | None = None
     group_id: int | None = None

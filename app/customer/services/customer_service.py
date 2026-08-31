@@ -441,8 +441,9 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
     data = body.model_dump()
     _validate_create_payload(db, data)
 
-    # 外键存在性（区域必填；行业/集团可空，空值跳过校验）
-    if db.get(Region, data["region_id"]) is None:
+    # 外键存在性（全部可空，空值跳过校验）
+    region_id = data.get("region_id")
+    if region_id is not None and db.get(Region, region_id) is None:
         raise BizError(4041, "行政区域不存在")
     industry_id = data.get("industry_id")
     if industry_id is not None and db.get(IndustryModel, industry_id) is None:
