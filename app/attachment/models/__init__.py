@@ -19,7 +19,7 @@ class Attachment(Base):
     file_size: Mapped[int] = mapped_column(BigInteger, default=0, comment="字节")
     mime_type: Mapped[str | None] = mapped_column(String(128))
     remark: Mapped[str | None] = mapped_column(String(255))
-    uploaded_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    uploaded_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
 
     __table_args__ = (
         Index("idx_attachment_resource", "resource_type", "resource_id"),

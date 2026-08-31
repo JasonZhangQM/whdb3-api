@@ -60,9 +60,9 @@ class WarrantOwnership(Base):
     __tablename__ = "warrant_ownerships"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
     ownership_num: Mapped[str] = mapped_column(String(128), unique=True, comment="产权证编号（全局唯一）")
-    owner_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
     share_ratio: Mapped[float | None] = mapped_column(Numeric(5, 2), comment="共有份额%，null=独有")
 
 
@@ -77,7 +77,7 @@ class WarrantHouse(Base):
     __tablename__ = "warrant_houses"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
     house_locate: Mapped[str] = mapped_column(String(255), comment="坐落（换证后同坐落可能出现多套证，不唯一）")
     house_app: Mapped[int] = mapped_column(BigInteger, comment="房产用途（字典）")
     house_area: Mapped[float] = mapped_column(Numeric(12, 2), comment="面积")
@@ -131,7 +131,7 @@ class WarrantReceiveExtend(Base):
 
 
     receivable_id: Mapped[int] = mapped_column(
-        ForeignKey("warrant_receivables.id", ondelete="CASCADE"), index=True
+        ForeignKey("warrant_receivables.id", ondelete="CASCADE")
     )
     receive_unit: Mapped[str] = mapped_column(String(128), comment="应收单位名称")
 
@@ -176,14 +176,14 @@ class WarrantDraftExtend(Base):
     __tablename__ = "warrant_draft_extends"
 
 
-    draft_id: Mapped[int] = mapped_column(ForeignKey("warrant_drafts.id", ondelete="CASCADE"), index=True)
+    draft_id: Mapped[int] = mapped_column(ForeignKey("warrant_drafts.id", ondelete="CASCADE"))
     draft_type: Mapped[int] = mapped_column(SmallInteger, comment="10电银承20银承11电商承12商承21支票")
     draft_num: Mapped[str] = mapped_column(String(128), comment="票据编号")
     acceptor_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id"), index=True, comment="承兑人"
+        ForeignKey("customers.id"), comment="承兑人"
     )
     core_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id"), index=True, comment="核心企业"
+        ForeignKey("customers.id"), comment="核心企业"
     )
     draft_amount: Mapped[float] = mapped_column(Numeric(18, 2))
     issue_date: Mapped[date]
@@ -270,7 +270,7 @@ class WarrantStorage(Base):
     __tablename__ = "warrant_storages"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
     storage_type: Mapped[int] = mapped_column(
         SmallInteger, comment="10入库20续抵出库30已加保60无需入库110借出120归还310解保出库410移交990注销"
     )
@@ -288,7 +288,7 @@ class WarrantEvaluate(Base):
     __tablename__ = "warrant_evaluates"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
     evaluate_method: Mapped[int] = mapped_column(SmallInteger)
     evaluate_value: Mapped[float] = mapped_column(Numeric(18, 2))
     evaluate_date: Mapped[date]
@@ -303,7 +303,7 @@ class WarrantEvaluateRecheck(Base):
     __tablename__ = "warrant_evaluate_rechecks"
 
 
-    evaluate_id: Mapped[int] = mapped_column(ForeignKey("warrant_evaluates.id", ondelete="CASCADE"), index=True)
+    evaluate_id: Mapped[int] = mapped_column(ForeignKey("warrant_evaluates.id", ondelete="CASCADE"))
     check_value: Mapped[float] = mapped_column(Numeric(18, 2), comment="核查价值")
     recheck_value: Mapped[float] = mapped_column(Numeric(18, 2), comment="复核价值")
     recheck_channel: Mapped[str] = mapped_column(String(128), comment="复核渠道")

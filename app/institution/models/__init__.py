@@ -65,7 +65,7 @@ class InstitutionContact(Base):
 
 
     institution_id: Mapped[int] = mapped_column(
-        ForeignKey("institutions.id"), index=True
+        ForeignKey("institutions.id")
     )
     name: Mapped[str] = mapped_column(String(32))
     job: Mapped[str | None] = mapped_column(String(64), comment="职务")
@@ -86,7 +86,7 @@ class InstitutionBranch(Base):
 
 
     institution_id: Mapped[int] = mapped_column(
-        ForeignKey("institutions.id"), index=True
+        ForeignKey("institutions.id")
     )
     name: Mapped[str] = mapped_column(String(128))
     short_name: Mapped[str] = mapped_column(String(32))
@@ -106,7 +106,7 @@ class InstitutionCreditAgreement(Base):
 
 
     institution_id: Mapped[int] = mapped_column(
-        ForeignKey("institutions.id"), index=True
+        ForeignKey("institutions.id")
     )
     agreement_type: Mapped[int] = mapped_column(
         SmallInteger, index=True, comment="10综合授信20保函授信30服务协议40委贷协议"
@@ -135,7 +135,7 @@ class InstitutionCreditHistory(Base):
 
 
     institution_id: Mapped[int] = mapped_column(
-        ForeignKey("institutions.id"), index=True
+        ForeignKey("institutions.id")
     )
     agreement_id: Mapped[int | None] = mapped_column(
         ForeignKey("institution_credit_agreements.id"), comment="关联协议"

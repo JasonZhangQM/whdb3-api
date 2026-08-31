@@ -33,7 +33,7 @@ class User(Base):
     gender: Mapped[int] = mapped_column(SmallInteger, default=0, comment="1男2女0未知")
     # 免前缀规则①：本表即 users；子表带前缀
     dept_id: Mapped[int | None] = mapped_column(
-        ForeignKey("user_departments.id"), index=True
+        ForeignKey("user_departments.id")
     )
     position: Mapped[str | None] = mapped_column(String(64), comment="职务")
     status: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="10启用20停用30离职")
@@ -67,7 +67,7 @@ class UserRole(Base):
     __tablename__ = "user_user_roles"
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
+        ForeignKey("users.id", ondelete="CASCADE")
     )
     role_id: Mapped[int] = mapped_column(
         ForeignKey("user_roles.id", ondelete="CASCADE")
@@ -99,7 +99,7 @@ class RolePermission(Base):
     __tablename__ = "user_role_permissions"
 
     role_id: Mapped[int] = mapped_column(
-        ForeignKey("user_roles.id", ondelete="CASCADE"), index=True
+        ForeignKey("user_roles.id", ondelete="CASCADE")
     )
     permission_id: Mapped[int] = mapped_column(
         ForeignKey("user_permissions.id", ondelete="CASCADE")
@@ -146,7 +146,7 @@ class Department(Base):
 class OperationLog(Base):
     __tablename__ = "user_operation_logs"
 
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     username: Mapped[str | None] = mapped_column(String(64))
     user_name: Mapped[str | None] = mapped_column(String(64))
     dept_id: Mapped[int | None]
@@ -172,7 +172,7 @@ class OperationLog(Base):
 class LoginLog(Base):
     __tablename__ = "user_login_logs"
 
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     username: Mapped[str | None] = mapped_column(String(64), index=True)
     login_type: Mapped[int | None] = mapped_column(String(32), comment="login/logout/refresh/lock")
     ip: Mapped[str | None] = mapped_column(String(64))
