@@ -899,7 +899,13 @@ def list_core_histories(db: Session, customer_id: int) -> list[dict]:
 def customer_dict(
     db: Session, genre: int | None = None, is_core: bool | None = None,
     is_acceptor: bool | None = None, managementor_id: int | None = None,
-) -> list[dict]:
+    q: str | None = None, page: int = 1, page_size: int = 50,
+) -> tuple[list[dict], int]:
+    """客户下拉字典（表单选择用）。无 data_scope——业务模块选所有权人/保证人等
+    时需要看到全量客户，不应被 managementor 归属过滤。
+
+    返回 (items, total)，前端分页/远程搜索用。
+    """
     from app.user.models import User
 
     stmt = select(Customer, User.name).join(
@@ -913,8 +919,22 @@ def customer_dict(
         stmt = stmt.where(Customer.is_acceptor == is_acceptor)
     if managementor_id is not None:
         stmt = stmt.where(Customer.managementor_id == managementor_id)
-    rows = db.execute(stmt.order_by(Customer.short_name)).all()
-    return [
+    if q:
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(Customer.name.like(like), Customer.short_name.like(like))
+        )
+
+    # 先 count 再分页
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = db.scalar(count_stmt) or 0
+
+    rows = db.execute(
+        stmt.order_by(Customer.short_name)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    items = [
         {
             "id": c.id, "name": c.name, "short_name": c.short_name,
             "genre": c.genre, "is_core": c.is_core, "is_acceptor": c.is_acceptor,
@@ -922,6 +942,7 @@ def customer_dict(
         }
         for c, mname in rows
     ]
+    return items, total
 
 
 def stats_overview(db: Session) -> dict:

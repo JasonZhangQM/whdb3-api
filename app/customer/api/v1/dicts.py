@@ -96,11 +96,19 @@ def customers_dict(
     is_core: bool | None = None,
     is_acceptor: bool | None = None,
     managementor_id: int | None = None,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
     db: Session = Depends(get_db),
     _: AuthContext = Depends(get_current_user),
 ):
-    """客户下拉字典（表单选择用，按类型/经理/核心/承兑人筛选）。"""
-    return ok(customer_service.customer_dict(db, genre, is_core, is_acceptor, managementor_id))
+    """客户下拉字典（表单选择用）。无 data_scope——业务模块选所有权人/保证人等
+    时需要看到全量客户，不应被 managementor 归属过滤。
+    """
+    items, total = customer_service.customer_dict(
+        db, genre, is_core, is_acceptor, managementor_id, q, page, page_size,
+    )
+    return ok({"items": items, "total": total, "page": page, "page_size": page_size})
 
 
 # ===== 授信区域（挂在 /dicts 下供下拉，管理接口见 credit_regions.py）=====
