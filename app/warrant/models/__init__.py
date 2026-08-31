@@ -78,7 +78,7 @@ class WarrantHouse(Base):
 
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
-    house_locate: Mapped[str] = mapped_column(String(255), comment="坐落（唯一）")
+    house_locate: Mapped[str] = mapped_column(String(255), unique=True, comment="坐落（唯一）")
     house_app: Mapped[int] = mapped_column(BigInteger, comment="房产用途（字典）")
     house_area: Mapped[float] = mapped_column(Numeric(12, 2), comment="面积")
     house_name: Mapped[str | None] = mapped_column(String(128))
@@ -95,7 +95,7 @@ class WarrantGround(Base):
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     ground_locate: Mapped[str] = mapped_column(String(255))
-    ground_app: Mapped[str] = mapped_column(String(128), comment="土地坐落/宗地号")
+    ground_app: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="土地坐落/宗地号")
     ground_area: Mapped[float] = mapped_column(Numeric(12, 2))
 
 
@@ -272,7 +272,7 @@ class WarrantStorage(Base):
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), index=True)
     storage_type: Mapped[int] = mapped_column(
-        SmallInteger, comment="10入库20续抵出库30已加保60无需入库110借出120归还310解保出库410移交"
+        SmallInteger, comment="10入库20续抵出库30已加保60无需入库110借出120归还310解保出库410移交990注销"
     )
     storage_explain: Mapped[str | None] = mapped_column(String(255))
     transfer_id: Mapped[int | None] = mapped_column(

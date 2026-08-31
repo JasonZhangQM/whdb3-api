@@ -246,9 +246,9 @@ def list_storages(
     db: Session = Depends(get_db),
     ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
-    """出入库历史列表。"""
-    detail = warrant_service.get_detail(db, warrant_id, ctx)
-    return ok({"items": detail["storages"]})
+    """出入库历史列表（轻量查询，不加载扩展表 / 所有权人等）。"""
+    items = warrant_service.list_storages(db, warrant_id, ctx)
+    return ok({"items": items})
 
 
 @router.post("/{warrant_id}/storages")
@@ -270,9 +270,9 @@ def list_evaluates(
     db: Session = Depends(get_db),
     ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
-    """评估历史列表（含复核）。"""
-    detail = warrant_service.get_detail(db, warrant_id, ctx)
-    return ok({"items": detail["evaluates"]})
+    """评估历史列表（含复核，轻量查询）。"""
+    items = warrant_service.list_evaluates(db, warrant_id, ctx)
+    return ok({"items": items})
 
 
 @router.post("/{warrant_id}/evaluates")

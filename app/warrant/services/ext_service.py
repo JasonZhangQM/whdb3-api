@@ -262,28 +262,20 @@ def _ground_dict(g: WarrantGround) -> dict:
 
 def update_type_detail(db: Session, warrant_id: int, body: TypeDetailUpdate, user_id: int, ctx: AuthContext) -> None:
     """按类型整体替换扩展信息：先清旧再写新（调用方包事务）。"""
+    from app.warrant.services.warrant_service import TYPE_EXT_FIELD
+
     w = _get_warrant(db, warrant_id, ctx)
     wtype = WarrantType(w.warrant_type)
-    ext = getattr(body, _type_field(wtype))
+    ext_field = TYPE_EXT_FIELD[wtype]
+    ext = getattr(body, ext_field)
     if ext is None:
-        raise BizError(4001, f"必须提供该类型的扩展信息字段")
+        raise BizError(4001, f"必须提供该类型的扩展信息字段: {ext_field}")
 
     _delete_ext(db, warrant_id, wtype)
     create_ext(db, warrant_id, wtype, body, user_id)
 
 
-def _type_field(wtype: WarrantType) -> str:
-    return {
-        WarrantType.HOUSE: "houses",
-        WarrantType.GROUND: "ground",
-        WarrantType.CONSTRUCTION: "construction",
-        WarrantType.RECEIVABLE: "receivable",
-        WarrantType.STOCK: "stock",
-        WarrantType.DRAFT: "draft",
-        WarrantType.VEHICLE: "vehicle",
-        WarrantType.CHATTEL: "chattel",
-        WarrantType.OTHER: "other",
-    }[wtype]
+# _type_field 已合并到 warrant_service.TYPE_EXT_FIELD，ext_service 不再单独维护。
 
 
 def _delete_ext(db: Session, warrant_id: int, wtype: WarrantType) -> None:

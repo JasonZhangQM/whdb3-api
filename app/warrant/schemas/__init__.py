@@ -93,12 +93,11 @@ class OwnershipUpdate(BaseModel):
     share_ratio: float | None = None
 
 
-# ===== 主表 =====
-class WarrantCreate(BaseModel):
-    """创建权证：主表 + 按类型的扩展信息 + 所有权人一次性提交（事务原子）。"""
+# ===== 类型扩展基类（WarrantCreate / TypeDetailUpdate 共用字段，一处定义）=====
+class _ExtBase(BaseModel):
+    """9 种权证类型的扩展信息字段集合——WarrantCreate 继承 + 主表元数据，
+    TypeDetailUpdate 直接使用做整体替换。子类新增字段加在此处即可。"""
 
-    warrant_num: str = Field(..., max_length=128)
-    warrant_type: WarrantTypeLiteral
     houses: list[HouseItem] | None = None
     ground: GroundCreate | None = None
     construction: ConstructionCreate | None = None
@@ -108,6 +107,14 @@ class WarrantCreate(BaseModel):
     vehicle: VehicleCreate | None = None
     chattel: ChattelCreate | None = None
     other: OtherCreate | None = None
+
+
+# ===== 主表 =====
+class WarrantCreate(_ExtBase):
+    """创建权证：主表 + 按类型的扩展信息 + 所有权人一次性提交（事务原子）。"""
+
+    warrant_num: str = Field(..., max_length=128)
+    warrant_type: WarrantTypeLiteral
     owners: list[OwnershipCreate] = []
 
 
@@ -132,23 +139,13 @@ class WarrantUpdate(BaseModel):
     inquiry_detail: str | None = None
 
 
-class TypeDetailUpdate(BaseModel):
+class TypeDetailUpdate(_ExtBase):
     """按类型更新扩展信息（整体替换；房产全量替换）。"""
-
-    houses: list[HouseItem] | None = None
-    ground: GroundCreate | None = None
-    construction: ConstructionCreate | None = None
-    receivable: ReceivableCreate | None = None
-    stock: StockCreate | None = None
-    draft: DraftCreate | None = None
-    vehicle: VehicleCreate | None = None
-    chattel: ChattelCreate | None = None
-    other: OtherCreate | None = None
 
 
 # ===== 出入库 / 评估 =====
 class StorageCreate(BaseModel):
-    storage_type: Literal[10, 20, 30, 60, 110, 120, 310, 410]
+    storage_type: Literal[10, 20, 30, 60, 110, 120, 310, 410, 990]
     storage_explain: str | None = None
     transfer_id: int | None = None
     storage_date: date
@@ -193,7 +190,7 @@ class ReceiveExtendCreate(BaseModel):
 # ===== 批量操作 / 字典 =====
 class BatchStorageReq(BaseModel):
     warrant_ids: list[int] = Field(..., min_length=1, max_length=100)
-    storage_type: Literal[10, 20, 30, 60, 110, 120, 310, 410]
+    storage_type: Literal[10, 20, 30, 60, 110, 120, 310, 410, 990]
     storage_explain: str | None = None
     transfer_id: int | None = None
     storage_date: date

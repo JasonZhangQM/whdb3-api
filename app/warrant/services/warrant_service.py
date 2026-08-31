@@ -174,21 +174,41 @@ def _user_names(db: Session, user_ids: set[int]) -> dict[int, str]:
 
 
 def _latest_storages(db: Session, warrant_ids: list[int]) -> dict[int, dict]:
+    """批量取每个权证最近一条出入库——ROW_NUMBER() 窗口函数，数据库层完成分组，
+    避免 Python 拉全量记录再按 warrant_id 分组。
+    """
+    from sqlalchemy import func
+
     if not warrant_ids:
         return {}
-    rows = db.execute(
-        select(WarrantStorage)
-        .where(WarrantStorage.warrant_id.in_(warrant_ids))
-        .order_by(WarrantStorage.storage_date.desc(), WarrantStorage.id.desc())
-    ).scalars()
-    result: dict[int, dict] = {}
-    seen: set[int] = set()
-    for s in rows:
-        if s.warrant_id in seen:
-            continue
-        seen.add(s.warrant_id)
-        result[s.warrant_id] = _storage_brief(s, None, None)
-    return result
+
+    # 用 CTE / 子查询先给每条出入库编排名，再取 rn=1——一条 SQL 搞定
+    storage = WarrantStorage
+    rn = func.row_number().over(
+        partition_by=storage.warrant_id,
+        order_by=(storage.storage_date.desc(), storage.id.desc()),
+    ).label("rn")
+    subq = (
+        select(storage.id, storage.warrant_id, storage.storage_type,
+               storage.storage_explain, storage.transfer_id,
+               storage.conservator_id, storage.storage_date, rn)
+        .where(storage.warrant_id.in_(warrant_ids))
+        .subquery()
+    )
+    rows = db.execute(select(subq).where(subq.c.rn == 1)).all()
+    return {
+        r.warrant_id: {
+            "id": r.id,
+            "storage_type": r.storage_type,
+            "storage_type_display": _disp("storage_type", r.storage_type),
+            "storage_explain": r.storage_explain,
+            "transfer_id": r.transfer_id,
+            "conservator_id": r.conservator_id,
+            "conservator_name": None,
+            "storage_date": r.storage_date,
+        }
+        for r in rows
+    }
 
 
 def _storage_brief(s: WarrantStorage, transfer_name, conservator_name) -> dict:
@@ -203,6 +223,66 @@ def _storage_brief(s: WarrantStorage, transfer_name, conservator_name) -> dict:
         "conservator_name": conservator_name,
         "storage_date": s.storage_date,
     }
+
+
+# ===== 出入库 / 评估（独立轻量查询 + 被 get_detail 复用）=====
+
+def list_storages(db: Session, warrant_id: int, ctx: AuthContext) -> list[dict]:
+    """出入库历史列表（独立接口 + get_detail 内部复用，不查扩展表）。"""
+    _get_warrant_with_scope(db, warrant_id, ctx)  # 鉴权 + 存在性校验
+    storages = db.scalars(
+        select(WarrantStorage)
+        .where(WarrantStorage.warrant_id == warrant_id)
+        .order_by(WarrantStorage.storage_date.desc(), WarrantStorage.id.desc())
+    ).all()
+    uids = {s.conservator_id for s in storages if s.conservator_id}
+    uids |= {s.transfer_id for s in storages if s.transfer_id}
+    user_names = _user_names(db, uids)
+    return [
+        _storage_brief(s, user_names.get(s.transfer_id), user_names.get(s.conservator_id))
+        for s in storages
+    ]
+
+
+def list_evaluates(db: Session, warrant_id: int, ctx: AuthContext) -> list[dict]:
+    """评估历史列表（含复核）。独立接口 + get_detail 内部复用。"""
+    _get_warrant_with_scope(db, warrant_id, ctx)
+    evaluates = db.scalars(
+        select(WarrantEvaluate)
+        .where(WarrantEvaluate.warrant_id == warrant_id)
+        .order_by(WarrantEvaluate.evaluate_date.desc(), WarrantEvaluate.id.desc())
+    ).all()
+    user_names = _user_names(db, {e.created_by for e in evaluates if e.created_by})
+    eval_ids = [e.id for e in evaluates]
+    recheck_map = dict()
+    if eval_ids:
+        rr = db.scalars(
+            select(WarrantEvaluateRecheck).where(WarrantEvaluateRecheck.evaluate_id.in_(eval_ids))
+        ).all()
+        recheck_map = {r.evaluate_id: r for r in rr}
+    return [
+        {
+            "id": e.id,
+            "evaluate_method": e.evaluate_method,
+            "evaluate_method_display": _disp("evaluate_method", e.evaluate_method),
+            "evaluate_value": float(e.evaluate_value),
+            "evaluate_date": e.evaluate_date,
+            "evaluate_explain": e.evaluate_explain,
+            "evaluate_company": e.evaluate_company,
+            "created_by_name": user_names.get(e.created_by, ""),
+            "recheck": (
+                {
+                    "id": rc.id,
+                    "check_value": float(rc.check_value),
+                    "recheck_value": float(rc.recheck_value),
+                    "recheck_channel": rc.recheck_channel,
+                    "remark": rc.remark,
+                }
+                if (rc := recheck_map.get(e.id)) else None
+            ),
+        }
+        for e in evaluates
+    ]
 
 
 # ===== 详情（一次性聚合）=====
@@ -229,57 +309,10 @@ def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         }
         for o, oname in owners_rows
     ]
-    # 出入库历史
-    storages = db.scalars(
-        select(WarrantStorage)
-        .where(WarrantStorage.warrant_id == warrant_id)
-        .order_by(WarrantStorage.storage_date.desc(), WarrantStorage.id.desc())
-    ).all()
-    uids = {s.conservator_id for s in storages} | {s.transfer_id for s in storages if s.transfer_id}
-    user_names = _user_names(db, uids | user_ids)
-    storage_items = [
-        _storage_brief(s, user_names.get(s.transfer_id or 0), user_names.get(s.conservator_id))
-        for s in storages
-    ]
-    # 评估历史 + 复核
-    evaluates = db.scalars(
-        select(WarrantEvaluate)
-        .where(WarrantEvaluate.warrant_id == warrant_id)
-        .order_by(WarrantEvaluate.evaluate_date.desc(), WarrantEvaluate.id.desc())
-    ).all()
-    eval_ids = [e.id for e in evaluates]
-    rechecks = dict()
-    if eval_ids:
-        rr = db.scalars(
-            select(WarrantEvaluateRecheck).where(
-                WarrantEvaluateRecheck.evaluate_id.in_(eval_ids)
-            )
-        ).all()
-        rechecks = {r.evaluate_id: r for r in rr}
-    evaluate_items = [
-        {
-            "id": e.id,
-            "evaluate_method": e.evaluate_method,
-            "evaluate_method_display": _disp("evaluate_method", e.evaluate_method),
-            "evaluate_value": float(e.evaluate_value),
-            "evaluate_date": e.evaluate_date,
-            "evaluate_explain": e.evaluate_explain,
-            "evaluate_company": e.evaluate_company,
-            "created_by_name": user_names.get(e.created_by, ""),
-            "recheck": (
-                {
-                    "id": rechecks[e.id].id,
-                    "check_value": float(rechecks[e.id].check_value),
-                    "recheck_value": float(rechecks[e.id].recheck_value),
-                    "recheck_channel": rechecks[e.id].recheck_channel,
-                    "remark": rechecks[e.id].remark,
-                }
-                if e.id in rechecks
-                else None
-            ),
-        }
-        for e in evaluates
-    ]
+    # 出入库 / 评估 —— 复用独立轻量函数（避免在 get_detail 里散落重复查询）
+    storage_items = list_storages(db, warrant_id, ctx)
+    evaluate_items = list_evaluates(db, warrant_id, ctx)
+    user_names = _user_names(db, user_ids)  # 主表创建人
 
     detail = {
         "id": w.id,
@@ -376,7 +409,11 @@ def update(db: Session, warrant_id: int, body: WarrantUpdate, ctx: AuthContext) 
 
 
 def delete(db: Session, warrant_id: int, ctx: AuthContext) -> None:
-    """删除拦截：已入库 / 已绑定项目（M3）/ 有评估外引用。"""
+    """删除拦截：已入库 / 已绑定项目（M3）。
+
+    TODO(M3)：项目绑定表 article_warrant_bindings 落地后，在此处补：
+        若该权证已绑定任何项目（article_warrant_bindings），拒绝删除并提示先解绑。
+    """
     w = _get_warrant_with_scope(db, warrant_id, ctx)
     if w.warrant_state not in (WarrantState.NOT_STORED, WarrantState.CANCELLED):
         raise BizError(4091, "权证已入库或已流转，不可删除，请走注销流程")
@@ -495,6 +532,7 @@ def batch_transfer(db: Session, warrant_ids: list[int], to_conservator_id: int, 
 
 
 def batch_cancel(db: Session, warrant_ids: list[int], reason: str, user_id: int, ctx: AuthContext) -> int:
+    """批量注销：状态置已注销 + 写注销出入库记录。"""
     from datetime import date
 
     today = date.today()
@@ -507,7 +545,7 @@ def batch_cancel(db: Session, warrant_ids: list[int], reason: str, user_id: int,
         db.add(
             WarrantStorage(
                 warrant_id=wid,
-                storage_type=StorageType.RELEASE_OUT,
+                storage_type=StorageType.CANCELLED,
                 storage_explain=f"批量注销：{reason}",
                 conservator_id=user_id,
                 storage_date=today,

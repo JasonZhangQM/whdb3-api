@@ -48,6 +48,7 @@ class StorageType(LabeledIntEnum):
     RETURN = 120, '归还'
     RELEASE_OUT = 310, '解保出库'
     TRANSFER = 410, '移交'
+    CANCELLED = 990, '注销'
 
 
 class DraftMainType(LabeledIntEnum):
