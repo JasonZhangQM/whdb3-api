@@ -10,6 +10,7 @@ WarrantTypeLiteral = Literal[1, 5, 6, 11, 21, 31, 41, 51, 55]
 
 # ===== 类型扩展 =====
 class HouseItem(BaseModel):
+    region_id: int | None = None
     house_locate: str = Field(..., max_length=255)
     house_app: int
     house_area: float = Field(..., gt=0)
@@ -19,6 +20,7 @@ class HouseItem(BaseModel):
 
 
 class GroundCreate(BaseModel):
+    region_id: int | None = None
     ground_locate: str
     ground_app: str
     ground_area: float = Field(..., gt=0)

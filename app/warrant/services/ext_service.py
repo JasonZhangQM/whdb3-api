@@ -138,14 +138,18 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     }
 
     if wtype == WarrantType.HOUSE:
-        houses = db.scalars(
-            select(WarrantHouse)
+        from app.user.models import Region
+        houses = db.execute(
+            select(WarrantHouse, Region.name.label("region_name"))
+            .outerjoin(Region, Region.id == WarrantHouse.region_id)
             .where(WarrantHouse.warrant_id == warrant_id)
             .order_by(WarrantHouse.id)
         ).all()
         result["houses"] = [
             {
                 "id": h.id,
+                "region_id": h.region_id,
+                "region_name": region_name,
                 "house_locate": h.house_locate,
                 "house_app": h.house_app,
                 "house_area": float(h.house_area),
@@ -154,11 +158,20 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
                 "house_usage": h.house_usage,
                 "house_usage_display": _disp("house_usage", h.house_usage),
             }
-            for h in houses
+            for h, region_name in houses
         ]
     elif wtype == WarrantType.GROUND:
-        g = db.scalar(select(WarrantGround).where(WarrantGround.warrant_id == warrant_id))
-        result["ground"] = _ground_dict(g) if g else None
+        from app.user.models import Region
+        row = db.execute(
+            select(WarrantGround, Region.name.label("region_name"))
+            .outerjoin(Region, Region.id == WarrantGround.region_id)
+            .where(WarrantGround.warrant_id == warrant_id)
+        ).first()
+        if row:
+            g, region_name = row
+            result["ground"] = _ground_dict(g, region_name)
+        else:
+            result["ground"] = None
     elif wtype == WarrantType.CONSTRUCTION:
         c = db.scalar(
             select(WarrantConstruction).where(WarrantConstruction.warrant_id == warrant_id)
@@ -250,8 +263,10 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     return result
 
 
-def _ground_dict(g: WarrantGround) -> dict:
+def _ground_dict(g: WarrantGround, region_name: str | None = None) -> dict:
     return {
+        "region_id": g.region_id,
+        "region_name": region_name,
         "ground_locate": g.ground_locate,
         "ground_app": g.ground_app,
         "ground_area": float(g.ground_area),
