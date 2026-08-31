@@ -173,14 +173,23 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         else:
             result["ground"] = None
     elif wtype == WarrantType.CONSTRUCTION:
-        c = db.scalar(
-            select(WarrantConstruction).where(WarrantConstruction.warrant_id == warrant_id)
-        )
-        result["construction"] = {
-            "construct_locate": c.construct_locate,
-            "construct_app": c.construct_app,
-            "construct_area": float(c.construct_area),
-        } if c else None
+        from app.user.models import Region
+        row = db.execute(
+            select(WarrantConstruction, Region.name.label("region_name"))
+            .outerjoin(Region, Region.id == WarrantConstruction.region_id)
+            .where(WarrantConstruction.warrant_id == warrant_id)
+        ).first()
+        if row:
+            c, region_name = row
+            result["construction"] = {
+                "region_id": c.region_id,
+                "region_name": region_name,
+                "construct_locate": c.construct_locate,
+                "construct_app": c.construct_app,
+                "construct_area": float(c.construct_area),
+            }
+        else:
+            result["construction"] = None
     elif wtype == WarrantType.RECEIVABLE:
         r = db.scalar(
             select(WarrantReceivable).where(WarrantReceivable.warrant_id == warrant_id)

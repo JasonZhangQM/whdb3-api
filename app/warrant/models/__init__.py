@@ -113,7 +113,11 @@ class WarrantConstruction(Base):
 
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
-    construct_locate: Mapped[str] = mapped_column(String(255))
+    region_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_regions.id", ondelete="SET NULL"), index=True,
+        comment="行政区域（方便按区域统计）",
+    )
+    construct_locate: Mapped[str] = mapped_column(String(255), comment="详细地址")
     construct_app: Mapped[str] = mapped_column(String(128), comment="工程用途")
     construct_area: Mapped[float] = mapped_column(Numeric(12, 2))
 

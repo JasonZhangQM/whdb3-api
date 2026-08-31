@@ -27,7 +27,8 @@ class GroundCreate(BaseModel):
 
 
 class ConstructionCreate(BaseModel):
-    construct_locate: str
+    region_id: int | None = None
+    construct_locate: str = Field(..., max_length=255)
     construct_app: str
     construct_area: float = Field(..., gt=0)
 
