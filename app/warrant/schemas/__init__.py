@@ -1,4 +1,4 @@
-"""权证模块 Schemas（M2 范围：他权/项目绑定随 M3）。"""
+﻿"""权证模块 Schemas（M2 范围：他权/项目绑定随 M3）。"""
 
 from datetime import date, datetime
 from typing import Literal
@@ -19,14 +19,14 @@ class HouseItem(BaseModel):
     house_usage: Literal[10, 20, 30] = 10
 
 
-class GroundCreate(BaseModel):
+class GroundItem(BaseModel):
     region_id: int | None = None
     ground_locate: str
     ground_app: str
     ground_area: float = Field(..., gt=0)
 
 
-class ConstructionCreate(BaseModel):
+class ConstructionItem(BaseModel):
     region_id: int | None = None
     construct_locate: str = Field(..., max_length=255)
     construct_app: str
@@ -102,8 +102,8 @@ class _ExtBase(BaseModel):
     TypeDetailUpdate 直接使用做整体替换。子类新增字段加在此处即可。"""
 
     houses: list[HouseItem] | None = None
-    ground: GroundCreate | None = None
-    construction: ConstructionCreate | None = None
+    grounds: list[GroundItem] | None = None
+    constructions: list[ConstructionItem] | None = None
     receivable: ReceivableCreate | None = None
     stock: StockCreate | None = None
     draft: DraftCreate | None = None

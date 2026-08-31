@@ -53,11 +53,11 @@ def create_ext(db: Session, warrant_id: int, wtype: WarrantType, body, user_id: 
         for house in body.houses:
             _add_house(db, warrant_id, house, user_id)
     elif wtype == WarrantType.GROUND:
-        g = body.ground
-        db.add(WarrantGround(warrant_id=warrant_id, **g.model_dump(), created_by=user_id))
+        for g in body.grounds:
+            db.add(WarrantGround(warrant_id=warrant_id, **g.model_dump(), created_by=user_id))
     elif wtype == WarrantType.CONSTRUCTION:
-        c = body.construction
-        db.add(WarrantConstruction(warrant_id=warrant_id, **c.model_dump(), created_by=user_id))
+        for c in body.constructions:
+            db.add(WarrantConstruction(warrant_id=warrant_id, **c.model_dump(), created_by=user_id))
     elif wtype == WarrantType.RECEIVABLE:
         r = body.receivable
         recv = WarrantReceivable(
@@ -162,34 +162,32 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         ]
     elif wtype == WarrantType.GROUND:
         from app.user.models import Region
-        row = db.execute(
+        rows = db.execute(
             select(WarrantGround, Region.name.label("region_name"))
             .outerjoin(Region, Region.id == WarrantGround.region_id)
             .where(WarrantGround.warrant_id == warrant_id)
-        ).first()
-        if row:
-            g, region_name = row
-            result["ground"] = _ground_dict(g, region_name)
-        else:
-            result["ground"] = None
+            .order_by(WarrantGround.id)
+        ).all()
+        result["grounds"] = [_ground_dict(g, region_name) for g, region_name in rows]
     elif wtype == WarrantType.CONSTRUCTION:
         from app.user.models import Region
-        row = db.execute(
+        rows = db.execute(
             select(WarrantConstruction, Region.name.label("region_name"))
             .outerjoin(Region, Region.id == WarrantConstruction.region_id)
             .where(WarrantConstruction.warrant_id == warrant_id)
-        ).first()
-        if row:
-            c, region_name = row
-            result["construction"] = {
+            .order_by(WarrantConstruction.id)
+        ).all()
+        result["constructions"] = [
+            {
+                "id": c.id,
                 "region_id": c.region_id,
                 "region_name": region_name,
                 "construct_locate": c.construct_locate,
                 "construct_app": c.construct_app,
                 "construct_area": float(c.construct_area),
             }
-        else:
-            result["construction"] = None
+            for c, region_name in rows
+        ]
     elif wtype == WarrantType.RECEIVABLE:
         r = db.scalar(
             select(WarrantReceivable).where(WarrantReceivable.warrant_id == warrant_id)

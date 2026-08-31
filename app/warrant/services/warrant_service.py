@@ -44,8 +44,8 @@ STORAGE_STATE_MAP = {
 # 类型 → 创建/更新时扩展信息属性名（warrant_type 与 schema 字段对应）
 TYPE_EXT_FIELD = {
     WarrantType.HOUSE: "houses",
-    WarrantType.GROUND: "ground",
-    WarrantType.CONSTRUCTION: "construction",
+    WarrantType.GROUND: "grounds",
+    WarrantType.CONSTRUCTION: "constructions",
     WarrantType.RECEIVABLE: "receivable",
     WarrantType.STOCK: "stock",
     WarrantType.DRAFT: "draft",
@@ -371,6 +371,10 @@ def create(db: Session, body: WarrantCreate, user_id: int) -> int:
         raise BizError(4001, f"该类型必须提供扩展信息: {ext_field}")
     if wtype == WarrantType.HOUSE and not body.houses:
         raise BizError(4001, "房产类型至少提供一套房产")
+    if wtype == WarrantType.GROUND and not body.grounds:
+        raise BizError(4001, "土地类型至少提供一宗土地")
+    if wtype == WarrantType.CONSTRUCTION and not body.constructions:
+        raise BizError(4001, "在建工程类型至少提供一项在建工程")
 
     w = Warrant(warrant_num=body.warrant_num, warrant_type=body.warrant_type, created_by=user_id)
     db.add(w)
