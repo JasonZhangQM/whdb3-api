@@ -123,7 +123,19 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     """按权证类型聚合扩展信息（详情页 type-detail 块）。"""
     w = _get_warrant(db, warrant_id, ctx)
     wtype = WarrantType(w.warrant_type)
-    result: dict = {}
+    # 统一默认值：数组 -> []，对象 -> None，保证前端访问安全
+    result: dict = {
+        "houses": [],
+        "ground": None,
+        "construction": None,
+        "receivable": None,
+        "stock": None,
+        "draft": None,
+        "draft_extends": [],
+        "vehicle": None,
+        "chattel": None,
+        "other": None,
+    }
 
     if wtype == WarrantType.HOUSE:
         houses = db.scalars(
@@ -193,7 +205,7 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
             "denomination": float(d.denomination),
             "draft_detail": d.draft_detail,
         } if d else None
-        result["draft_extends"] = list_draft_extends(db, warrant_id)["items"]
+        result["draft_extends"] = list_draft_extends(db, warrant_id, ctx)["items"]
     elif wtype == WarrantType.VEHICLE:
         v = db.scalar(select(WarrantVehicle).where(WarrantVehicle.warrant_id == warrant_id))
         result["vehicle"] = {
