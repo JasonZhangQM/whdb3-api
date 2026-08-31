@@ -32,11 +32,33 @@ config.set_main_option("sqlalchemy.url", settings.database_url)
 target_metadata = Base.metadata
 
 
+def include_object(obj, name, obj_type, reflected, compare_to):
+    """过滤掉 FK 列上的显式 ix_ 索引 diff。
+
+    MySQL InnoDB 硬约束：FK 列必须有索引，且 FK 依赖的唯一索引无法 DROP。
+    当模型去掉 FK 列上显式的 index=True 后，DB 里遗留的 ix_xxx 索引无法删除，
+    但 autogenerate 会误报"需要 DROP 索引"的假 diff。这里过滤掉这类 FK 索引。
+    """
+    if obj_type == "index" and reflected and name and name.startswith("ix_"):
+        # reflected=True 表示这是 DB 里有但模型没有的
+        # 检查索引是否全部建在 FK 列上
+        table_name = obj.table.name
+        for col in obj.columns:
+            sa_col = target_metadata.tables[table_name].c[col.name]
+            if not sa_col.foreign_keys:
+                # 只要有一列不是 FK，这个索引就不跳过
+                return True
+        # 全是 FK 列，跳过
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """离线模式：仅生成 SQL（--sql）。"""
     context.configure(
         url=settings.database_url,
         target_metadata=target_metadata,
+        include_object=include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -54,7 +76,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(connection=connection, target_metadata=target_metadata, include_object=include_object)
 
         with context.begin_transaction():
             context.run_migrations()

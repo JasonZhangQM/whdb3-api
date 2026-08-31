@@ -71,8 +71,6 @@ class CustomNature(LabeledIntEnum):
     PRIVATE = 31, '民营'
     FOREIGN = 41, '外资'
     JOINT_VENTURE = 51, '合资'
-    LIMITED = 61, '有限责任'
-    STOCK = 71, '股份有限'
 
 
 class MaritalStatus(LabeledIntEnum):
