@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import IntegrityError
 
 from app.approval.api.v1 import router as approval_router
 from app.attachment.api.v1 import router as attachment_router
@@ -75,6 +76,29 @@ async def validation_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=200,
         content={"code": 4001, "message": "参数校验失败", "data": errors},
+    )
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_handler(request: Request, exc: IntegrityError):
+    """数据库唯一约束 / 外键约束 → 友好提示。"""
+    # MySQL 1062: Duplicate entry 'xxx' for key 'table.name'
+    msg = str(exc.orig)
+    if "1062" in msg or "Duplicate entry" in msg:
+        # 尽量定位到是哪个表的哪个字段
+        msg_lower = msg.lower()
+        if "customers" in msg_lower:
+            raise BizError(4091, "客户名称已存在") from exc
+        if "company_profiles" in msg_lower:
+            raise BizError(4091, "统一社会信用代码已存在") from exc
+        if "personal_profiles" in msg_lower:
+            raise BizError(4091, "身份证号已存在") from exc
+        raise BizError(4091, "数据已存在") from exc
+    # 其他 IntegrityError 走兜底
+    logger.warning("integrity error: %s", msg)
+    return JSONResponse(
+        status_code=200,
+        content={"code": 5001, "message": "数据操作冲突", "data": None},
     )
 
 

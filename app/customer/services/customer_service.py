@@ -394,47 +394,41 @@ def get_detail(db: Session, customer_id: int) -> dict:
 # ===== 创建 / 批量移交（直写，无审批）=====
 
 def _validate_create_payload(db: Session, data: dict) -> None:
-    """创建校验：唯一性 + 外键存在性。"""
-    name = data.get("name")
-    short_name = data.get("short_name")
-    dup = db.scalar(
-        select(Customer.id).where(
-            or_(Customer.name == name, Customer.short_name == short_name)
-        )
-    )
-    if dup is not None:
-        raise BizError(4091, "客户名称或简称已存在")
+    """创建校验：三个业务唯一字段 + 外键存在性。"""
+    from app.user.models import User
+
+    # short_name 唯一
+    if data.get("short_name"):
+        dup = db.scalar(select(Customer.id).where(Customer.short_name == data["short_name"]))
+        if dup is not None:
+            raise BizError(4091, "客户简称已存在")
 
     genre = data.get("genre")
     if genre == Genre.COMPANY:
         company = data.get("company") or {}
         if not company.get("credit_code"):
             raise BizError(4001, "企业客户必须提供统一社会信用代码")
-        dup_code = db.scalar(
-            select(CompanyProfile.id).where(
-                CompanyProfile.credit_code == company["credit_code"]
-            )
+        dup = db.scalar(
+            select(CompanyProfile.id).where(CompanyProfile.credit_code == company["credit_code"])
         )
-        if dup_code is not None:
+        if dup is not None:
             raise BizError(4091, "统一社会信用代码已存在")
     elif genre == Genre.PERSONAL:
         personal = data.get("personal") or {}
         if not personal.get("license_num"):
             raise BizError(4001, "个人客户必须提供身份证号")
-        dup_license = db.scalar(
-            select(PersonalProfile.id).where(
-                PersonalProfile.license_num == personal["license_num"]
-            )
+        dup = db.scalar(
+            select(PersonalProfile.id).where(PersonalProfile.license_num == personal["license_num"])
         )
-        if dup_license is not None:
+        if dup is not None:
             raise BizError(4091, "身份证号已存在")
 
-    # 外键存在性
-    from app.user.models import User
+    # 外键存在性（区域必填；行业/集团可空，空值跳过校验）
 
     if db.get(User, data.get("managementor_id")) is None:
         raise BizError(4041, "管护经理不存在")
-    if db.get(User, data.get("controler_id")) is None:
+    controler_id = data.get("controler_id")
+    if controler_id is not None and db.get(User, controler_id) is None:
         raise BizError(4041, "风控专员不存在")
 
 
@@ -447,10 +441,11 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
     data = body.model_dump()
     _validate_create_payload(db, data)
 
-    # 外键存在性（区域/行业/集团）
+    # 外键存在性（区域必填；行业/集团可空，空值跳过校验）
     if db.get(Region, data["region_id"]) is None:
         raise BizError(4041, "行政区域不存在")
-    if db.get(IndustryModel, data["industry_id"]) is None:
+    industry_id = data.get("industry_id")
+    if industry_id is not None and db.get(IndustryModel, industry_id) is None:
         raise BizError(4041, "行业不存在")
     if data.get("group_id") and db.get(Group, data["group_id"]) is None:
         raise BizError(4041, "集团不存在")

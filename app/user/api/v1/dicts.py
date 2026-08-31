@@ -46,7 +46,8 @@ def positions(dept_id: int | None = None,
 
 @router.get("/users")
 def user_options(dept_id: int | None = None, position: str | None = None,
+                 role: str | None = None,
                  ctx: AuthContext = Depends(get_current_user),
                  db: Session = Depends(get_db)):
-    """员工下拉（在职，按部门/职务筛选）。"""
-    return ok(org_service.list_user_options(db, dept_id, position))
+    """员工下拉（在职，按部门/职务/角色 code 筛选）。role 传角色 code 如 pm/controler。"""
+    return ok(org_service.list_user_options(db, dept_id, position, role))

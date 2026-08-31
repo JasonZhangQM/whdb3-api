@@ -202,22 +202,21 @@ class CustomerCreate(BaseModel):
     """添加客户（接入审批流 customer_create，审批通过才落库）。"""
 
     name: str = Field(..., max_length=128)
-    short_name: str = Field(..., max_length=16)
+    short_name: str = Field(..., max_length=8)
     genre: Literal[1, 2]
-    contact_addr: str
-    linkman: str
-    contact_num: str
+    contact_addr: str | None = None
+    linkman: str | None = None
+    contact_num: str | None = None
     region_id: int
     credit_region_id: int | None = None
-    industry_id: int
+    industry_id: int | None = None
     group_id: int | None = None
     is_core: bool = False
     is_acceptor: bool = False
     core_rate: float | None = None
     core_remark: str | None = None
     managementor_id: int
-    controler_id: int
-    tags: list[int] = []
+    controler_id: int | None = None
     company: CompanyProfileCreate | None = None
     personal: PersonalProfileCreate | None = None
 

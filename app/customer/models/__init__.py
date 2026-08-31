@@ -114,30 +114,18 @@ class Customer(Base):
     short_name: Mapped[str] = mapped_column(String(32), unique=True)
     genre: Mapped[int] = mapped_column(SmallInteger, index=True, comment="1企业2个人")
     custom_typ: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10新增20存量30存量新增")
-    custom_state: Mapped[int] = mapped_column(
-        SmallInteger, default=10, index=True, comment="10正常20反担保30小贷90注销"
-    )
+    custom_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="10正常20反担保30小贷90注销")
     contact_addr: Mapped[str | None] = mapped_column(String(255))
     linkman: Mapped[str | None] = mapped_column(String(64))
     contact_num: Mapped[str | None] = mapped_column(String(64))
-    region_id: Mapped[int | None] = mapped_column(
-        ForeignKey("user_regions.id"), index=True, comment="行政区域"
-    )
-    credit_region_id: Mapped[int | None] = mapped_column(
-        ForeignKey("customer_credit_regions.id"), index=True, comment="授信区域"
-    )
-    industry_id: Mapped[int | None] = mapped_column(
-        ForeignKey("customer_industries.id"), comment="国民经济行业"
-    )
-    group_id: Mapped[int | None] = mapped_column(
-        ForeignKey("customer_groups.id"), index=True, comment="所属集团"
-    )
+    region_id: Mapped[int | None] = mapped_column(ForeignKey("user_regions.id"), index=True, comment="行政区域")
+    credit_region_id: Mapped[int | None] = mapped_column(ForeignKey("customer_credit_regions.id"), index=True, comment="授信区域")
+    industry_id: Mapped[int | None] = mapped_column(ForeignKey("customer_industries.id"), comment="国民经济行业")
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("customer_groups.id"), index=True, comment="所属集团")
     is_core: Mapped[bool] = mapped_column(Boolean, default=False, index=True, comment="票据核心企业")
     is_acceptor: Mapped[bool] = mapped_column(Boolean, default=False, index=True, comment="票据承兑人")
-    managementor_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), index=True, comment="管护经理"
-    )
-    controler_id: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="风控专员")
+    managementor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, comment="管护经理")
+    controler_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), comment="风控专员")
     # 核心企业专属
     core_rate: Mapped[float | None] = mapped_column(Numeric(6, 2), comment="核心企业费率%")
     core_remark: Mapped[str | None] = mapped_column(String(255), comment="核心企业备注")
@@ -151,9 +139,7 @@ class Customer(Base):
     g_value: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="反担保价值")
     g_radio: Mapped[float] = mapped_column(Numeric(8, 2), default=0, comment="授信覆盖率%")
     v_radio: Mapped[float] = mapped_column(Numeric(8, 2), default=0, comment="在保覆盖率%")
-    classification: Mapped[int] = mapped_column(
-        SmallInteger, default=10, index=True, comment="五级分类"
-    )
+    classification: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="五级分类")
     # 最新经营数据快照
     sales_revenue: Mapped[float | None] = mapped_column(Numeric(18, 2))
     total_assets: Mapped[float | None] = mapped_column(Numeric(18, 2))
@@ -171,9 +157,7 @@ class CompanyProfile(Base):
     __tablename__ = "customer_company_profiles"
 
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id"), unique=True, index=True
-    )
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), unique=True, index=True)
     credit_code: Mapped[str] = mapped_column(String(32), unique=True, comment="统一社会信用代码")
     decisionor: Mapped[int | None] = mapped_column(SmallInteger, comment="决策机构")
     custom_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="企业性质")

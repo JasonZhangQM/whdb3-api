@@ -399,8 +399,9 @@ def list_login_logs(db: Session, page: int, page_size: int,
 # ================= 字典 =================
 
 def list_user_options(db: Session, dept_id: int | None = None,
-                      position: str | None = None) -> list[dict]:
-    """员工下拉（在职）。"""
+                      position: str | None = None,
+                      role: str | None = None) -> list[dict]:
+    """员工下拉（在职）。role 为角色 code（如 pm/controler）时按拥有该角色过滤。"""
     from app.user.models import Department
 
     stmt = select(User, Department.name).outerjoin(
@@ -410,6 +411,16 @@ def list_user_options(db: Session, dept_id: int | None = None,
         stmt = stmt.where(User.dept_id == dept_id)
     if position:
         stmt = stmt.where(User.position == position)
+    if role:
+        # EXISTS 子查询：用户拥有指定 code 的角色
+        from sqlalchemy import exists as sa_exists
+        stmt = stmt.where(sa_exists(
+            select(UserRole.id).where(
+                UserRole.user_id == User.id,
+                UserRole.role_id == Role.id,
+                Role.code == role,
+            )
+        ))
     rows = db.execute(stmt.order_by(User.id)).all()
     return [dict(id=u.id, username=u.username, name=u.name,
                  dept_name=dname, position=u.position) for u, dname in rows]
