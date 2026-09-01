@@ -77,9 +77,9 @@ class WarrantHouse(Base):
     __tablename__ = "warrant_houses"
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
-    region_id: Mapped[int | None] = mapped_column(
-        ForeignKey("user_regions.id", ondelete="SET NULL"), index=True,
-        comment="行政区域（方便按区域统计）",
+    region_id: Mapped[int] = mapped_column(
+        ForeignKey("user_regions.id", ondelete="RESTRICT"),
+        comment="行政区域（必填，方便按区域统计）",
     )
     house_locate: Mapped[str] = mapped_column(String(255), comment="详细地址（换证后同坐落可能出现多套证，不唯一）")
     house_app: Mapped[int] = mapped_column(BigInteger, comment="房产用途（字典）")
@@ -96,9 +96,9 @@ class WarrantGround(Base):
     __tablename__ = "warrant_grounds"
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
-    region_id: Mapped[int | None] = mapped_column(
-        ForeignKey("user_regions.id", ondelete="SET NULL"), index=True,
-        comment="行政区域（方便按区域统计）",
+    region_id: Mapped[int] = mapped_column(
+        ForeignKey("user_regions.id", ondelete="RESTRICT"),
+        comment="行政区域（必填，方便按区域统计）",
     )
     ground_locate: Mapped[str] = mapped_column(String(255), comment="详细地址")
     ground_app: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="土地用途")
@@ -112,9 +112,9 @@ class WarrantConstruction(Base):
     __tablename__ = "warrant_constructions"
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
-    region_id: Mapped[int | None] = mapped_column(
-        ForeignKey("user_regions.id", ondelete="SET NULL"), index=True,
-        comment="行政区域（方便按区域统计）",
+    region_id: Mapped[int] = mapped_column(
+        ForeignKey("user_regions.id", ondelete="RESTRICT"),
+        comment="行政区域（必填，方便按区域统计）",
     )
     construct_locate: Mapped[str] = mapped_column(String(255), comment="详细地址")
     construct_app: Mapped[str] = mapped_column(String(128), comment="工程用途")

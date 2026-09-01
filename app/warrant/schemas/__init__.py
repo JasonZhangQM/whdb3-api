@@ -1,4 +1,4 @@
-﻿"""权证模块 Schemas（M2 范围：他权/项目绑定随 M3）。"""
+"""权证模块 Schemas（M2 范围：他权/项目绑定随 M3）。"""
 
 from datetime import date, datetime
 from typing import Literal
@@ -10,7 +10,7 @@ WarrantTypeLiteral = Literal[1, 5, 6, 11, 21, 31, 41, 51, 55]
 
 # ===== 类型扩展 =====
 class HouseItem(BaseModel):
-    region_id: int | None = None
+    region_id: int
     house_locate: str = Field(..., max_length=255)
     house_app: int
     house_area: float = Field(..., gt=0)
@@ -20,14 +20,14 @@ class HouseItem(BaseModel):
 
 
 class GroundItem(BaseModel):
-    region_id: int | None = None
+    region_id: int
     ground_locate: str
     ground_app: str
     ground_area: float = Field(..., gt=0)
 
 
 class ConstructionItem(BaseModel):
-    region_id: int | None = None
+    region_id: int
     construct_locate: str = Field(..., max_length=255)
     construct_app: str
     construct_area: float = Field(..., gt=0)

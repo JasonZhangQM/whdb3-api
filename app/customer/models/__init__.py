@@ -158,14 +158,14 @@ class CompanyProfile(Base):
 
 
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), unique=True)
-    credit_code: Mapped[str] = mapped_column(String(32), unique=True, comment="统一社会信用代码")
+    credit_code: Mapped[str] = mapped_column(String(32), unique=True, comment="统一信用代码")
     decisionor: Mapped[int | None] = mapped_column(SmallInteger, comment="决策机构")
     custom_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="企业性质")
     industry_c: Mapped[int | None] = mapped_column(BigInteger, comment="工信部划分行业")
     typing: Mapped[int] = mapped_column(SmallInteger, default=90, comment="企业划型")
     capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="注册资本")
     paid_capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="实收资本")
-    registered_addr: Mapped[str | None] = mapped_column(String(255))
+    registered_addr: Mapped[str | None] = mapped_column(String(255), comment="注册地址")
     representative: Mapped[str | None] = mapped_column(String(64), comment="法人代表")
 
 
@@ -178,7 +178,7 @@ class PersonalProfile(Base):
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id"), unique=True
     )
-    license_num: Mapped[str] = mapped_column(String(18), unique=True, comment="身份证号")
+    license_num: Mapped[str] = mapped_column(String(18), unique=True, comment="身份证号码")
     license_addr: Mapped[str | None] = mapped_column(String(255))
     marital_status: Mapped[int | None] = mapped_column(SmallInteger, comment="婚姻状态")
     household_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="户籍性质")
