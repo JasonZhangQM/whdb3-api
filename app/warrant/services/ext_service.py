@@ -201,7 +201,10 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
             result["receivable"] = {
                 "id": r.id,
                 "receivable_detail": r.receivable_detail,
-                "receive_units": [u.receive_unit for u in units],
+                # 带 id 供详情页删除操作使用
+                "receive_units": [
+                    {"id": u.id, "receive_unit": u.receive_unit} for u in units
+                ],
             }
         else:
             result["receivable"] = None
