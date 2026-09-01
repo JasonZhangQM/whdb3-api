@@ -6,7 +6,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.deps import AuthContext, require_perm
+from app.core.deps import AuthContext, get_current_user, require_perm
 from app.core.db import get_db
 from app.core.response import ok
 from app.core.response import page as page_result
@@ -159,6 +159,16 @@ def change_controler(
 
 
 # ===== 经营快照 / 分类 / 标签 =====
+
+@router.get("/{customer_id}/extends")
+def list_extends(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(get_current_user),
+):
+    """经营快照历史列表（仅登录即可，只读字典接口不绑定 module:list）。"""
+    return ok(customer_service.list_extends(db, customer_id))
+
 
 @router.post("/{customer_id}/extends")
 def add_extend(

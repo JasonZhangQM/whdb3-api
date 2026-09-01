@@ -590,6 +590,31 @@ def delete_extend(db: Session, customer_id: int, extend_id: int) -> None:
     db.delete(e)
 
 
+def list_extends(db: Session, customer_id: int) -> list[dict]:
+    """经营快照历史列表（按基准日倒序）。"""
+    from app.user.models import User
+
+    _get_or_404(db, customer_id)
+    rows = db.execute(
+        select(CustomerExtend, User.name)
+        .join(User, User.id == CustomerExtend.created_by)
+        .where(CustomerExtend.customer_id == customer_id)
+        .order_by(CustomerExtend.data_date.desc())
+    ).all()
+    return [
+        {
+            "id": e.id,
+            "sales_revenue": float(e.sales_revenue),
+            "total_assets": float(e.total_assets),
+            "people_engaged": float(e.people_engaged),
+            "data_date": e.data_date,
+            "typing": e.typing,
+            "created_by_name": uname,
+        }
+        for e, uname in rows
+    ]
+
+
 def _classify_typing(
     db: Session, customer_id: int, sales_revenue: float,
     total_assets: float, people_engaged: float,
