@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.deps import AuthContext, require_perm
+from app.core.deps import AuthContext, get_current_user, require_perm
 from app.core.db import get_db
 from app.core.response import ok
 from app.core.response import page as page_result
@@ -16,9 +16,9 @@ router = APIRouter(prefix="/customer-groups", tags=["customer-group"])
 @router.get("")
 def list_groups(
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:list")),
+    _: AuthContext = Depends(get_current_user),
 ):
-    """集团树（带成员数/在保汇总/母公司名称）。"""
+    """集团树（下拉字典用，带成员数/在保汇总/母公司名称）。"""
     return ok(group_service.tree(db))
 
 
@@ -26,7 +26,7 @@ def list_groups(
 def create_group(
     body: GroupCreate,
     db: Session = Depends(get_db),
-    user: AuthContext = Depends(require_perm("customer:create")),
+    user: AuthContext = Depends(require_perm("customer:group_list")),
 ):
     """新建集团（母公司自动加入成员）。"""
     group_id = group_service.create(
@@ -42,7 +42,7 @@ def create_group(
 def get_group(
     group_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:detail")),
+    _: AuthContext = Depends(require_perm("customer:group_list")),
 ):
     """集团详情（成员 Top20 + 授信/在保汇总）。"""
     return ok(group_service.get_detail(db, group_id))
@@ -53,7 +53,7 @@ def update_group(
     group_id: int,
     body: GroupUpdate,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:update")),
+    _: AuthContext = Depends(require_perm("customer:group_list")),
 ):
     group_service.update(
         db, group_id, body.name, body.parent_id,
@@ -68,7 +68,7 @@ def update_group(
 def delete_group(
     group_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:delete")),
+    _: AuthContext = Depends(require_perm("customer:group_list")),
 ):
     """删除集团（拦截：仍有成员/子集团）。"""
     group_service.delete(db, group_id)
@@ -82,7 +82,7 @@ def list_group_members(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:detail")),
+    _: AuthContext = Depends(require_perm("customer:group_list")),
 ):
     items, total = group_service.list_members(db, group_id, page, page_size)
     return page_result(items, total, page, page_size)
@@ -93,7 +93,7 @@ def add_group_members(
     group_id: int,
     body: GroupMemberAddReq,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:update")),
+    _: AuthContext = Depends(require_perm("customer:group_list")),
 ):
     """批量加入成员企业（拦截：非企业客户/已属其他集团）。"""
     added = group_service.add_members(db, group_id, body.customer_ids)
@@ -106,7 +106,7 @@ def remove_group_member(
     group_id: int,
     customer_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:update")),
+    _: AuthContext = Depends(require_perm("customer:group_list")),
 ):
     """移除成员企业（母公司不可移除）。"""
     group_service.remove_member(db, group_id, customer_id)

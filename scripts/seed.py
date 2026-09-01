@@ -69,6 +69,8 @@ MENU_PERM_NAMES: dict[str, str] = {
     "log:login": "登录日志查询",
     "institution:list": "机构列表",
     "customer:list": "客户列表",
+    "customer:tags_list": "客户标签",
+    "customer:group_list": "集团管理",
     "warrant:list": "权证列表",
 }
 

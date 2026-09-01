@@ -41,7 +41,7 @@ def remove_tag_customer(
     tag_id: int,
     customer_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:update")),
+    _: AuthContext = Depends(require_perm("customer:tags_list")),
 ):
     """移除 标签↔客户 关联（详情抽屉操作列）。"""
     region_service.remove_tag_customer(db, tag_id, customer_id)
@@ -53,9 +53,9 @@ def remove_tag_customer(
 def create_tag(
     body: TagCreate,
     db: Session = Depends(get_db),
-    user: AuthContext = Depends(require_perm("customer:update")),
+    user: AuthContext = Depends(require_perm("customer:tags_list")),
 ):
-    """新增标签（管理员类操作，借 customer:update 权限点）。"""
+    """新增标签。"""
     tag_id = region_service.create_tag(db, body.name, body.type, user.user_id)
     db.commit()
     return ok({"id": tag_id}, message="标签已创建")
@@ -65,7 +65,7 @@ def create_tag(
 def delete_tag(
     tag_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:update")),
+    _: AuthContext = Depends(require_perm("customer:tags_list")),
 ):
     """删除标签（拦截：已被客户使用）。"""
     region_service.delete_tag(db, tag_id)
@@ -78,7 +78,7 @@ def update_tag(
     tag_id: int,
     body: dict,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:update")),
+    _: AuthContext = Depends(require_perm("customer:tags_list")),
 ):
     """编辑标签（name/type 自由字段，留 None 保持不变）。"""
     name = body.get("name")
