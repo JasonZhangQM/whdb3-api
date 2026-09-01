@@ -5,7 +5,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext, apply_data_scope_filter
@@ -1042,6 +1042,8 @@ def add_contact(
         customer_id=customer_id, created_by=user_id, **body.model_dump()
     )
     db.add(c)
+    if body.is_primary:
+        _clear_other_primaries(db, customer_id, exclude_contact_id=None)
     db.flush()
     return c.id
 
@@ -1050,13 +1052,36 @@ def update_contact(
     db: Session, customer_id: int, contact_id: int, body: CustomerContactUpdate
 ) -> None:
     c = _get_contact(db, customer_id, contact_id)
-    for k, v in body.model_dump(exclude_unset=True, exclude_none=True).items():
+    data = body.model_dump(exclude_unset=True, exclude_none=True)
+    for k, v in data.items():
         setattr(c, k, v)
+    # 如果本次把 is_primary 设为 True，清掉同客户其他联系人的首选
+    if data.get("is_primary") is True:
+        _clear_other_primaries(db, customer_id, exclude_contact_id=contact_id)
 
 
 def delete_contact(db: Session, customer_id: int, contact_id: int) -> None:
     c = _get_contact(db, customer_id, contact_id)
     db.delete(c)
+
+
+def _clear_other_primaries(
+    db: Session, customer_id: int, exclude_contact_id: int | None
+) -> None:
+    """同客户项下设了首选后，将其他联系人的 is_primary 清零。
+
+    exclude_contact_id：本次刚设为首选的联系人 ID（update 场景需跳过自身，
+    add 场景传 None 让 SQL 忽略该条件——新加行还没 flush 也无冲突）。
+    """
+    stmt = (
+        update(CustomerContact)
+        .where(CustomerContact.customer_id == customer_id)
+        .where(CustomerContact.is_primary.is_(True))
+        .values(is_primary=False)
+    )
+    if exclude_contact_id is not None:
+        stmt = stmt.where(CustomerContact.id != exclude_contact_id)
+    db.execute(stmt)
 
 
 def _get_contact(db: Session, customer_id: int, contact_id: int) -> CustomerContact:
