@@ -77,14 +77,11 @@ class WarrantHouse(Base):
     __tablename__ = "warrant_houses"
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
-    region_id: Mapped[int] = mapped_column(
-        ForeignKey("user_regions.id", ondelete="RESTRICT"),
-        comment="行政区域（必填，方便按区域统计）",
-    )
+    region_id: Mapped[int] = mapped_column(ForeignKey("user_regions.id", ondelete="RESTRICT"),comment="行政区域（必填，方便按区域统计）")
     house_locate: Mapped[str] = mapped_column(String(255), comment="详细地址（换证后同坐落可能出现多套证，不唯一）")
     house_app: Mapped[int] = mapped_column(BigInteger, comment="房产用途（字典）")
     house_area: Mapped[float] = mapped_column(Numeric(12, 2), comment="面积")
-    house_name: Mapped[str | None] = mapped_column(String(128))
+    house_name: Mapped[str | None] = mapped_column(String(128), comment="楼盘名")
     house_build_year: Mapped[int | None] = mapped_column(SmallInteger)
     house_usage: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10自用20出租30空置")
 

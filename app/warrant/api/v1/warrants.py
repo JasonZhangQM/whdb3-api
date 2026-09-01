@@ -15,9 +15,12 @@ from app.warrant.schemas import (
     BatchCancelReq,
     BatchStorageReq,
     BatchTransferReq,
+    ConstructionItem,
     DraftExtendCreate,
     DraftExtendUpdate,
     EvaluateCreate,
+    GroundItem,
+    HouseItem,
     OwnershipCreate,
     OwnershipUpdate,
     ReceiveExtendCreate,
@@ -234,6 +237,86 @@ def delete_owner(
 ):
     """删除产权证。"""
     ext_service.delete_owner(db, warrant_id, owner_row_id, ctx)
+    db.commit()
+    return ok(message="删除成功")
+
+
+# ===== 房产 / 土地 / 在建工程（1:N 独立 CRUD）=====
+
+@router.post("/{warrant_id}/houses")
+def add_house(
+    warrant_id: int,
+    body: HouseItem,
+    db: Session = Depends(get_db),
+    user: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """添加一套房产。"""
+    hid = ext_service.add_house(db, warrant_id, body, user.user_id, user)
+    db.commit()
+    return ok({"id": hid})
+
+
+@router.delete("/{warrant_id}/houses/{house_id}")
+def delete_house(
+    warrant_id: int,
+    house_id: int,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """删除一套房产。"""
+    ext_service.delete_house(db, warrant_id, house_id, ctx)
+    db.commit()
+    return ok(message="删除成功")
+
+
+@router.post("/{warrant_id}/grounds")
+def add_ground(
+    warrant_id: int,
+    body: GroundItem,
+    db: Session = Depends(get_db),
+    user: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """添加一宗土地。"""
+    gid = ext_service.add_ground(db, warrant_id, body, user.user_id, user)
+    db.commit()
+    return ok({"id": gid})
+
+
+@router.delete("/{warrant_id}/grounds/{ground_id}")
+def delete_ground(
+    warrant_id: int,
+    ground_id: int,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """删除一宗土地。"""
+    ext_service.delete_ground(db, warrant_id, ground_id, ctx)
+    db.commit()
+    return ok(message="删除成功")
+
+
+@router.post("/{warrant_id}/constructions")
+def add_construction(
+    warrant_id: int,
+    body: ConstructionItem,
+    db: Session = Depends(get_db),
+    user: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """添加一项在建工程。"""
+    cid = ext_service.add_construction(db, warrant_id, body, user.user_id, user)
+    db.commit()
+    return ok({"id": cid})
+
+
+@router.delete("/{warrant_id}/constructions/{construction_id}")
+def delete_construction(
+    warrant_id: int,
+    construction_id: int,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """删除一项在建工程。"""
+    ext_service.delete_construction(db, warrant_id, construction_id, ctx)
     db.commit()
     return ok(message="删除成功")
 

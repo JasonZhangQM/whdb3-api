@@ -588,3 +588,59 @@ def _get_owner(db: Session, warrant_id: int, owner_row_id: int) -> WarrantOwners
     if o is None or o.warrant_id != warrant_id:
         raise BizError(4041, "产权证记录不存在")
     return o
+
+
+# ===== 房产/土地/在建工程 独立 CRUD =====
+
+def add_house(db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext) -> int:
+    w = _get_warrant(db, warrant_id, ctx)
+    if w.warrant_type != WarrantType.HOUSE:
+        raise BizError(4001, "该权证不是房产类型")
+    row = WarrantHouse(warrant_id=warrant_id, **body.model_dump(), created_by=user_id)
+    db.add(row)
+    db.flush()
+    return row.id
+
+
+def delete_house(db: Session, warrant_id: int, house_id: int, ctx: AuthContext) -> None:
+    _get_warrant(db, warrant_id, ctx)
+    row = db.get(WarrantHouse, house_id)
+    if row is None or row.warrant_id != warrant_id:
+        raise BizError(4041, "房产记录不存在")
+    db.delete(row)
+
+
+def add_ground(db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext) -> int:
+    w = _get_warrant(db, warrant_id, ctx)
+    if w.warrant_type != WarrantType.GROUND:
+        raise BizError(4001, "该权证不是土地类型")
+    row = WarrantGround(warrant_id=warrant_id, **body.model_dump(), created_by=user_id)
+    db.add(row)
+    db.flush()
+    return row.id
+
+
+def delete_ground(db: Session, warrant_id: int, ground_id: int, ctx: AuthContext) -> None:
+    _get_warrant(db, warrant_id, ctx)
+    row = db.get(WarrantGround, ground_id)
+    if row is None or row.warrant_id != warrant_id:
+        raise BizError(4041, "土地记录不存在")
+    db.delete(row)
+
+
+def add_construction(db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext) -> int:
+    w = _get_warrant(db, warrant_id, ctx)
+    if w.warrant_type != WarrantType.CONSTRUCTION:
+        raise BizError(4001, "该权证不是在建工程类型")
+    row = WarrantConstruction(warrant_id=warrant_id, **body.model_dump(), created_by=user_id)
+    db.add(row)
+    db.flush()
+    return row.id
+
+
+def delete_construction(db: Session, warrant_id: int, construction_id: int, ctx: AuthContext) -> None:
+    _get_warrant(db, warrant_id, ctx)
+    row = db.get(WarrantConstruction, construction_id)
+    if row is None or row.warrant_id != warrant_id:
+        raise BizError(4041, "在建工程记录不存在")
+    db.delete(row)
