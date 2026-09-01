@@ -481,7 +481,7 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
         db.add(PersonalProfile(customer_id=customer.id, **personal))
 
     for c in contacts:
-        db.add(CustomerContact(customer_id=customer.id, created_by=user_id, **c.model_dump()))
+        db.add(CustomerContact(customer_id=customer.id, created_by=user_id, **c))
 
     return customer.id
 
