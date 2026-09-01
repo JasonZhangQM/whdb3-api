@@ -413,7 +413,7 @@ def list_draft_extends(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
 
 
 def add_draft_extend(db: Session, warrant_id: int, body: DraftExtendCreate, user_id: int, ctx: AuthContext) -> int:
-    """添加票据明细（校验：承兑人存在、核心企业 is_core、票据号唯一）。"""
+    """添加票据明细（校验：承兑人/核心企业存在、票据号唯一）。"""
     w = _get_warrant(db, warrant_id, ctx)
     if WarrantType(w.warrant_type) != WarrantType.DRAFT:
         raise BizError(4001, "仅票据类型权证可添加票据明细")
@@ -427,8 +427,8 @@ def add_draft_extend(db: Session, warrant_id: int, body: DraftExtendCreate, user
     if acceptor is None:
         raise BizError(4041, "承兑人客户不存在")
     core = db.get(Customer, body.core_id)
-    if core is None or not core.is_core:
-        raise BizError(4001, "核心企业不存在或非核心企业")
+    if core is None:
+        raise BizError(4041, "核心企业客户不存在")
     if body.due_date < body.issue_date:
         raise BizError(4001, "到期日不能早于出票日")
     dup = db.scalar(

@@ -15,6 +15,8 @@ from app.customer.schemas import (
     ControlerChangeReq,
     CoreLimitCreate,
     CoreLimitUpdate,
+    CustomerContactCreate,
+    CustomerContactUpdate,
     CustomerCreate,
     CustomerExtendCreate,
     CustomerTransferReq,
@@ -36,10 +38,7 @@ def list_customers(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     genre: int | None = None,
-    custom_state: int | None = None,
     group_id: int | None = None,
-    is_core: bool | None = None,
-    is_acceptor: bool | None = None,
     credit_region_id: int | None = None,
     region_id: int | None = None,
     industry_id: int | None = None,
@@ -52,8 +51,8 @@ def list_customers(
 ):
     """客户列表（数据级权限按管护经理过滤）。"""
     items, total = customer_service.list_customers(
-        db, ctx, page, page_size, genre, custom_state, group_id,
-        is_core, is_acceptor, credit_region_id, region_id, industry_id,
+        db, ctx, page, page_size, genre, group_id,
+        credit_region_id, region_id, industry_id,
         managementor_id, controler_id, classification, q,
     )
     return page_result(items, total, page, page_size)
@@ -146,18 +145,6 @@ def update_customer(
     return ok(message="修改成功")
 
 
-@router.delete("/{customer_id}")
-def delete_customer(
-    customer_id: int,
-    db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:delete")),
-):
-    """删除客户（逻辑注销；拦截：核心企业额度）。"""
-    customer_service.delete_customer(db, customer_id)
-    db.commit()
-    return ok(message="客户已注销")
-
-
 @router.patch("/{customer_id}/controler")
 def change_controler(
     customer_id: int,
@@ -237,7 +224,7 @@ def list_core_limits(
     db: Session = Depends(get_db),
     _: AuthContext = Depends(require_perm("customer:detail")),
 ):
-    """授信额度列表（仅 is_core=true 客户）。"""
+    """核心企业授信额度列表（任何有额度记录的客户）。"""
     return ok(customer_service.list_core_limits(db, customer_id))
 
 
@@ -397,3 +384,55 @@ def unbind_spouse(
     customer_service.unbind_spouse(db, customer_id, user.user_id)
     db.commit()
     return ok(message="配偶已解绑")
+
+
+# ===== 联系人 =====
+
+@router.get("/{customer_id}/contacts")
+def list_contacts(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:detail")),
+):
+    """客户联系人列表。"""
+    return ok(customer_service.list_contacts(db, customer_id))
+
+
+@router.post("/{customer_id}/contacts")
+def add_contact(
+    customer_id: int,
+    body: CustomerContactCreate,
+    db: Session = Depends(get_db),
+    user: AuthContext = Depends(require_perm("customer:update")),
+):
+    """新增联系人。"""
+    contact_id = customer_service.add_contact(db, customer_id, body, user.user_id)
+    db.commit()
+    return ok({"id": contact_id}, message="联系人已添加")
+
+
+@router.patch("/{customer_id}/contacts/{contact_id}")
+def update_contact(
+    customer_id: int,
+    contact_id: int,
+    body: CustomerContactUpdate,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:update")),
+):
+    """修改联系人。"""
+    customer_service.update_contact(db, customer_id, contact_id, body)
+    db.commit()
+    return ok(message="联系人已更新")
+
+
+@router.delete("/{customer_id}/contacts/{contact_id}")
+def delete_contact(
+    customer_id: int,
+    contact_id: int,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:update")),
+):
+    """删除联系人。"""
+    customer_service.delete_contact(db, customer_id, contact_id)
+    db.commit()
+    return ok(message="联系人已删除")

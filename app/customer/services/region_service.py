@@ -67,7 +67,6 @@ def list_tag_customers(db: Session, tag_id: int) -> list[dict]:
             "name": c.name,
             "short_name": c.short_name,
             "genre": c.genre,
-            "custom_state": c.custom_state,
             "classification": c.classification,
             "managementor_name": manager or "",
         }

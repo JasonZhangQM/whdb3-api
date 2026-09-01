@@ -35,7 +35,7 @@ def make_labels(*enum_classes: type[LabeledIntEnum]) -> dict[str, dict[int, str]
 
     用法::
 
-        LABELS = make_labels(Classification, Genre, CustomState)
+        LABELS = make_labels(Classification, Genre)
         # LABELS['classification'] = {10: '正常', 20: '关注', ...}
 
     字典 key 为枚举类名 snake_case 形式。

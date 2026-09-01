@@ -136,8 +136,7 @@ def get_or_404(db: Session, group_id: int) -> Group:
 def _customer_brief(c: Customer, mname: str) -> dict:
     return {
         "id": c.id, "name": c.name, "short_name": c.short_name,
-        "genre": c.genre, "custom_state": c.custom_state,
-        "is_core": c.is_core, "is_acceptor": c.is_acceptor,
+        "genre": c.genre,
         "managementor_name": mname,
         "credit_amount": float(c.credit_amount),
         "amount": float(c.amount),
@@ -196,8 +195,6 @@ def _validate_parent_customer(
         raise BizError(4041, "母公司客户不存在")
     if c.genre != Genre.COMPANY:
         raise BizError(4001, "母公司必须是企业客户")
-    if c.custom_state == 90:
-        raise BizError(4001, "母公司客户已注销")
     if c.group_id is not None and c.group_id != exclude_group_id:
         raise BizError(4091, "母公司客户已属于其他集团")
     return c

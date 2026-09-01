@@ -5,7 +5,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext, apply_data_scope_filter
@@ -16,6 +16,7 @@ from app.customer.models import (
     CoreHistory,
     CoreLimit,
     Customer,
+    CustomerContact,
     CustomerExtend,
     CustomerTagRelation,
     Director,
@@ -23,7 +24,13 @@ from app.customer.models import (
     PersonalProfile,
     Shareholder,
 )
-from app.customer.schemas import CustomerCreate, CustomerTransferReq, CustomerUpdate
+from app.customer.schemas import (
+    CustomerContactCreate,
+    CustomerContactUpdate,
+    CustomerCreate,
+    CustomerTransferReq,
+    CustomerUpdate,
+)
 
 
 def _get_or_404(db: Session, customer_id: int) -> Customer:
@@ -63,10 +70,7 @@ def list_customers(
     page: int,
     page_size: int,
     genre: int | None = None,
-    custom_state: int | None = None,
     group_id: int | None = None,
-    is_core: bool | None = None,
-    is_acceptor: bool | None = None,
     credit_region_id: int | None = None,
     region_id: int | None = None,
     industry_id: int | None = None,
@@ -84,14 +88,8 @@ def list_customers(
 
     if genre is not None:
         stmt = stmt.where(Customer.genre == genre)
-    if custom_state is not None:
-        stmt = stmt.where(Customer.custom_state == custom_state)
     if group_id is not None:
         stmt = stmt.where(Customer.group_id == group_id)
-    if is_core is not None:
-        stmt = stmt.where(Customer.is_core == is_core)
-    if is_acceptor is not None:
-        stmt = stmt.where(Customer.is_acceptor == is_acceptor)
     if credit_region_id is not None:
         stmt = stmt.where(Customer.credit_region_id == credit_region_id)
     if region_id is not None:
@@ -106,12 +104,21 @@ def list_customers(
         stmt = stmt.where(Customer.classification == classification)
     if q:
         like = f"%{q}%"
+        contact_exists = exists(
+            select(CustomerContact.id)
+            .where(
+                CustomerContact.customer_id == Customer.id,
+                or_(
+                    CustomerContact.name.like(like),
+                    CustomerContact.phone.like(like),
+                ),
+            )
+        )
         stmt = stmt.where(
             or_(
                 Customer.name.like(like),
                 Customer.short_name.like(like),
-                Customer.linkman.like(like),
-                Customer.contact_num.like(like),
+                contact_exists,
             )
         )
 
@@ -172,10 +179,6 @@ def list_customers(
                 "name": c.name,
                 "short_name": c.short_name,
                 "genre": c.genre,
-                "custom_typ": c.custom_typ,
-                "custom_state": c.custom_state,
-                "is_core": c.is_core,
-                "is_acceptor": c.is_acceptor,
                 "managementor_name": users.get(c.managementor_id, ""),
                 "credit_amount": float(c.credit_amount),
                 "amount": float(c.amount),
@@ -213,15 +216,8 @@ def get_detail(db: Session, customer_id: int) -> dict:
         "name": c.name,
         "short_name": c.short_name,
         "genre": c.genre,
-        "custom_typ": c.custom_typ,
-        "custom_state": c.custom_state,
-        "contact_addr": c.contact_addr,
-        "linkman": c.linkman,
-        "contact_num": c.contact_num,
-        "is_core": c.is_core,
-        "is_acceptor": c.is_acceptor,
-        "core_rate": float(c.core_rate) if c.core_rate is not None else None,
-        "core_remark": c.core_remark,
+        "license_num": c.license_num,
+        "license_addr": c.license_addr,
         "managementor_name": users.get(c.managementor_id, ""),
         "credit_amount": float(c.credit_amount),
         "amount": float(c.amount),
@@ -258,6 +254,7 @@ def get_detail(db: Session, customer_id: int) -> dict:
             .where(CustomerTagRelation.customer_id == customer_id)
             .order_by(CustomerTagRelation.tag_id)
         ).all(),
+        "contacts": [],
         "created_by_name": users.get(c.created_by) or "",
         "created_at": c.created_at,
     }
@@ -296,7 +293,6 @@ def get_detail(db: Session, customer_id: int) -> dict:
         if cp:
             detail["company"] = {
                 "id": cp.id,
-                "credit_code": cp.credit_code,
                 "decisionor": cp.decisionor,
                 "decisionor_display": _disp("decisionor", cp.decisionor),
                 "custom_nature": cp.custom_nature,
@@ -306,7 +302,6 @@ def get_detail(db: Session, customer_id: int) -> dict:
                 "typing_display": _disp("typing", cp.typing),
                 "capital": float(cp.capital or 0),
                 "paid_capital": float(cp.paid_capital or 0),
-                "registered_addr": cp.registered_addr,
                 "representative": cp.representative,
             }
             detail["shareholder_count"] = db.scalar(
@@ -327,8 +322,6 @@ def get_detail(db: Session, customer_id: int) -> dict:
                     spouse = {"id": sc.id, "name": sc.name, "short_name": sc.short_name}
             detail["personal"] = {
                 "id": pp.id,
-                "license_num": pp.license_num,
-                "license_addr": pp.license_addr,
                 "marital_status": pp.marital_status,
                 "marital_status_display": _disp("marital_status", pp.marital_status),
                 "household_nature": pp.household_nature,
@@ -356,8 +349,8 @@ def get_detail(db: Session, customer_id: int) -> dict:
             "typing": latest.typing,
         }
 
-    # 核心企业概要
-    if c.is_core:
+    # 核心企业概要（不再依赖 is_core 标记，有额度记录即返回）
+    if db.scalar(select(CoreLimit.id).where(CoreLimit.customer_id == customer_id).limit(1)) is not None:
         current = db.scalar(
             select(CoreLimit).where(
                 CoreLimit.customer_id == customer_id,
@@ -370,8 +363,6 @@ def get_detail(db: Session, customer_id: int) -> dict:
             )
         )
         detail["core_info"] = {
-            "core_rate": float(c.core_rate) if c.core_rate is not None else None,
-            "core_remark": c.core_remark,
             "current_limit": (
                 {
                     "id": current.id,
@@ -388,6 +379,36 @@ def get_detail(db: Session, customer_id: int) -> dict:
             "total_used_amount": float(total_used or 0),
         }
 
+    # 联系人列表
+    contact_rows = db.execute(
+        select(
+            CustomerContact.id,
+            CustomerContact.name,
+            CustomerContact.phone,
+            CustomerContact.email,
+            CustomerContact.addr,
+            CustomerContact.is_primary,
+            CustomerContact.remark,
+            User.name,
+        )
+        .join(User, User.id == CustomerContact.created_by)
+        .where(CustomerContact.customer_id == customer_id)
+        .order_by(CustomerContact.is_primary.desc(), CustomerContact.id)
+    ).all()
+    detail["contacts"] = [
+        {
+            "id": row[0],
+            "name": row[1],
+            "phone": row[2],
+            "email": row[3],
+            "addr": row[4],
+            "is_primary": row[5],
+            "remark": row[6],
+            "created_by_name": row[7],
+        }
+        for row in contact_rows
+    ]
+
     return detail
 
 
@@ -403,25 +424,13 @@ def _validate_create_payload(db: Session, data: dict) -> None:
         if dup is not None:
             raise BizError(4091, "客户简称已存在")
 
-    genre = data.get("genre")
-    if genre == Genre.COMPANY:
-        company = data.get("company") or {}
-        if not company.get("credit_code"):
-            raise BizError(4001, "企业客户必须提供统一社会信用代码")
-        dup = db.scalar(
-            select(CompanyProfile.id).where(CompanyProfile.credit_code == company["credit_code"])
-        )
+    # license_num 唯一（企业=信用代码 / 个人=身份证号，统一落主表）
+    if data.get("license_num"):
+        dup = db.scalar(select(Customer.id).where(Customer.license_num == data["license_num"]))
         if dup is not None:
-            raise BizError(4091, "统一社会信用代码已存在")
-    elif genre == Genre.PERSONAL:
-        personal = data.get("personal") or {}
-        if not personal.get("license_num"):
-            raise BizError(4001, "个人客户必须提供身份证号")
-        dup = db.scalar(
-            select(PersonalProfile.id).where(PersonalProfile.license_num == personal["license_num"])
-        )
-        if dup is not None:
-            raise BizError(4091, "身份证号已存在")
+            genre = data.get("genre")
+            label = "统一社会信用代码" if genre == Genre.COMPANY else "身份证号"
+            raise BizError(4091, f"{label}已存在")
 
     # 外键存在性（区域必填；行业/集团可空，空值跳过校验）
 
@@ -454,6 +463,7 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
     company = data.pop("company", None)
     personal = data.pop("personal", None)
     tags = data.pop("tags", [])
+    contacts = data.pop("contacts", None) or []
 
     customer = Customer(
         **data,
@@ -469,6 +479,9 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
         db.add(CompanyProfile(customer_id=customer.id, **company))
     elif customer.genre == Genre.PERSONAL and personal:
         db.add(PersonalProfile(customer_id=customer.id, **personal))
+
+    for c in contacts:
+        db.add(CustomerContact(customer_id=customer.id, created_by=user_id, **c.model_dump()))
 
     return customer.id
 
@@ -500,22 +513,18 @@ def update_free_fields(db: Session, customer_id: int, body: CustomerUpdate) -> N
     data = body.model_dump(exclude_unset=True)
     if not data:
         return
+    # license_num 唯一性预检（避免直撞 unique 索引报 IntegrityError）
+    new_license = data.get("license_num")
+    if new_license:
+        dup = db.scalar(select(Customer.id).where(Customer.license_num == new_license, Customer.id != customer_id))
+        if dup is not None:
+            label = "统一社会信用代码" if c.genre == Genre.COMPANY else "身份证号"
+            raise BizError(4091, f"{label}已存在")
     tags = data.pop("tags", None)
     for k, v in data.items():
         setattr(c, k, v)
     if tags is not None:
         _replace_tags(db, customer_id, tags)
-
-
-def delete_customer(db: Session, customer_id: int) -> None:
-    c = _get_or_404(db, customer_id)
-    # 拦截：核心企业额度 / 业务引用（M3+ 合同/项目）
-    has_limit = db.scalar(
-        select(CoreLimit.id).where(CoreLimit.customer_id == customer_id).limit(1)
-    )
-    if has_limit is not None:
-        raise BizError(4091, "客户存在核心企业额度记录，不可删除")
-    c.custom_state = 90  # 逻辑注销
 
 
 def change_controler(db: Session, customer_id: int, controler_id: int) -> None:
@@ -728,8 +737,6 @@ def bind_spouse(db: Session, customer_id: int, spouse_customer_id: int, user_id:
     s = _get_or_404(db, spouse_customer_id)
     if c.genre != Genre.PERSONAL or s.genre != Genre.PERSONAL:
         raise BizError(4001, "配偶双方必须都是个人客户")
-    if s.custom_state == 90:
-        raise BizError(4001, "配偶客户已注销")
     if customer_id == spouse_customer_id:
         raise BizError(4001, "不能与自己绑定配偶")
 
@@ -771,9 +778,7 @@ def unbind_spouse(db: Session, customer_id: int, user_id: int) -> None:
 # ===== 核心企业额度 =====
 
 def list_core_limits(db: Session, customer_id: int) -> list[dict]:
-    c = _get_or_404(db, customer_id)
-    if not c.is_core:
-        raise BizError(4001, "仅核心企业可管理授信额度")
+    _get_or_404(db, customer_id)
     rows = db.scalars(
         select(CoreLimit)
         .where(CoreLimit.customer_id == customer_id)
@@ -799,9 +804,7 @@ def add_core_limit(
     db: Session, customer_id: int, credit_amount: float,
     valid_begin_date, valid_end_date, remark: str | None, user_id: int,
 ) -> int:
-    c = _get_or_404(db, customer_id)
-    if not c.is_core:
-        raise BizError(4001, "仅核心企业可新增授信额度")
+    _get_or_404(db, customer_id)
     if valid_end_date <= valid_begin_date:
         raise BizError(4001, "额度到期日必须晚于起始日")
 
@@ -897,8 +900,8 @@ def list_core_histories(db: Session, customer_id: int) -> list[dict]:
 # ===== 字典 / 统计 =====
 
 def customer_dict(
-    db: Session, genre: int | None = None, is_core: bool | None = None,
-    is_acceptor: bool | None = None, managementor_id: int | None = None,
+    db: Session, genre: int | None = None,
+    managementor_id: int | None = None,
     q: str | None = None, page: int = 1, page_size: int = 50,
 ) -> tuple[list[dict], int]:
     """客户下拉字典（表单选择用）。无 data_scope——业务模块选所有权人/保证人等
@@ -910,13 +913,9 @@ def customer_dict(
 
     stmt = select(Customer, User.name).join(
         User, User.id == Customer.managementor_id
-    ).where(Customer.custom_state != 90)
+    )
     if genre is not None:
         stmt = stmt.where(Customer.genre == genre)
-    if is_core is not None:
-        stmt = stmt.where(Customer.is_core == is_core)
-    if is_acceptor is not None:
-        stmt = stmt.where(Customer.is_acceptor == is_acceptor)
     if managementor_id is not None:
         stmt = stmt.where(Customer.managementor_id == managementor_id)
     if q:
@@ -937,8 +936,7 @@ def customer_dict(
     items = [
         {
             "id": c.id, "name": c.name, "short_name": c.short_name,
-            "genre": c.genre, "is_core": c.is_core, "is_acceptor": c.is_acceptor,
-            "custom_state": c.custom_state, "managementor_name": mname,
+            "genre": c.genre, "managementor_name": mname,
         }
         for c, mname in rows
     ]
@@ -947,15 +945,6 @@ def customer_dict(
 
 def stats_overview(db: Session) -> dict:
     total = db.scalar(select(func.count(Customer.id))) or 0
-    active = db.scalar(
-        select(func.count(Customer.id)).where(Customer.custom_state != 90)
-    ) or 0
-    core = db.scalar(
-        select(func.count(Customer.id)).where(Customer.is_core == True)  # noqa: E712
-    ) or 0
-    acceptor = db.scalar(
-        select(func.count(Customer.id)).where(Customer.is_acceptor == True)  # noqa: E712
-    ) or 0
     credit_sum, amount_sum = db.execute(
         select(
             func.coalesce(func.sum(Customer.credit_amount), 0),
@@ -967,9 +956,6 @@ def stats_overview(db: Session) -> dict:
     ).all()
     return {
         "total_count": total,
-        "active_count": active,
-        "core_count": core,
-        "acceptor_count": acceptor,
         "total_credit_amount": float(credit_sum),
         "total_amount": float(amount_sum),
         "classification_distribution": {
@@ -1011,3 +997,70 @@ def region_summary(db: Session, region_id: int) -> dict:
         "total_credit_amount": float(agg[1]),
         "total_amount": float(agg[2]),
     }
+
+
+# ===== 联系人 CRUD =====
+
+def list_contacts(db: Session, customer_id: int) -> list[dict]:
+    from app.user.models import User
+
+    _get_or_404(db, customer_id)
+    rows = db.execute(
+        select(CustomerContact, User.name)
+        .join(User, User.id == CustomerContact.created_by)
+        .where(CustomerContact.customer_id == customer_id)
+        .order_by(CustomerContact.is_primary.desc(), CustomerContact.id)
+    ).all()
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "phone": c.phone,
+            "email": c.email,
+            "addr": c.addr,
+            "is_primary": c.is_primary,
+            "remark": c.remark,
+            "created_by_name": cname,
+        }
+        for c, cname in rows
+    ]
+
+
+def add_contact(
+    db: Session, customer_id: int, body: CustomerContactCreate, user_id: int
+) -> int:
+    _get_or_404(db, customer_id)
+    dup = db.scalar(
+        select(CustomerContact.id).where(
+            CustomerContact.customer_id == customer_id,
+            CustomerContact.name == body.name,
+        )
+    )
+    if dup is not None:
+        raise BizError(4091, "同名联系人已存在")
+    c = CustomerContact(
+        customer_id=customer_id, created_by=user_id, **body.model_dump()
+    )
+    db.add(c)
+    db.flush()
+    return c.id
+
+
+def update_contact(
+    db: Session, customer_id: int, contact_id: int, body: CustomerContactUpdate
+) -> None:
+    c = _get_contact(db, customer_id, contact_id)
+    for k, v in body.model_dump(exclude_unset=True, exclude_none=True).items():
+        setattr(c, k, v)
+
+
+def delete_contact(db: Session, customer_id: int, contact_id: int) -> None:
+    c = _get_contact(db, customer_id, contact_id)
+    db.delete(c)
+
+
+def _get_contact(db: Session, customer_id: int, contact_id: int) -> CustomerContact:
+    c = db.get(CustomerContact, contact_id)
+    if c is None or c.customer_id != customer_id:
+        raise BizError(4041, "联系人不存在")
+    return c

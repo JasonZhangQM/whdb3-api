@@ -145,10 +145,28 @@ class CoreHistoryItem(BaseModel):
 
 
 class CoreInfoBrief(BaseModel):
-    core_rate: float | None
-    core_remark: str | None
     current_limit: CoreLimitBrief | None
     total_used_amount: float
+
+
+class CustomerContactCreate(BaseModel):
+    """创建联系人。"""
+    name: str = Field(..., max_length=32)
+    phone: str = Field(..., max_length=16)
+    email: str | None = None
+    addr: str | None = None
+    is_primary: bool = False
+    remark: str | None = None
+
+
+class CustomerContactUpdate(BaseModel):
+    """修改联系人。"""
+    name: str | None = Field(None, max_length=32)
+    phone: str | None = Field(None, max_length=16)
+    email: str | None = None
+    addr: str | None = None
+    is_primary: bool | None = None
+    remark: str | None = None
 
 
 # ===== 客户主表 =====
@@ -157,9 +175,6 @@ class CustomerBrief(BaseModel):
     name: str
     short_name: str
     genre: Literal[1, 2]
-    custom_state: Literal[10, 20, 30, 90]
-    is_core: bool
-    is_acceptor: bool
     managementor_name: str
     credit_amount: float
     amount: float
@@ -167,7 +182,6 @@ class CustomerBrief(BaseModel):
 
 
 class CustomerListItem(CustomerBrief):
-    custom_typ: Literal[10, 20, 30]
     region_name: str | None
     credit_region_id: int | None
     credit_region_name: str | None
@@ -181,19 +195,15 @@ class CustomerListItem(CustomerBrief):
 
 
 class CompanyProfileCreate(BaseModel):
-    credit_code: str
     decisionor: int | None = None
     custom_nature: int | None = None
     industry_c: int | None = None
     capital: float = 0
     paid_capital: float = 0
-    registered_addr: str | None = None
     representative: str | None = None
 
 
 class PersonalProfileCreate(BaseModel):
-    license_num: str = Field(..., min_length=18, max_length=18)
-    license_addr: str | None = None
     marital_status: int | None = None
     household_nature: int | None = None
 
@@ -204,21 +214,17 @@ class CustomerCreate(BaseModel):
     name: str = Field(..., max_length=128)
     short_name: str = Field(..., max_length=8)
     genre: Literal[1, 2]
-    contact_addr: str | None = None
-    linkman: str | None = None
-    contact_num: str | None = None
+    license_num: str | None = Field(None, max_length=32)
+    license_addr: str | None = Field(None, max_length=255)
     region_id: int | None = None
     credit_region_id: int | None = None
     industry_id: int | None = None
     group_id: int | None = None
-    is_core: bool = False
-    is_acceptor: bool = False
-    core_rate: float | None = None
-    core_remark: str | None = None
     managementor_id: int
     controler_id: int | None = None
     company: CompanyProfileCreate | None = None
     personal: PersonalProfileCreate | None = None
+    contacts: list[CustomerContactCreate] | None = None
 
 
 class CustomerUpdate(BaseModel):
@@ -226,13 +232,10 @@ class CustomerUpdate(BaseModel):
 
     name: str | None = None
     short_name: str | None = None
+    license_num: str | None = Field(None, max_length=32)
+    license_addr: str | None = Field(None, max_length=255)
     credit_amount: float | None = None
-    custom_state: int | None = None
-    custom_typ: int | None = None
     managementor_id: int | None = None
-    contact_addr: str | None = None
-    linkman: str | None = None
-    contact_num: str | None = None
     region_id: int | None = None
     industry_id: int | None = None
     group_id: int | None = None
@@ -316,17 +319,11 @@ class CustomerDictItem(BaseModel):
     name: str
     short_name: str
     genre: int
-    is_core: bool
-    is_acceptor: bool
-    custom_state: int
     managementor_name: str | None = None
 
 
 class CustomerOverview(BaseModel):
     total_count: int
-    active_count: int
-    core_count: int
-    acceptor_count: int
     total_credit_amount: float
     total_amount: float
     classification_distribution: dict[str, int]

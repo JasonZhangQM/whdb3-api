@@ -80,8 +80,7 @@ def get_detail(db: Session, region_id: int) -> dict:
             "members": [
                 {
                     "id": c.id, "name": c.name, "short_name": c.short_name,
-                    "genre": c.genre, "custom_state": c.custom_state,
-                    "is_core": c.is_core, "is_acceptor": c.is_acceptor,
+                    "genre": c.genre,
                     "managementor_name": mname,
                     "credit_amount": float(c.credit_amount),
                     "amount": float(c.amount),
@@ -157,8 +156,7 @@ def list_members(db: Session, region_id: int, page: int, page_size: int):
     items = [
         {
             "id": c.id, "name": c.name, "short_name": c.short_name,
-            "genre": c.genre, "custom_state": c.custom_state,
-            "is_core": c.is_core, "is_acceptor": c.is_acceptor,
+            "genre": c.genre,
             "managementor_name": mname,
             "credit_amount": float(c.credit_amount),
             "amount": float(c.amount),

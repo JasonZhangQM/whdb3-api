@@ -8,19 +8,6 @@ class Genre(LabeledIntEnum):
     PERSONAL = 2, '个人'
 
 
-class CustomTyp(LabeledIntEnum):
-    NEW = 10, '新增'
-    EXISTING = 20, '存量'
-    EXISTING_NEW = 30, '存量新增'
-
-
-class CustomState(LabeledIntEnum):
-    NORMAL = 10, '正常'
-    COUNTER_GUARANTEE = 20, '反担保'
-    MICRO_LOAN = 30, '小贷'
-    CANCELLED = 90, '注销'
-
-
 class Classification(LabeledIntEnum):
     """五级分类。"""
 
@@ -88,7 +75,7 @@ class HouseholdNature(LabeledIntEnum):
 class CoreLimitStatus(LabeledIntEnum):
     ACTIVE = 10, '生效'
     EXPIRED = 20, '失效'
-    EXHAUSTED = 30, '已用完'
+    EXHAUSTED = 30, '用完'
 
 
 class CommonStatus(LabeledIntEnum):
@@ -98,7 +85,7 @@ class CommonStatus(LabeledIntEnum):
 
 # 自动从枚举类生成 LABELS 字典（兼容层，旧代码零改动）
 LABELS = make_labels(
-    Genre, CustomTyp, CustomState, Classification, IndTyp, TagType,
+    Genre, Classification, IndTyp, TagType,
     Typing, Decisionor, CustomNature, MaritalStatus, HouseholdNature,
     CoreLimitStatus, CommonStatus,
 )

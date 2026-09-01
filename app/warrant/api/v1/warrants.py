@@ -321,7 +321,7 @@ def add_draft_extend(
     db: Session = Depends(get_db),
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
-    """添加票据明细（校验承兑人存在、核心企业 is_core、票据号唯一）。"""
+    """添加票据明细（校验承兑人/核心企业存在、票据号唯一）。"""
     eid = ext_service.add_draft_extend(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": eid}, message="票据明细已添加")

@@ -93,8 +93,6 @@ def update_tag(
 @router.get("/customers")
 def customers_dict(
     genre: int | None = None,
-    is_core: bool | None = None,
-    is_acceptor: bool | None = None,
     managementor_id: int | None = None,
     q: str | None = None,
     page: int = 1,
@@ -106,7 +104,7 @@ def customers_dict(
     时需要看到全量客户，不应被 managementor 归属过滤。
     """
     items, total = customer_service.customer_dict(
-        db, genre, is_core, is_acceptor, managementor_id, q, page, page_size,
+        db, genre, managementor_id, q, page, page_size,
     )
     return ok({"items": items, "total": total, "page": page, "page_size": page_size})
 

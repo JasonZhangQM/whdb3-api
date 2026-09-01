@@ -113,22 +113,16 @@ class Customer(Base):
     name: Mapped[str] = mapped_column(String(128), index=True)
     short_name: Mapped[str] = mapped_column(String(32), unique=True)
     genre: Mapped[int] = mapped_column(SmallInteger, comment="1企业2个人")
-    custom_typ: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10新增20存量30存量新增")
-    custom_state: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10正常20反担保30小贷90注销")
-    contact_addr: Mapped[str | None] = mapped_column(String(255))
-    linkman: Mapped[str | None] = mapped_column(String(64))
-    contact_num: Mapped[str | None] = mapped_column(String(64))
+    # 统一证照（企业=信用代码 / 个人=身份证号；注册地址 / 身份证地址）
+    license_num: Mapped[str | None] = mapped_column(String(32), unique=True, comment="统一信用代码(企业) / 身份证号(个人)")
+    license_addr: Mapped[str | None] = mapped_column(String(255), comment="注册地址(企业) / 身份证地址(个人)")
+
     region_id: Mapped[int | None] = mapped_column(ForeignKey("user_regions.id"), comment="行政区域")
     credit_region_id: Mapped[int | None] = mapped_column(ForeignKey("customer_credit_regions.id"), comment="授信区域")
     industry_id: Mapped[int | None] = mapped_column(ForeignKey("customer_industries.id"), comment="国民经济行业")
     group_id: Mapped[int | None] = mapped_column(ForeignKey("customer_groups.id"), comment="所属集团")
-    is_core: Mapped[bool] = mapped_column(Boolean, default=False, comment="票据核心企业")
-    is_acceptor: Mapped[bool] = mapped_column(Boolean, default=False, comment="票据承兑人")
     managementor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="管护经理")
     controler_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), comment="风控专员")
-    # 核心企业专属
-    core_rate: Mapped[float | None] = mapped_column(Numeric(6, 2), comment="核心企业费率%")
-    core_remark: Mapped[str | None] = mapped_column(String(255), comment="核心企业备注")
     # 冗余统计（列表页缓存，异步刷新）
     credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="授信总额")
     amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="在保总额")
@@ -145,10 +139,27 @@ class Customer(Base):
     total_assets: Mapped[float | None] = mapped_column(Numeric(18, 2))
     people_engaged: Mapped[float | None] = mapped_column(Numeric(12, 2))
     data_date: Mapped[date | None] = mapped_column(comment="快照基准日")
+
     last_provide_date: Mapped[date | None] = mapped_column(comment="最近放款")
     last_review_date: Mapped[date | None] = mapped_column(comment="最近保后")
     day_space: Mapped[int] = mapped_column(BigInteger, default=0, comment="距上次更新间隔日")
     last_synced_at: Mapped[datetime | None] = mapped_column(comment="冗余字段最后刷新时间")
+
+
+class CustomerContact(Base):
+    """客户联系人（一对多）。"""
+
+    __tablename__ = "customer_contacts"
+
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id", ondelete="CASCADE")
+    )
+    name: Mapped[str] = mapped_column(String(32), comment="联系人姓名")
+    phone: Mapped[str] = mapped_column(String(16), comment="联系电话")
+    email: Mapped[str | None] = mapped_column(String(128))
+    addr: Mapped[str | None] = mapped_column(String(255), comment="联系地址")
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, comment="首选联系人")
+    remark: Mapped[str | None] = mapped_column(String(255))
 
 
 class CompanyProfile(Base):
@@ -158,14 +169,12 @@ class CompanyProfile(Base):
 
 
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), unique=True)
-    credit_code: Mapped[str] = mapped_column(String(32), unique=True, comment="统一信用代码")
     decisionor: Mapped[int | None] = mapped_column(SmallInteger, comment="决策机构")
     custom_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="企业性质")
     industry_c: Mapped[int | None] = mapped_column(BigInteger, comment="工信部划分行业")
     typing: Mapped[int] = mapped_column(SmallInteger, default=90, comment="企业划型")
     capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="注册资本")
     paid_capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="实收资本")
-    registered_addr: Mapped[str | None] = mapped_column(String(255), comment="注册地址")
     representative: Mapped[str | None] = mapped_column(String(64), comment="法人代表")
 
 
@@ -178,8 +187,6 @@ class PersonalProfile(Base):
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id"), unique=True
     )
-    license_num: Mapped[str] = mapped_column(String(18), unique=True, comment="身份证号码")
-    license_addr: Mapped[str | None] = mapped_column(String(255))
     marital_status: Mapped[int | None] = mapped_column(SmallInteger, comment="婚姻状态")
     household_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="户籍性质")
     spouse_id: Mapped[int | None] = mapped_column(
@@ -252,9 +259,7 @@ class CoreLimit(Base):
     valid_end_date: Mapped[date]
     used_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="已占用额")
     remaining_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="剩余额")
-    status: Mapped[int] = mapped_column(
-        SmallInteger, default=10, index=True, comment="10生效20失效30已用完"
-    )
+    status: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="10生效20失效30用完")
     remark: Mapped[str | None] = mapped_column(String(255))
 
     __table_args__ = (
