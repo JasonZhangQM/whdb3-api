@@ -93,10 +93,7 @@ class WarrantGround(Base):
     __tablename__ = "warrant_grounds"
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
-    region_id: Mapped[int] = mapped_column(
-        ForeignKey("user_regions.id", ondelete="RESTRICT"),
-        comment="行政区域（必填，方便按区域统计）",
-    )
+    region_id: Mapped[int] = mapped_column(ForeignKey("user_regions.id", ondelete="RESTRICT"),comment="行政区域（必填，方便按区域统计）")
     ground_locate: Mapped[str] = mapped_column(String(255), comment="详细地址")
     ground_app: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="土地用途")
     ground_area: Mapped[float] = mapped_column(Numeric(12, 2))
