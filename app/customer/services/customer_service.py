@@ -319,7 +319,7 @@ def get_detail(db: Session, customer_id: int) -> dict:
             if pp.spouse_id:
                 sc = db.get(Customer, pp.spouse_id)
                 if sc:
-                    spouse = {"id": sc.id, "name": sc.name, "short_name": sc.short_name}
+                    spouse = {"id": sc.id, "name": sc.name, "short_name": sc.short_name, "license_num": sc.license_num}
             detail["personal"] = {
                 "id": pp.id,
                 "marital_status": pp.marital_status,
@@ -1098,6 +1098,7 @@ def customer_dict(
         {
             "id": c.id, "name": c.name, "short_name": c.short_name,
             "genre": c.genre, "managementor_name": mname,
+            "license_num": c.license_num,
         }
         for c, mname in rows
     ]
