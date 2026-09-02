@@ -319,6 +319,7 @@ def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         "warrant_num": w.warrant_num,
         "warrant_type": w.warrant_type,
         "warrant_type_display": _disp("warrant_type", w.warrant_type),
+        "remark": w.remark,
         "warrant_state": w.warrant_state,
         "warrant_state_display": _disp("warrant_state", w.warrant_state),
         "auction_state": w.auction_state,
@@ -376,7 +377,7 @@ def create(db: Session, body: WarrantCreate, user_id: int) -> int:
     if wtype == WarrantType.CONSTRUCTION and not body.constructions:
         raise BizError(4001, "在建工程类型至少提供一项在建工程")
 
-    w = Warrant(warrant_num=body.warrant_num, warrant_type=body.warrant_type, created_by=user_id)
+    w = Warrant(warrant_num=body.warrant_num, warrant_type=body.warrant_type, remark=body.remark, created_by=user_id)
     db.add(w)
     db.flush()
 

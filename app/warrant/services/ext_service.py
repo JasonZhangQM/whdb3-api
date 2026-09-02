@@ -223,9 +223,6 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         d = db.scalar(select(WarrantDraft).where(WarrantDraft.warrant_id == warrant_id))
         result["draft"] = {
             "id": d.id,
-            "draft_type": d.draft_type,
-            "draft_type_display": _disp("draft_main_type", d.draft_type),
-            "denomination": float(d.denomination),
             "draft_detail": d.draft_detail,
         } if d else None
         result["draft_extends"] = list_draft_extends(db, warrant_id, ctx)["items"]

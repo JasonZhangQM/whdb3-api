@@ -31,6 +31,7 @@ class Warrant(Base):
 
     warrant_num: Mapped[str] = mapped_column(String(128), unique=True, comment="权证编号")
     warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="1房产5土地6在建11应收21股权31票据41车辆51动产55其他99他权")
+    remark: Mapped[str | None] = mapped_column(String(128), comment="备注")
     # 评估
     evaluate_method: Mapped[int | None] = mapped_column(SmallInteger, comment="评估方式")
     evaluate_value: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="评估价值")
@@ -165,8 +166,6 @@ class WarrantDraft(Base):
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     draft_detail: Mapped[str] = mapped_column(String(255))
-    denomination: Mapped[float] = mapped_column(Numeric(18, 2), comment="票面总额")
-    draft_type: Mapped[int] = mapped_column(SmallInteger, comment="10商业承兑20银行承兑30支票")
 
 
 

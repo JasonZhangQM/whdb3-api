@@ -48,8 +48,6 @@ class StockCreate(BaseModel):
 
 
 class DraftCreate(BaseModel):
-    draft_type: Literal[10, 20, 30]
-    denomination: float = Field(..., gt=0)
     draft_detail: str
 
 
@@ -118,6 +116,7 @@ class WarrantCreate(_ExtBase):
 
     warrant_num: str = Field(..., max_length=128)
     warrant_type: WarrantTypeLiteral
+    remark: str | None = Field(None, max_length=128)
     owners: list[OwnershipCreate] = []
 
 
@@ -140,6 +139,7 @@ class WarrantUpdate(BaseModel):
     auction_amount: float | None = None
     inquiry_date: date | None = None
     inquiry_detail: str | None = None
+    remark: str | None = Field(None, max_length=128)
 
 
 class TypeDetailUpdate(_ExtBase):
