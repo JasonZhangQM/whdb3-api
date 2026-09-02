@@ -238,6 +238,7 @@ class CustomerUpdate(BaseModel):
     credit_amount: float | None = None
     managementor_id: int | None = None
     region_id: int | None = None
+    credit_region_id: int | None = None
     industry_id: int | None = None
     group_id: int | None = None
     classification: int | None = None

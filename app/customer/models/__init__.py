@@ -110,18 +110,17 @@ class Customer(Base):
 
     __tablename__ = "customers"
 
-
+    # 客户基本信息
+    genre: Mapped[int] = mapped_column(SmallInteger, comment="1企业2个人")
     name: Mapped[str] = mapped_column(String(128), index=True)
     short_name: Mapped[str] = mapped_column(String(32), unique=True)
-    genre: Mapped[int] = mapped_column(SmallInteger, comment="1企业2个人")
-    # 统一证照（企业=信用代码 / 个人=身份证号；注册地址 / 身份证地址）
     license_num: Mapped[str | None] = mapped_column(String(32), unique=True, comment="统一信用代码(企业) / 身份证号(个人)")
+    region_id: Mapped[int | None] = mapped_column(ForeignKey("user_regions.id"), comment="注册地行政区域")
     license_addr: Mapped[str | None] = mapped_column(String(255), comment="注册地址(企业) / 身份证地址(个人)")
-
-    region_id: Mapped[int | None] = mapped_column(ForeignKey("user_regions.id"), comment="行政区域")
     credit_region_id: Mapped[int | None] = mapped_column(ForeignKey("customer_credit_regions.id"), comment="授信区域")
     industry_id: Mapped[int | None] = mapped_column(ForeignKey("customer_industries.id"), comment="国民经济行业")
     group_id: Mapped[int | None] = mapped_column(ForeignKey("customer_groups.id"), comment="所属集团")
+
     managementor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="管护经理")
     controler_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), comment="风控专员")
     # 冗余统计（列表页缓存，异步刷新）
