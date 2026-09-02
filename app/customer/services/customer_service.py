@@ -927,6 +927,9 @@ def _bind_spouse_ids(db: Session, customer_id: int, spouse_id: int) -> None:
     )
     if cp1 is None or cp2 is None:
         raise BizError(4041, "个人扩展信息不存在")
+    # 关键校验：目标配偶不能已经绑定了别人（除非就是当前客户自己，那是换绑前已在 update_personal_profile 里解绑过了）
+    if cp2.spouse_id is not None and cp2.spouse_id != customer_id:
+        raise BizError(4001, f"客户 {spouse.name} 已绑定配偶，不能重复绑定")
     # 不强制检查 cp2.spouse_id（调用方已处理解绑）
 
     cp1.spouse_id = spouse_id
