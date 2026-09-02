@@ -111,24 +111,9 @@ class WarrantCreate(_ExtBase):
 
 
 class WarrantUpdate(BaseModel):
-    """修改主表字段（评估/状态/拍卖；扩展信息走 type-detail）。"""
+    """修改主表字段（仅基础字段；评估/拍卖/出入库均走子表接口）。"""
 
-    evaluate_method: int | None = None
-    evaluate_value: float | None = None
-    evaluate_date: date | None = None
-    evaluate_explain: str | None = None
-    evaluate_company: str | None = None
-    meeting_date: date | None = None
     warrant_state: int | None = None
-    storage_explain: str | None = None
-    auction_state: int | None = None
-    auction_date: date | None = None
-    listing_price: float | None = None
-    auction_remark: str | None = None
-    transaction_date: date | None = None
-    auction_amount: float | None = None
-    inquiry_date: date | None = None
-    inquiry_detail: str | None = None
     remark: str | None = Field(None, max_length=128)
 
 
@@ -209,6 +194,5 @@ class WarrantBrief(BaseModel):
     warrant_num: str
     warrant_type: int
     warrant_state: int
-    evaluate_value: float | None
     created_by_name: str
     created_at: datetime

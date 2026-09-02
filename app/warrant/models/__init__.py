@@ -24,35 +24,21 @@ from app.core.db import Base
 
 
 class Warrant(Base):
-    """担保物主表：评估 / 状态 / 查封拍卖信息。"""
+    """担保物主表：基本信息 + 入库状态。
+
+    评估历史走 warrant_evaluates 子表（含复核）；
+    出入库走 warrant_storages 子表（含联动状态）；
+    查封拍卖字段全部删除，后续如需独立评估/拍卖模块再建。
+    """
 
     __tablename__ = "warrants"
-
 
     warrant_num: Mapped[str] = mapped_column(String(128), unique=True, comment="权证编号")
     warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="1房产5土地6在建11应收21股权31票据41车辆51动产55其他99他权")
     remark: Mapped[str | None] = mapped_column(String(128), comment="备注")
-    # 评估
-    evaluate_method: Mapped[int | None] = mapped_column(SmallInteger, comment="评估方式")
-    evaluate_value: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="评估价值")
-    evaluate_date: Mapped[date | None]
-    evaluate_explain: Mapped[str | None] = mapped_column(String(255))
-    evaluate_company: Mapped[str | None] = mapped_column(String(128))
-    meeting_date: Mapped[date | None] = mapped_column(comment="最近上会日")
-    # 状态
     warrant_state: Mapped[int] = mapped_column(
         SmallInteger, default=10, index=True, comment="10未入库20已入库30已加保60无需入库110续抵出库210已借出310解保出库410已移交990已注销"
     )
-    storage_explain: Mapped[str | None] = mapped_column(String(255))
-    # 查封拍卖
-    inquiry_date: Mapped[date | None] = mapped_column(comment="查询日期")
-    inquiry_detail: Mapped[str | None] = mapped_column(String(255), comment="查封详情")
-    auction_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="拍卖状态")
-    auction_date: Mapped[date | None]
-    listing_price: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="挂网价")
-    auction_remark: Mapped[str | None] = mapped_column(String(255))
-    transaction_date: Mapped[date | None] = mapped_column(comment="成交日")
-    auction_amount: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="成交价")
 
 
 class WarrantOwnership(Base):

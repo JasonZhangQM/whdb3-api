@@ -90,9 +90,7 @@ def list_warrants(
     page_size: int,
     warrant_type: int | None = None,
     warrant_state: int | None = None,
-    auction_state: int | None = None,
     owner_id: int | None = None,
-    evaluate_method: int | None = None,
     q: str | None = None,
 ) -> tuple[list[dict], int]:
     stmt = select(Warrant).order_by(Warrant.id.desc())
@@ -103,10 +101,6 @@ def list_warrants(
         stmt = stmt.where(Warrant.warrant_type == warrant_type)
     if warrant_state is not None:
         stmt = stmt.where(Warrant.warrant_state == warrant_state)
-    if auction_state is not None:
-        stmt = stmt.where(Warrant.auction_state == auction_state)
-    if evaluate_method is not None:
-        stmt = stmt.where(Warrant.evaluate_method == evaluate_method)
     if q:
         stmt = stmt.where(Warrant.warrant_num.like(f"%{q}%"))
     if owner_id is not None:
@@ -133,11 +127,6 @@ def list_warrants(
                 "warrant_type_display": _disp("warrant_type", w.warrant_type),
                 "warrant_state": w.warrant_state,
                 "warrant_state_display": _disp("warrant_state", w.warrant_state),
-                "auction_state": w.auction_state,
-                "auction_state_display": _disp("auction_state", w.auction_state),
-                "evaluate_value": float(w.evaluate_value) if w.evaluate_value else None,
-                "evaluate_method": w.evaluate_method,
-                "evaluate_method_display": _disp("evaluate_method", w.evaluate_method),
                 "owner_names": owner_map.get(w.id, []),
                 "storage_latest": latest_storage.get(w.id),
                 "created_by_name": user_names.get(w.created_by, ""),
@@ -320,23 +309,6 @@ def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         "remark": w.remark,
         "warrant_state": w.warrant_state,
         "warrant_state_display": _disp("warrant_state", w.warrant_state),
-        "auction_state": w.auction_state,
-        "auction_state_display": _disp("auction_state", w.auction_state),
-        "evaluate_method": w.evaluate_method,
-        "evaluate_method_display": _disp("evaluate_method", w.evaluate_method),
-        "evaluate_value": float(w.evaluate_value) if w.evaluate_value else None,
-        "evaluate_date": w.evaluate_date,
-        "evaluate_explain": w.evaluate_explain,
-        "evaluate_company": w.evaluate_company,
-        "meeting_date": w.meeting_date,
-        "storage_explain": w.storage_explain,
-        "inquiry_date": w.inquiry_date,
-        "inquiry_detail": w.inquiry_detail,
-        "auction_date": w.auction_date,
-        "listing_price": float(w.listing_price) if w.listing_price else None,
-        "auction_remark": w.auction_remark,
-        "transaction_date": w.transaction_date,
-        "auction_amount": float(w.auction_amount) if w.auction_amount else None,
         "owner_names": [o["owner_name"] for o in owners],
         "created_by_name": user_names.get(w.created_by, ""),
         "created_at": w.created_at,
@@ -452,18 +424,13 @@ def _apply_state(db: Session, w: Warrant, storage_type: int) -> None:
 # ===== 评估（联动主表最新评估）=====
 
 def add_evaluate(db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext) -> int:
-    w = _get_warrant_with_scope(db, warrant_id, ctx)
+    """新增评估记录（仅写 warrant_evaluates 子表，主表已无评估字段）。"""
+    _get_warrant_with_scope(db, warrant_id, ctx)
     e = WarrantEvaluate(
         warrant_id=warrant_id, **body.model_dump(), created_by=user_id
     )
     db.add(e)
     db.flush()
-    # 联动主表最新评估字段
-    w.evaluate_method = body.evaluate_method
-    w.evaluate_value = body.evaluate_value
-    w.evaluate_date = body.evaluate_date
-    w.evaluate_explain = body.evaluate_explain
-    w.evaluate_company = body.evaluate_company
     return e.id
 
 
@@ -544,7 +511,6 @@ def batch_cancel(db: Session, warrant_ids: list[int], reason: str, user_id: int,
         if w.warrant_state == WarrantState.CANCELLED:
             raise BizError(4091, f"权证 {w.warrant_num} 已注销")
         w.warrant_state = WarrantState.CANCELLED
-        w.storage_explain = f"批量注销：{reason}"
         db.add(
             WarrantStorage(
                 warrant_id=wid,
@@ -567,18 +533,16 @@ def stats_overview(db: Session) -> dict:
     by_state_rows = db.execute(
         select(Warrant.warrant_state, func.count()).group_by(Warrant.warrant_state)
     ).all()
+    # 评估总值从 WarrantEvaluate 子表按 warrant_id 取最新一条的 evaluate_value
+    # 简单方案：sum 所有 evaluate_value（后续如需"最新值"可改为窗口函数取 rn=1）
     value_sum = db.scalar(
-        select(func.coalesce(func.sum(Warrant.evaluate_value), 0))
+        select(func.coalesce(func.sum(WarrantEvaluate.evaluate_value), 0))
     )
-    auction_count = db.scalar(
-        select(func.count(Warrant.id)).where(Warrant.auction_state.not_in([10, 990]))
-    ) or 0
     return {
         "total_count": total,
         "by_type": {_disp("warrant_type", t): n for t, n in by_type_rows},
         "by_state": {_disp("warrant_state", s): n for s, n in by_state_rows},
         "total_evaluate_value": float(value_sum or 0),
-        "auction_count": auction_count,
     }
 
 
@@ -599,8 +563,8 @@ def stats_by_customer(db: Session, customer_id: int) -> dict:
         .group_by(Warrant.warrant_type)
     ).all()
     value_sum = db.scalar(
-        select(func.coalesce(func.sum(Warrant.evaluate_value), 0)).where(
-            Warrant.id.in_(wids)
+        select(func.coalesce(func.sum(WarrantEvaluate.evaluate_value), 0)).where(
+            WarrantEvaluate.warrant_id.in_(wids)
         )
     )
     result["by_type"] = {_disp("warrant_type", t): n for t, n in by_type}
