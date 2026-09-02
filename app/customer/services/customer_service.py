@@ -342,9 +342,9 @@ def get_detail(db: Session, customer_id: int) -> dict:
     if latest:
         detail["latest_extend"] = {
             "id": latest.id,
-            "sales_revenue": float(latest.sales_revenue),
-            "total_assets": float(latest.total_assets),
-            "people_engaged": float(latest.people_engaged),
+            "sales_revenue": float(latest.sales_revenue) if latest.sales_revenue is not None else None,
+            "total_assets": float(latest.total_assets) if latest.total_assets is not None else None,
+            "people_engaged": float(latest.people_engaged) if latest.people_engaged is not None else None,
             "data_date": latest.data_date,
             "typing": latest.typing,
         }
@@ -608,9 +608,9 @@ def list_extends(db: Session, customer_id: int) -> list[dict]:
     return [
         {
             "id": e.id,
-            "sales_revenue": float(e.sales_revenue),
-            "total_assets": float(e.total_assets),
-            "people_engaged": float(e.people_engaged),
+            "sales_revenue": float(e.sales_revenue) if e.sales_revenue is not None else None,
+            "total_assets": float(e.total_assets) if e.total_assets is not None else None,
+            "people_engaged": float(e.people_engaged) if e.people_engaged is not None else None,
             "data_date": e.data_date,
             "typing": e.typing,
             "created_by_name": uname,
@@ -837,6 +837,87 @@ def unbind_spouse(db: Session, customer_id: int, user_id: int) -> None:
     if cp2 is not None:
         cp2.spouse_id = None
         cp2.marital_status = 90
+
+
+def update_personal_profile(
+    db: Session,
+    customer_id: int,
+    marital_status: int | None = None,
+    household_nature: int | None = None,
+    spouse_id: int | None = None,
+) -> None:
+    """更新个人扩展信息（三个字段一起编辑）。
+
+    spouse_id 变化时自动处理双向绑定/解绑逻辑：
+    - 从有到无：解绑旧配偶，双方 spouse_id 清空，marital_status 置 90
+    - 从无到有：绑定新配偶，双方 spouse_id 互设，marital_status 置 20
+    - 从 A 到 B：先解绑 A，再绑定 B
+    - 不变：不处理配偶关系
+
+    marital_status 始终按用户传入值更新（尊重用户意图）。
+    """
+    c = _get_or_404(db, customer_id)
+    if c.genre != Genre.PERSONAL:
+        raise BizError(4001, "仅个人客户有个人扩展信息")
+
+    cp = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == customer_id)
+    )
+    if cp is None:
+        raise BizError(4041, "个人扩展信息不存在")
+
+    old_spouse_id = cp.spouse_id
+    new_spouse_id = spouse_id
+
+    # ===== spouse_id 变化处理 =====
+    if old_spouse_id != new_spouse_id:
+        # 1. 解绑旧配偶（如果有）
+        if old_spouse_id is not None:
+            old_spouse_cp = db.scalar(
+                select(PersonalProfile).where(
+                    PersonalProfile.customer_id == old_spouse_id
+                )
+            )
+            cp.spouse_id = None
+            if old_spouse_cp is not None:
+                old_spouse_cp.spouse_id = None
+
+        # 2. 绑定新配偶（如果有）
+        if new_spouse_id is not None:
+            _bind_spouse_ids(db, customer_id, new_spouse_id)
+
+    # ===== 更新可空字段 =====
+    if marital_status is not None:
+        cp.marital_status = marital_status
+    if household_nature is not None:
+        cp.household_nature = household_nature
+    # spouse_id 已在上面处理完毕
+
+
+def _bind_spouse_ids(db: Session, customer_id: int, spouse_id: int) -> None:
+    """双向绑定配偶（不涉及 marital_status 更新，由调用方决定）。"""
+    from app.customer.models import Genre
+
+    if customer_id == spouse_id:
+        raise BizError(4001, "不能与自己绑定配偶")
+    spouse = db.get(Customer, spouse_id)
+    if spouse is None:
+        raise BizError(4041, "配偶客户不存在")
+    if spouse.genre != Genre.PERSONAL:
+        raise BizError(4001, "配偶必须是个人客户")
+
+    cp1 = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == customer_id)
+    )
+    cp2 = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == spouse_id)
+    )
+    if cp1 is None or cp2 is None:
+        raise BizError(4041, "个人扩展信息不存在")
+    # 不强制检查 cp2.spouse_id（调用方已处理解绑）
+
+    cp1.spouse_id = spouse_id
+    cp2.spouse_id = customer_id
 
 
 # ===== 核心企业额度 =====

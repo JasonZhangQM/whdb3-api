@@ -285,6 +285,14 @@ class DirectorOrderReq(BaseModel):
     ordered_ids: list[int]
 
 
+class PersonalProfileUpdate(BaseModel):
+    """更新个人扩展信息（三个字段一起编辑，PATCH 语义：字段为 None 表示清空 spouse_id，其余字段按值更新）。"""
+
+    marital_status: int | None = None
+    household_nature: int | None = None
+    spouse_id: int | None = None
+
+
 class SpouseBindReq(BaseModel):
     spouse_customer_id: int
 

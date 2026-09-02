@@ -23,6 +23,7 @@ from app.customer.schemas import (
     CustomerUpdate,
     DirectorCreate,
     DirectorOrderReq,
+    PersonalProfileUpdate,
     ShareholderCreate,
     SpouseBindReq,
 )
@@ -394,6 +395,25 @@ def unbind_spouse(
     customer_service.unbind_spouse(db, customer_id, user.user_id)
     db.commit()
     return ok(message="配偶已解绑")
+
+
+@router.patch("/{customer_id}/personal")
+def update_personal_profile(
+    customer_id: int,
+    body: PersonalProfileUpdate,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:update")),
+):
+    """更新个人扩展信息（婚姻状态/户籍性质/配偶，三个字段一起编辑）。"""
+    customer_service.update_personal_profile(
+        db,
+        customer_id,
+        marital_status=body.marital_status,
+        household_nature=body.household_nature,
+        spouse_id=body.spouse_id,
+    )
+    db.commit()
+    return ok(message="个人信息已更新")
 
 
 # ===== 联系人 =====
