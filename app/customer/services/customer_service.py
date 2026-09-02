@@ -848,13 +848,10 @@ def update_personal_profile(
 ) -> None:
     """更新个人扩展信息（三个字段一起编辑）。
 
-    spouse_id 变化时自动处理双向绑定/解绑逻辑：
-    - 从有到无：解绑旧配偶，双方 spouse_id 清空，marital_status 置 90
-    - 从无到有：绑定新配偶，双方 spouse_id 互设，marital_status 置 20
-    - 从 A 到 B：先解绑 A，再绑定 B
-    - 不变：不处理配偶关系
-
-    marital_status 始终按用户传入值更新（尊重用户意图）。
+    配偶关系与婚姻状态联动规则：
+    - 绑定新配偶（无论之前是否有配偶）：双方 spouse_id 互设 + 双方 marital_status 置 20（已婚）
+    - 解绑配偶（spouse_id 清空）：双方 spouse_id 清空 + 双方 marital_status 置 90（未知）
+    - spouse_id 不变：marital_status 若有传值，同步给配偶（保持双方一致）
     """
     c = _get_or_404(db, customer_id)
     if c.genre != Genre.PERSONAL:
@@ -871,7 +868,7 @@ def update_personal_profile(
 
     # ===== spouse_id 变化处理 =====
     if old_spouse_id != new_spouse_id:
-        # 1. 解绑旧配偶（如果有）
+        # 1. 解绑旧配偶（如果有） → 双方 spouse_id 清空 + 婚姻状态置 90
         if old_spouse_id is not None:
             old_spouse_cp = db.scalar(
                 select(PersonalProfile).where(
@@ -879,24 +876,40 @@ def update_personal_profile(
                 )
             )
             cp.spouse_id = None
+            cp.marital_status = 90
             if old_spouse_cp is not None:
                 old_spouse_cp.spouse_id = None
+                old_spouse_cp.marital_status = 90
 
-        # 2. 绑定新配偶（如果有）
+        # 2. 绑定新配偶（如果有） → 双方 spouse_id 互设 + 婚姻状态置 20
         if new_spouse_id is not None:
             _bind_spouse_ids(db, customer_id, new_spouse_id)
+            cp.marital_status = 20
+            new_spouse_cp = db.scalar(
+                select(PersonalProfile).where(
+                    PersonalProfile.customer_id == new_spouse_id
+                )
+            )
+            if new_spouse_cp is not None:
+                new_spouse_cp.marital_status = 20
 
-    # ===== 更新可空字段 =====
-    if marital_status is not None:
+    # ===== spouse_id 不变：marital_status 同步给配偶 =====
+    elif marital_status is not None and old_spouse_id is not None:
         cp.marital_status = marital_status
+        spouse_cp = db.scalar(
+            select(PersonalProfile).where(PersonalProfile.customer_id == old_spouse_id)
+        )
+        if spouse_cp is not None:
+            spouse_cp.marital_status = marital_status
+
+    # ===== household_nature 独立更新 =====
     if household_nature is not None:
         cp.household_nature = household_nature
-    # spouse_id 已在上面处理完毕
 
 
 def _bind_spouse_ids(db: Session, customer_id: int, spouse_id: int) -> None:
     """双向绑定配偶（不涉及 marital_status 更新，由调用方决定）。"""
-    from app.customer.models import Genre
+    # Genre 已在文件顶部 import（from app.customer.enums import Genre）
 
     if customer_id == spouse_id:
         raise BizError(4001, "不能与自己绑定配偶")
