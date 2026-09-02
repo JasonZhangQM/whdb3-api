@@ -475,10 +475,14 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
     if tags:
         _replace_tags(db, customer.id, tags)
 
-    if customer.genre == Genre.COMPANY and company:
-        db.add(CompanyProfile(customer_id=customer.id, **company))
-    elif customer.genre == Genre.PERSONAL and personal:
-        db.add(PersonalProfile(customer_id=customer.id, **personal))
+    if customer.genre == Genre.COMPANY:
+        db.add(CompanyProfile(customer_id=customer.id, **(company or {})))
+    elif customer.genre == Genre.PERSONAL:
+        # spouse_id 从 personal dict 中取出单独处理（双向绑定）
+        spouse_id = (personal or {}).pop("spouse_id", None)
+        db.add(PersonalProfile(customer_id=customer.id, **(personal or {})))
+        if spouse_id:
+            _bind_spouse_in_create(db, customer.id, spouse_id)
 
     for c in contacts:
         db.add(CustomerContact(customer_id=customer.id, created_by=user_id, **c))
@@ -757,6 +761,41 @@ def order_directors(db: Session, customer_id: int, ordered_ids: list[int]) -> No
         d.ordery = idx
 
 
+def _bind_spouse_in_create(db: Session, new_customer_id: int, spouse_id: int) -> None:
+    """新建个人客户时绑定配偶（双向关联 + 双方置已婚）。
+
+    与 bind_spouse 的区别：new_customer_id 对应的 PersonalProfile 已 flush 存在，
+    不需要 _get_or_404 查 Customer（已在 create_customer 内创建）。
+    """
+    from app.customer.models import Genre
+
+    if new_customer_id == spouse_id:
+        raise BizError(4001, "不能与自己绑定配偶")
+    spouse = db.get(Customer, spouse_id)
+    if spouse is None:
+        raise BizError(4041, "配偶客户不存在")
+    if spouse.genre != Genre.PERSONAL:
+        raise BizError(4001, "配偶必须是个人客户")
+
+    cp1 = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == new_customer_id)
+    )
+    cp2 = db.scalar(
+        select(PersonalProfile).where(PersonalProfile.customer_id == spouse_id)
+    )
+    if cp1 is None:
+        raise BizError(4041, "新建客户个人扩展信息不存在")
+    if cp2 is None:
+        raise BizError(4041, "配偶个人扩展信息不存在")
+    if cp2.spouse_id:
+        raise BizError(4091, "所选配偶已绑定其他人，请先解绑")
+
+    cp1.spouse_id = spouse_id
+    cp2.spouse_id = new_customer_id
+    cp1.marital_status = 20
+    cp2.marital_status = 20
+
+
 def bind_spouse(db: Session, customer_id: int, spouse_customer_id: int, user_id: int) -> None:
     c = _get_or_404(db, customer_id)
     s = _get_or_404(db, spouse_customer_id)
@@ -794,10 +833,10 @@ def unbind_spouse(db: Session, customer_id: int, user_id: int) -> None:
         select(PersonalProfile).where(PersonalProfile.customer_id == cp1.spouse_id)
     )
     cp1.spouse_id = None
-    cp1.marital_status = 10
+    cp1.marital_status = 90
     if cp2 is not None:
         cp2.spouse_id = None
-        cp2.marital_status = 10
+        cp2.marital_status = 90
 
 
 # ===== 核心企业额度 =====

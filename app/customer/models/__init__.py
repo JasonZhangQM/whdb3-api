@@ -17,6 +17,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
@@ -187,7 +188,9 @@ class PersonalProfile(Base):
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id"), unique=True
     )
-    marital_status: Mapped[int | None] = mapped_column(SmallInteger, comment="婚姻状态")
+    marital_status: Mapped[int | None] = mapped_column(
+        SmallInteger, server_default=text("90"), comment="婚姻状态"
+    )
     household_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="户籍性质")
     spouse_id: Mapped[int | None] = mapped_column(
         ForeignKey("customers.id"), comment="配偶（双向指向另一条个人客户）"

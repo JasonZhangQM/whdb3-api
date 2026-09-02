@@ -65,6 +65,7 @@ class MaritalStatus(LabeledIntEnum):
     MARRIED = 20, '已婚'
     DIVORCED = 30, '离异未再婚'
     WIDOWED = 40, '丧偶'
+    UNKNOWN = 90, '未知'
 
 
 class HouseholdNature(LabeledIntEnum):

@@ -198,14 +198,15 @@ class CompanyProfileCreate(BaseModel):
     decisionor: int | None = None
     custom_nature: int | None = None
     industry_c: int | None = None
-    capital: float = 0
-    paid_capital: float = 0
+    capital: float | None = None
+    paid_capital: float | None = None
     representative: str | None = None
 
 
 class PersonalProfileCreate(BaseModel):
     marital_status: int | None = None
     household_nature: int | None = None
+    spouse_id: int | None = None  # 配偶 customer_id，双向绑定由 service 层处理
 
 
 class CustomerCreate(BaseModel):
