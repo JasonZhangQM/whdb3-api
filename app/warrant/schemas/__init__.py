@@ -111,9 +111,8 @@ class WarrantCreate(_ExtBase):
 
 
 class WarrantUpdate(BaseModel):
-    """修改主表字段（仅基础字段；评估/拍卖/出入库均走子表接口）。"""
+    """修改主表基本信息（不含 warrant_state：状态变更只走出入库子表接口）。"""
 
-    warrant_state: int | None = None
     remark: str | None = Field(None, max_length=128)
 
 

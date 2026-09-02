@@ -36,6 +36,7 @@ class Warrant(Base):
     warrant_num: Mapped[str] = mapped_column(String(128), unique=True, comment="权证编号")
     warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="1房产5土地6在建11应收21股权31票据41车辆51动产55其他99他权")
     remark: Mapped[str | None] = mapped_column(String(128), comment="备注")
+
     warrant_state: Mapped[int] = mapped_column(
         SmallInteger, default=10, index=True, comment="10未入库20已入库30已加保60无需入库110续抵出库210已借出310解保出库410已移交990已注销"
     )
