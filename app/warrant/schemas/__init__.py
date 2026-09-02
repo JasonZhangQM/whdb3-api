@@ -33,11 +33,6 @@ class ConstructionItem(BaseModel):
     construct_area: float = Field(..., gt=0)
 
 
-class ReceivableCreate(BaseModel):
-    receivable_detail: str
-    receive_units: list[str] = []
-
-
 class StockCreate(BaseModel):
     stock_type: Literal[10, 20, 30]
     target: str
@@ -45,10 +40,6 @@ class StockCreate(BaseModel):
     registered_capital: float = 0
     paid_capital: float = 0
     remark: str | None = None
-
-
-class DraftCreate(BaseModel):
-    draft_detail: str
 
 
 class VehicleCreate(BaseModel):
@@ -102,9 +93,8 @@ class _ExtBase(BaseModel):
     houses: list[HouseItem] | None = None
     grounds: list[GroundItem] | None = None
     constructions: list[ConstructionItem] | None = None
-    receivable: ReceivableCreate | None = None
+    receive_units: list[str] = []
     stock: StockCreate | None = None
-    draft: DraftCreate | None = None
     vehicle: VehicleCreate | None = None
     chattel: ChattelCreate | None = None
     other: OtherCreate | None = None

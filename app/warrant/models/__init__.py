@@ -114,31 +114,18 @@ class WarrantConstruction(Base):
 
 
 
-class WarrantReceivable(Base):
-    """应收账款（type=11）。"""
-
-    __tablename__ = "warrant_receivables"
-
-
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
-    receivable_detail: Mapped[str] = mapped_column(String(255))
-
-
-
 class WarrantReceiveExtend(Base):
-    """应收单位明细。"""
+    """应收单位明细（直接关联权证主表）。"""
 
     __tablename__ = "warrant_receive_extends"
 
 
-    receivable_id: Mapped[int] = mapped_column(
-        ForeignKey("warrant_receivables.id", ondelete="CASCADE")
-    )
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
     receive_unit: Mapped[str] = mapped_column(String(128), comment="应收单位名称")
 
 
     __table_args__ = (
-        UniqueConstraint("receivable_id", "receive_unit", name="uq_receive_extend_unit"),
+        UniqueConstraint("warrant_id", "receive_unit", name="uq_receive_extend_unit"),
     )
 
 
@@ -158,24 +145,13 @@ class WarrantStock(Base):
 
 
 
-class WarrantDraft(Base):
-    """票据（type=31）。"""
-
-    __tablename__ = "warrant_drafts"
-
-
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
-    draft_detail: Mapped[str] = mapped_column(String(255))
-
-
-
 class WarrantDraftExtend(Base):
-    """票据明细（关联核心企业/承兑人客户）。"""
+    """票据明细（关联核心企业/承兑人客户，直接关联权证主表）。"""
 
     __tablename__ = "warrant_draft_extends"
 
 
-    draft_id: Mapped[int] = mapped_column(ForeignKey("warrant_drafts.id", ondelete="CASCADE"))
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
     draft_type: Mapped[int] = mapped_column(SmallInteger, comment="10电银承20银承11电商承12商承21支票")
     draft_num: Mapped[str] = mapped_column(String(128), comment="票据编号")
     acceptor_id: Mapped[int] = mapped_column(

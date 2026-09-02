@@ -14,14 +14,12 @@ from app.warrant.models import (
     Warrant,
     WarrantChattel,
     WarrantConstruction,
-    WarrantDraft,
     WarrantDraftExtend,
     WarrantGround,
     WarrantHouse,
     WarrantOther,
     WarrantOwnership,
     WarrantPatent,
-    WarrantReceivable,
     WarrantReceiveExtend,
     WarrantSoftware,
     WarrantStock,
@@ -59,27 +57,16 @@ def create_ext(db: Session, warrant_id: int, wtype: WarrantType, body, user_id: 
         for c in body.constructions:
             db.add(WarrantConstruction(warrant_id=warrant_id, **c.model_dump(), created_by=user_id))
     elif wtype == WarrantType.RECEIVABLE:
-        r = body.receivable
-        recv = WarrantReceivable(
-            warrant_id=warrant_id,
-            receivable_detail=r.receivable_detail,
-            created_by=user_id,
-        )
-        db.add(recv)
-        db.flush()
-        for unit in r.receive_units:
+        # 应收明细直连 warrants（无中间表），创建时单位可为空
+        for unit in body.receive_units:
             db.add(
                 WarrantReceiveExtend(
-                    receivable_id=recv.id, receive_unit=unit, created_by=user_id
+                    warrant_id=warrant_id, receive_unit=unit, created_by=user_id
                 )
             )
     elif wtype == WarrantType.STOCK:
         s = body.stock
         db.add(WarrantStock(warrant_id=warrant_id, **s.model_dump(), created_by=user_id))
-    elif wtype == WarrantType.DRAFT:
-        d = body.draft
-        draft = WarrantDraft(warrant_id=warrant_id, **d.model_dump(), created_by=user_id)
-        db.add(draft)
     elif wtype == WarrantType.VEHICLE:
         v = body.vehicle
         db.add(WarrantVehicle(warrant_id=warrant_id, **v.model_dump(), created_by=user_id))
@@ -128,9 +115,8 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         "houses": [],
         "ground": None,
         "construction": None,
-        "receivable": None,
+        "receive_units": [],
         "stock": None,
-        "draft": None,
         "draft_extends": [],
         "vehicle": None,
         "chattel": None,
@@ -189,25 +175,15 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
             for c, region_name in rows
         ]
     elif wtype == WarrantType.RECEIVABLE:
-        r = db.scalar(
-            select(WarrantReceivable).where(WarrantReceivable.warrant_id == warrant_id)
-        )
-        if r:
-            units = db.scalars(
-                select(WarrantReceiveExtend)
-                .where(WarrantReceiveExtend.receivable_id == r.id)
-                .order_by(WarrantReceiveExtend.id)
-            ).all()
-            result["receivable"] = {
-                "id": r.id,
-                "receivable_detail": r.receivable_detail,
-                # 带 id 供详情页删除操作使用
-                "receive_units": [
-                    {"id": u.id, "receive_unit": u.receive_unit} for u in units
-                ],
-            }
-        else:
-            result["receivable"] = None
+        units = db.scalars(
+            select(WarrantReceiveExtend)
+            .where(WarrantReceiveExtend.warrant_id == warrant_id)
+            .order_by(WarrantReceiveExtend.id)
+        ).all()
+        # 带 id 供详情页删除操作使用
+        result["receive_units"] = [
+            {"id": u.id, "receive_unit": u.receive_unit} for u in units
+        ]
     elif wtype == WarrantType.STOCK:
         s = db.scalar(select(WarrantStock).where(WarrantStock.warrant_id == warrant_id))
         result["stock"] = {
@@ -220,11 +196,6 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
             "remark": s.remark,
         } if s else None
     elif wtype == WarrantType.DRAFT:
-        d = db.scalar(select(WarrantDraft).where(WarrantDraft.warrant_id == warrant_id))
-        result["draft"] = {
-            "id": d.id,
-            "draft_detail": d.draft_detail,
-        } if d else None
         result["draft_extends"] = list_draft_extends(db, warrant_id, ctx)["items"]
     elif wtype == WarrantType.VEHICLE:
         v = db.scalar(select(WarrantVehicle).where(WarrantVehicle.warrant_id == warrant_id))
@@ -288,7 +259,10 @@ def update_type_detail(db: Session, warrant_id: int, body: TypeDetailUpdate, use
 
     w = _get_warrant(db, warrant_id, ctx)
     wtype = WarrantType(w.warrant_type)
-    ext_field = TYPE_EXT_FIELD[wtype]
+    ext_field = TYPE_EXT_FIELD.get(wtype)
+    if ext_field is None:
+        # 票据/应收明细已直连 warrants，扩展信息走独立明细接口，整体替换无意义
+        return
     ext = getattr(body, ext_field)
     if ext is None:
         raise BizError(4001, f"必须提供该类型的扩展信息字段: {ext_field}")
@@ -315,33 +289,17 @@ def _delete_ext(db: Session, warrant_id: int, wtype: WarrantType) -> None:
             WarrantConstruction.warrant_id == warrant_id
         ).delete(synchronize_session=False)
     elif wtype == WarrantType.RECEIVABLE:
-        recv_ids = list(
-            db.scalars(
-                select(WarrantReceivable.id).where(WarrantReceivable.warrant_id == warrant_id)
-            )
-        )
-        if recv_ids:
-            db.query(WarrantReceiveExtend).filter(
-                WarrantReceiveExtend.receivable_id.in_(recv_ids)
-            ).delete(synchronize_session=False)
-        db.query(WarrantReceivable).filter(
-            WarrantReceivable.warrant_id == warrant_id
+        db.query(WarrantReceiveExtend).filter(
+            WarrantReceiveExtend.warrant_id == warrant_id
         ).delete(synchronize_session=False)
     elif wtype == WarrantType.STOCK:
         db.query(WarrantStock).filter(WarrantStock.warrant_id == warrant_id).delete(
             synchronize_session=False
         )
     elif wtype == WarrantType.DRAFT:
-        draft_id = db.scalar(
-            select(WarrantDraft.id).where(WarrantDraft.warrant_id == warrant_id)
-        )
-        if draft_id:
-            db.query(WarrantDraftExtend).filter(
-                WarrantDraftExtend.draft_id == draft_id
-            ).delete(synchronize_session=False)
-        db.query(WarrantDraft).filter(WarrantDraft.warrant_id == warrant_id).delete(
-            synchronize_session=False
-        )
+        db.query(WarrantDraftExtend).filter(
+            WarrantDraftExtend.warrant_id == warrant_id
+        ).delete(synchronize_session=False)
     elif wtype == WarrantType.VEHICLE:
         db.query(WarrantVehicle).filter(WarrantVehicle.warrant_id == warrant_id).delete(
             synchronize_session=False
@@ -371,15 +329,10 @@ def _delete_ext(db: Session, warrant_id: int, wtype: WarrantType) -> None:
 def list_draft_extends(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     """票据明细列表（关联核心企业/承兑人名称）。"""
     _get_warrant(db, warrant_id, ctx)
-    draft_id = db.scalar(
-        select(WarrantDraft.id).where(WarrantDraft.warrant_id == warrant_id)
-    )
-    if draft_id is None:
-        return {"items": []}
     rows = db.execute(
         select(WarrantDraftExtend, Customer.name)
         .join(Customer, Customer.id == WarrantDraftExtend.acceptor_id)
-        .where(WarrantDraftExtend.draft_id == draft_id)
+        .where(WarrantDraftExtend.warrant_id == warrant_id)
         .order_by(WarrantDraftExtend.id)
     ).all()
     # 核心企业名二次批量取（避免 join 两别名复杂化）
@@ -417,11 +370,6 @@ def add_draft_extend(db: Session, warrant_id: int, body: DraftExtendCreate, user
     w = _get_warrant(db, warrant_id, ctx)
     if WarrantType(w.warrant_type) != WarrantType.DRAFT:
         raise BizError(4001, "仅票据类型权证可添加票据明细")
-    draft_id = db.scalar(
-        select(WarrantDraft.id).where(WarrantDraft.warrant_id == warrant_id)
-    )
-    if draft_id is None:
-        raise BizError(4041, "票据扩展信息不存在")
 
     acceptor = db.get(Customer, body.acceptor_id)
     if acceptor is None:
@@ -437,7 +385,7 @@ def add_draft_extend(db: Session, warrant_id: int, body: DraftExtendCreate, user
     if dup is not None:
         raise BizError(4091, "票据编号已存在")
 
-    e = WarrantDraftExtend(draft_id=draft_id, **body.model_dump(), created_by=user_id)
+    e = WarrantDraftExtend(warrant_id=warrant_id, **body.model_dump(), created_by=user_id)
     db.add(e)
     db.flush()
     return e.id
@@ -463,12 +411,7 @@ def delete_draft_extend(db: Session, warrant_id: int, extend_id: int, ctx: AuthC
 
 def _get_draft_extend(db: Session, warrant_id: int, extend_id: int) -> WarrantDraftExtend:
     e = db.get(WarrantDraftExtend, extend_id)
-    if e is None:
-        raise BizError(4041, "票据明细不存在")
-    draft_id = db.scalar(
-        select(WarrantDraft.id).where(WarrantDraft.warrant_id == warrant_id)
-    )
-    if draft_id is None or e.draft_id != draft_id:
+    if e is None or e.warrant_id != warrant_id:
         raise BizError(4041, "票据明细不存在")
     return e
 
@@ -477,14 +420,9 @@ def _get_draft_extend(db: Session, warrant_id: int, extend_id: int) -> WarrantDr
 
 def list_receive_extends(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     _get_warrant(db, warrant_id, ctx)
-    recv_id = db.scalar(
-        select(WarrantReceivable.id).where(WarrantReceivable.warrant_id == warrant_id)
-    )
-    if recv_id is None:
-        return {"items": []}
     rows = db.scalars(
         select(WarrantReceiveExtend)
-        .where(WarrantReceiveExtend.receivable_id == recv_id)
+        .where(WarrantReceiveExtend.warrant_id == warrant_id)
         .order_by(WarrantReceiveExtend.id)
     ).all()
     return {
@@ -496,21 +434,16 @@ def add_receive_extend(db: Session, warrant_id: int, body: ReceiveExtendCreate, 
     w = _get_warrant(db, warrant_id, ctx)
     if WarrantType(w.warrant_type) != WarrantType.RECEIVABLE:
         raise BizError(4001, "仅应收账款类型权证可添加应收单位")
-    recv_id = db.scalar(
-        select(WarrantReceivable.id).where(WarrantReceivable.warrant_id == warrant_id)
-    )
-    if recv_id is None:
-        raise BizError(4041, "应收扩展信息不存在")
     dup = db.scalar(
         select(WarrantReceiveExtend.id).where(
-            WarrantReceiveExtend.receivable_id == recv_id,
+            WarrantReceiveExtend.warrant_id == warrant_id,
             WarrantReceiveExtend.receive_unit == body.receive_unit,
         )
     )
     if dup is not None:
         raise BizError(4091, "该应收单位已存在")
     e = WarrantReceiveExtend(
-        receivable_id=recv_id, receive_unit=body.receive_unit, created_by=user_id
+        warrant_id=warrant_id, receive_unit=body.receive_unit, created_by=user_id
     )
     db.add(e)
     db.flush()
@@ -520,12 +453,7 @@ def add_receive_extend(db: Session, warrant_id: int, body: ReceiveExtendCreate, 
 def delete_receive_extend(db: Session, warrant_id: int, extend_id: int, ctx: AuthContext) -> None:
     _get_warrant(db, warrant_id, ctx)
     e = db.get(WarrantReceiveExtend, extend_id)
-    if e is None:
-        raise BizError(4041, "应收单位不存在")
-    recv_id = db.scalar(
-        select(WarrantReceivable.id).where(WarrantReceivable.warrant_id == warrant_id)
-    )
-    if recv_id is None or e.receivable_id != recv_id:
+    if e is None or e.warrant_id != warrant_id:
         raise BizError(4041, "应收单位不存在")
     db.delete(e)
 

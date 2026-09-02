@@ -13,7 +13,6 @@ from app.customer.models import Customer
 from app.warrant.enums import LABELS, StorageType, WarrantState, WarrantType
 from app.warrant.models import (
     Warrant,
-    WarrantDraft,
     WarrantDraftExtend,
     WarrantEvaluate,
     WarrantEvaluateCompany,
@@ -42,13 +41,12 @@ STORAGE_STATE_MAP = {
 }
 
 # 类型 → 创建/更新时扩展信息属性名（warrant_type 与 schema 字段对应）
+# 票据(31)/应收(11)明细已直连 warrants，创建时无必填扩展对象，不在此映射
 TYPE_EXT_FIELD = {
     WarrantType.HOUSE: "houses",
     WarrantType.GROUND: "grounds",
     WarrantType.CONSTRUCTION: "constructions",
-    WarrantType.RECEIVABLE: "receivable",
     WarrantType.STOCK: "stock",
-    WarrantType.DRAFT: "draft",
     WarrantType.VEHICLE: "vehicle",
     WarrantType.CHATTEL: "chattel",
     WarrantType.OTHER: "other",
@@ -366,9 +364,9 @@ def create(db: Session, body: WarrantCreate, user_id: int) -> int:
         raise BizError(4001, "他权类型随合同模块（M3）开放")
 
     # 扩展信息必填校验（type=1 必须有 houses[≥1]，其余 OneToOne 必须有对应对象）
-    ext_field = TYPE_EXT_FIELD[wtype]
-    ext_value = getattr(body, ext_field)
-    if not ext_value:
+    # 票据/应收无必填扩展对象（明细可为空，走独立明细接口），跳过
+    ext_field = TYPE_EXT_FIELD.get(wtype)
+    if ext_field and not getattr(body, ext_field):
         raise BizError(4001, f"该类型必须提供扩展信息: {ext_field}")
     if wtype == WarrantType.HOUSE and not body.houses:
         raise BizError(4001, "房产类型至少提供一套房产")
