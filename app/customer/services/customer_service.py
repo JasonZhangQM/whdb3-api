@@ -300,8 +300,8 @@ def get_detail(db: Session, customer_id: int) -> dict:
                 "industry_c": cp.industry_c,
                 "typing": cp.typing,
                 "typing_display": _disp("typing", cp.typing),
-                "capital": float(cp.capital or 0),
-                "paid_capital": float(cp.paid_capital or 0),
+                "capital": float(cp.capital) if cp.capital is not None else None,
+                "paid_capital": float(cp.paid_capital) if cp.paid_capital is not None else None,
                 "representative": cp.representative,
             }
             detail["shareholder_count"] = db.scalar(
