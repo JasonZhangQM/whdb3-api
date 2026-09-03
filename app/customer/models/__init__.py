@@ -118,6 +118,8 @@ class Customer(Base):
     credit_region_id: Mapped[int | None] = mapped_column(ForeignKey("customer_credit_regions.id"), comment="授信区域")
     industry_id: Mapped[int | None] = mapped_column(ForeignKey("customer_industries.id"), comment="国民经济行业")
     group_id: Mapped[int | None] = mapped_column(ForeignKey("customer_groups.id"), comment="所属集团")
+    is_core: Mapped[bool] = mapped_column(Boolean, server_default=text("0"), comment="是否核心企业")
+    is_acceptor: Mapped[bool] = mapped_column(Boolean, server_default=text("0"), comment="是否承兑人")
 
     managementor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="管护经理")
     controler_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), comment="风控专员")

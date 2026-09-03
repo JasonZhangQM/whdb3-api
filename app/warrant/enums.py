@@ -51,7 +51,7 @@ class StorageType(LabeledIntEnum):
     CANCELLED = 990, '注销'
 
 
-class DraftDetailType(LabeledIntEnum):
+class DraftType(LabeledIntEnum):
     """票据类型。"""
 
     BANK = 10, '银行承兑汇票'
@@ -114,7 +114,7 @@ class CommonStatus(LabeledIntEnum):
 
 LABELS = make_labels(
     WarrantType, WarrantState, AuctionState, StorageType,
-    DraftDetailType, DraftState,
+    DraftType, DraftState,
     HouseUsage, StockType, ChattelType, OtherType, EvaluateMethod,
     CommonStatus,
 )

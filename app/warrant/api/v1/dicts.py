@@ -26,7 +26,7 @@ def warrant_types(_: AuthContext = Depends(get_current_user)):
     return ok(
         {
             "warrant_type": _enum("warrant_type"),
-            "draft_type": _enum("draft_detail_type"),
+            "draft_type": _enum("draft_type"),
         }
     )
 

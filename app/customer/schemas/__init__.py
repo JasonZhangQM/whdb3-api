@@ -221,6 +221,8 @@ class CustomerCreate(BaseModel):
     group_id: int | None = None
     managementor_id: int
     controler_id: int | None = None
+    is_core: bool = False
+    is_acceptor: bool = False
     company: CompanyProfileCreate | None = None
     personal: PersonalProfileCreate | None = None
     contacts: list[CustomerContactCreate] | None = None
@@ -240,6 +242,8 @@ class CustomerUpdate(BaseModel):
     industry_id: int | None = None
     group_id: int | None = None
     classification: int | None = None
+    is_core: bool | None = None
+    is_acceptor: bool | None = None
     tags: list[int] | None = None
 
 

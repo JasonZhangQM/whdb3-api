@@ -185,6 +185,8 @@ def list_customers(
                 "credit_amount": float(c.credit_amount),
                 "amount": float(c.amount),
                 "classification": c.classification,
+                "is_core": c.is_core,
+                "is_acceptor": c.is_acceptor,
                 "region_name": region_names.get(c.region_id or 0),
                 "credit_region_id": c.credit_region_id,
                 "credit_region_name": credit_region_names.get(c.credit_region_id or 0),
@@ -225,6 +227,9 @@ def get_detail(db: Session, customer_id: int) -> dict:
         "amount": float(c.amount),
         "classification": c.classification,
         "classification_display": _disp("classification", c.classification),
+        "is_core": c.is_core,
+        "is_acceptor": c.is_acceptor,
+        "region_id": c.region_id,
         "region_name": None,
         "credit_region_id": c.credit_region_id,
         "credit_region_name": None,
@@ -1105,6 +1110,32 @@ def customer_dict(
         for c, mname in rows
     ]
     return items, total
+
+
+def acceptor_dict(db: Session) -> list[dict]:
+    """承兑人下拉字典（全量，本地搜索）。筛选 is_acceptor=True 的客户。"""
+    rows = db.execute(
+        select(Customer.id, Customer.name, Customer.short_name)
+        .where(Customer.is_acceptor.is_(True))
+        .order_by(Customer.short_name)
+    ).all()
+    return [
+        {"id": rid, "name": rname, "short_name": sname}
+        for rid, rname, sname in rows
+    ]
+
+
+def core_dict(db: Session) -> list[dict]:
+    """核心企业下拉字典（全量，本地搜索）。筛选 is_core=True 的客户。"""
+    rows = db.execute(
+        select(Customer.id, Customer.name, Customer.short_name)
+        .where(Customer.is_core.is_(True))
+        .order_by(Customer.short_name)
+    ).all()
+    return [
+        {"id": rid, "name": rname, "short_name": sname}
+        for rid, rname, sname in rows
+    ]
 
 
 def stats_overview(db: Session) -> dict:

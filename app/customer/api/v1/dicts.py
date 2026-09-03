@@ -109,6 +109,24 @@ def customers_dict(
     return ok({"items": items, "total": total, "page": page, "page_size": page_size})
 
 
+@router.get("/acceptors")
+def acceptors_dict(
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(get_current_user),
+):
+    """承兑人下拉字典（全量，本地搜索）。"""
+    return ok(customer_service.acceptor_dict(db))
+
+
+@router.get("/cores")
+def cores_dict(
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(get_current_user),
+):
+    """核心企业下拉字典（全量，本地搜索）。"""
+    return ok(customer_service.core_dict(db))
+
+
 # ===== 授信区域（挂在 /dicts 下供下拉，管理接口见 credit_regions.py）=====
 
 @router.get("/credit-regions/tree")
