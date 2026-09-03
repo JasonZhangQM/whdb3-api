@@ -355,7 +355,7 @@ def list_draft_extends(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         {
             "id": r.id,
             "draft_type": r.draft_type,
-            "draft_type_display": _disp("draft_detail_type", r.draft_type),
+            "draft_type_display": _disp("draft_type", r.draft_type),
             "draft_num": r.draft_num,
             "acceptor_id": r.acceptor_id,
             "acceptor_name": aname,
