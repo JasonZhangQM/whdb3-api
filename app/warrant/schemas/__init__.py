@@ -89,7 +89,7 @@ class OwnershipUpdate(BaseModel):
 
 # 票据 / 应收明细（前置声明，_ExtBase 引用）
 class DraftExtendCreate(BaseModel):
-    draft_type: Literal[10, 20, 11, 12, 21]
+    draft_type: Literal[10, 20, 30]
     draft_num: str = Field(..., max_length=128)
     acceptor_id: int
     core_id: int

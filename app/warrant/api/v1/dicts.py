@@ -22,12 +22,11 @@ def _enum(group: str) -> list[dict]:
 
 @router.get("/warrant-types")
 def warrant_types(_: AuthContext = Depends(get_current_user)):
-    """权证类型字典（含票据主类型/明细类型）。"""
+    """权证类型字典（含票据明细类型）。"""
     return ok(
         {
             "warrant_type": _enum("warrant_type"),
-            "draft_main_type": _enum("draft_main_type"),
-            "draft_detail_type": _enum("draft_detail_type"),
+            "draft_type": _enum("draft_detail_type"),
         }
     )
 
