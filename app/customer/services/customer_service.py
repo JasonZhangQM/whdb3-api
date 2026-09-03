@@ -118,6 +118,7 @@ def list_customers(
             or_(
                 Customer.name.like(like),
                 Customer.short_name.like(like),
+                Customer.license_num.like(like),
                 contact_exists,
             )
         )
