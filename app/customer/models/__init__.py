@@ -87,8 +87,6 @@ class Group(Base):
 
     __tablename__ = "customer_groups"
 
-
-    code: Mapped[str] = mapped_column(String(32), unique=True)
     name: Mapped[str] = mapped_column(String(128), unique=True)
     parent_id: Mapped[int | None] = mapped_column(
         BigInteger, default=None, index=True, comment="上级集团，NULL=顶级"

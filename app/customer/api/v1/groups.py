@@ -30,7 +30,7 @@ def create_group(
 ):
     """新建集团（母公司自动加入成员）。"""
     group_id = group_service.create(
-        db, body.code, body.name, body.parent_id,
+        db, body.name, body.parent_id,
         body.parent_customer_id, body.credit_amount,
         body.description, user.user_id,
     )

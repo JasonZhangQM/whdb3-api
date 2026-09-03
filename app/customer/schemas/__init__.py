@@ -31,7 +31,6 @@ class TagCreate(BaseModel):
 # ===== 集团 =====
 class GroupTreeNode(BaseModel):
     id: int
-    code: str
     name: str
     parent_id: int | None
     parent_customer_id: int | None
@@ -50,7 +49,6 @@ class GroupDetail(GroupTreeNode):
 
 
 class GroupCreate(BaseModel):
-    code: str = Field(..., max_length=32)
     name: str = Field(..., max_length=128)
     parent_id: int | None = None
     parent_customer_id: int

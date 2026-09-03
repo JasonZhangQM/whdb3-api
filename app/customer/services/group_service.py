@@ -69,7 +69,7 @@ def _summary(db: Session, group_id: int) -> dict:
 
 def tree(db: Session) -> list[dict]:
     """集团树（成员数/在保汇总为合并口径：本集团 + 全部子集团）。"""
-    rows = db.scalars(select(Group).order_by(Group.code)).all()
+    rows = db.scalars(select(Group).order_by(Group.name)).all()
     counts = _member_counts(db)
     children_map = _children_map(db)
     # 母公司名与各集团直接成员在保 SUM
@@ -103,7 +103,7 @@ def tree(db: Session) -> list[dict]:
         rows,
         parent_getter=lambda r: r.parent_id,
         node_mapper=lambda r: {
-            "id": r.id, "code": r.code, "name": r.name, "parent_id": r.parent_id,
+            "id": r.id, "name": r.name, "parent_id": r.parent_id,
             "parent_customer_id": r.parent_customer_id,
             "parent_customer_name": parent_names.get(r.parent_customer_id or 0),
             "credit_amount": float(r.credit_amount),
@@ -163,7 +163,7 @@ def get_detail(db: Session, group_id: int) -> dict:
     # 子集团列表复用树口径（每个子集团节点自带合并口径统计与 status）
     node = _find_tree_node(tree(db), group_id)
     detail = {
-        "id": g.id, "code": g.code, "name": g.name, "parent_id": g.parent_id,
+        "id": g.id, "name": g.name, "parent_id": g.parent_id,
         "parent_customer_id": g.parent_customer_id,
         "parent_customer_name": None,
         "credit_amount": float(g.credit_amount),
@@ -200,20 +200,16 @@ def _validate_parent_customer(
     return c
 
 
-def create(db: Session, code: str, name: str, parent_id: int | None,
+def create(db: Session, name: str, parent_id: int | None,
            parent_customer_id: int, credit_amount: float,
            description: str | None, user_id: int) -> int:
-    # 校验
-    dup = db.scalar(select(Group.id).where(Group.code == code))
-    if dup is not None:
-        raise BizError(4091, "集团编码已存在")
     parent_customer = _validate_parent_customer(db, parent_customer_id)
     if parent_id:
         get_or_404(db, parent_id)
 
     # 写入（事务）：集团 + 母公司自动加入
     g = Group(
-        code=code, name=name, parent_id=parent_id or None,
+        name=name, parent_id=parent_id or None,
         parent_customer_id=parent_customer_id,
         credit_amount=credit_amount, description=description,
         created_by=user_id,

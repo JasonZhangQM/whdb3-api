@@ -179,6 +179,7 @@ def list_customers(
                 "name": c.name,
                 "short_name": c.short_name,
                 "genre": c.genre,
+                "license_num": c.license_num,
                 "managementor_name": users.get(c.managementor_id, ""),
                 "credit_amount": float(c.credit_amount),
                 "amount": float(c.amount),
