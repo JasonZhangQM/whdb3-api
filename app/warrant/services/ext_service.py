@@ -64,6 +64,13 @@ def create_ext(db: Session, warrant_id: int, wtype: WarrantType, body, user_id: 
                     warrant_id=warrant_id, receive_unit=unit, created_by=user_id
                 )
             )
+    elif wtype == WarrantType.DRAFT:
+        for d in body.draft_extends:
+            db.add(
+                WarrantDraftExtend(
+                    warrant_id=warrant_id, **d.model_dump(), created_by=user_id
+                )
+            )
     elif wtype == WarrantType.STOCK:
         s = body.stock
         db.add(WarrantStock(warrant_id=warrant_id, **s.model_dump(), created_by=user_id))

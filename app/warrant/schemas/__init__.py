@@ -86,6 +86,22 @@ class OwnershipUpdate(BaseModel):
 
 
 # ===== 类型扩展基类（WarrantCreate / TypeDetailUpdate 共用字段，一处定义）=====
+
+# 票据 / 应收明细（前置声明，_ExtBase 引用）
+class DraftExtendCreate(BaseModel):
+    draft_type: Literal[10, 20, 11, 12, 21]
+    draft_num: str = Field(..., max_length=128)
+    acceptor_id: int
+    core_id: int
+    draft_amount: float = Field(..., gt=0)
+    issue_date: date
+    due_date: date
+
+
+class ReceiveExtendCreate(BaseModel):
+    receive_unit: str = Field(..., max_length=128)
+
+
 class _ExtBase(BaseModel):
     """9 种权证类型的扩展信息字段集合——WarrantCreate 继承 + 主表元数据，
     TypeDetailUpdate 直接使用做整体替换。子类新增字段加在此处即可。"""
@@ -94,6 +110,7 @@ class _ExtBase(BaseModel):
     grounds: list[GroundItem] | None = None
     constructions: list[ConstructionItem] | None = None
     receive_units: list[str] = []
+    draft_extends: list[DraftExtendCreate] = []
     stock: StockCreate | None = None
     vehicle: VehicleCreate | None = None
     chattel: ChattelCreate | None = None
@@ -144,24 +161,10 @@ class RecheckCreate(BaseModel):
 
 
 # ===== 票据 / 应收明细 =====
-class DraftExtendCreate(BaseModel):
-    draft_type: Literal[10, 20, 11, 12, 21]
-    draft_num: str = Field(..., max_length=128)
-    acceptor_id: int
-    core_id: int
-    draft_amount: float = Field(..., gt=0)
-    issue_date: date
-    due_date: date
-
-
 class DraftExtendUpdate(BaseModel):
     draft_state: int | None = None
     draft_amount: float | None = None
     due_date: date | None = None
-
-
-class ReceiveExtendCreate(BaseModel):
-    receive_unit: str = Field(..., max_length=128)
 
 
 # ===== 批量操作 / 字典 =====
