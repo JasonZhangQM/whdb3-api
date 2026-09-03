@@ -126,8 +126,8 @@ class WarrantStock(Base):
     stock_type: Mapped[int] = mapped_column(SmallInteger, comment="10有限公司股权20股份公司股份30举办者权益")
     target: Mapped[str] = mapped_column(String(128), comment="标的公司")
     ratio: Mapped[float] = mapped_column(Numeric(5, 2), comment="持股%")
-    registered_capital: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
-    paid_capital: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
+    registered_capital: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="注册资本(万元)")
+    paid_capital: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="实收资本(万元)")
     remark: Mapped[str | None] = mapped_column(String(255))
 
 
