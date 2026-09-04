@@ -19,6 +19,8 @@ import app.attachment.models  # noqa: F401,E402
 import app.institution.models  # noqa: F401,E402
 import app.customer.models  # noqa: F401,E402
 import app.warrant.models  # noqa: F401,E402
+import app.article.models  # noqa: F401,E402  M3a 项目
+import app.appraisal.models  # noqa: F401,E402  M3a 评审
 
 config = context.config
 

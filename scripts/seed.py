@@ -14,14 +14,18 @@ from passlib.context import CryptContext  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-from app.approval.models import ApprovalFlowDef, ApprovalFlowNode  # noqa: E402
+from app.approval.models import ApprovalFlowDef, ApprovalFlowNode
+from app.article.models import ArticleProduct  # noqa: E402
 from app.approval import permissions as approval_perms  # noqa: E402
+from app.article import permissions as article_perms  # noqa: E402  M3a 项目
+from app.appraisal import permissions as appraisal_perms  # noqa: E402  M3a 评审
 from app.core.db import SessionLocal  # noqa: E402
 from app.customer import permissions as customer_perms  # noqa: E402
 from app.institution import permissions as institution_perms  # noqa: E402
 from app.user import permissions as user_perms  # noqa: E402
 from app.user.enums import PermType  # noqa: E402
 from app.user.models import (  # noqa: E402
+    Department,
     Menu,
     Permission,
     Role,
@@ -49,6 +53,8 @@ ALL_MENUS: list[dict] = (
     + institution_perms.MENUS
     + customer_perms.MENUS
     + warrant_perms.MENUS
+    + article_perms.MENUS
+    + appraisal_perms.MENUS
 )
 ALL_ACTIONS: list[tuple[str, str]] = (
     user_perms.ACTION_PERMISSIONS
@@ -56,6 +62,8 @@ ALL_ACTIONS: list[tuple[str, str]] = (
     + institution_perms.ACTION_PERMISSIONS
     + customer_perms.ACTION_PERMISSIONS
     + warrant_perms.ACTION_PERMISSIONS
+    + article_perms.ACTION_PERMISSIONS
+    + appraisal_perms.ACTION_PERMISSIONS
 )
 
 # 菜单权限（type=10）中文名：与各模块 MENUS 的 permission_code 对应
@@ -72,11 +80,44 @@ MENU_PERM_NAMES: dict[str, str] = {
     "customer:tags_list": "客户标签",
     "customer:group_list": "集团管理",
     "warrant:list": "权证列表",
+    "article:list": "项目列表",
+    "appraisal:list": "评审会列表",
+    "appraisal:expert_list": "专家库",
 }
 
-# 审批流定义（总体方案 §5.3：流程定义走代码版本管理，新增 flow_code 需评审）
-# M2 首发：客户审批场景已移除；后续合同签批 / 放款通知 / 代偿审批按需补充
-APPROVAL_FLOWS: list[dict] = []
+# 审批流定义（总体方案 §5.3：流程定义走代码版本管理）
+# M3a 新增：项目签批 + 项目变更
+APPROVAL_FLOWS: list[dict] = [
+    {
+        "code": "article_sign",
+        "name": "项目签批",
+        "description": "项目评审完成后发起签批，通过后方可放款",
+        "nodes": [
+            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
+            {"step": 2, "name": "风控审批", "approver_role_code": "controler"},
+            {"step": 3, "name": "总经理审批", "approver_role_code": "super_admin"},
+        ],
+    },
+    {
+        "code": "article_change",
+        "name": "项目变更申请",
+        "description": "已签批/已放款项目的变更申请",
+        "nodes": [
+            {"step": 1, "name": "风控审批", "approver_role_code": "controler"},
+            {"step": 2, "name": "总经理审批", "approver_role_code": "super_admin"},
+        ],
+    },
+    {
+        "code": "warrant_release_out",
+        "name": "权证解保出库",
+        "description": "权证释放担保责任的解保出库审批",
+        "nodes": [
+            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
+            {"step": 2, "name": "风控审批", "approver_role_code": "controler"},
+            {"step": 3, "name": "总经理审批", "approver_role_code": "super_admin"},
+        ],
+    },
+]
 
 
 def seed_menus(db: Session) -> dict[str, int]:
@@ -251,6 +292,125 @@ def seed_super_admin(db: Session) -> None:
         db.add(UserRole(user_id=admin.id, role_id=role.id))
 
 
+
+# 审批测试用户规划：审批引擎 _resolve_approvers 查询条件要求
+#   1) User.dept_id == submitter.dept_id  同部门
+#   2) User.status == 10                  启用
+#   3) Role.code == node.approver_role_code  角色匹配
+#   4) User.id != submitted_by            不能自审
+# 因此需要：统一 dept、多角色覆盖 article_sign 的 3 个节点、
+#           每个角色至少 2 人（避免某角色单人时触发自审保护）。
+APPROVAL_TEST_USERS: list[dict] = [
+    {
+        "username": "approval_gm",
+        "name": "审批测试-总经理A",
+        "roles": ["super_admin"],
+        "is_super_admin": True,
+    },
+    {
+        "username": "approval_gm2",
+        "name": "审批测试-总经理B",
+        "roles": ["super_admin"],
+        "is_super_admin": False,  # 避免 GM 自审
+    },
+    {
+        "username": "approval_dept_manager",
+        "name": "审批测试-部门负责人",
+        "roles": ["dept_manager"],
+        "is_super_admin": False,
+    },
+    {
+        "username": "approval_controler",
+        "name": "审批测试-风控",
+        "roles": ["controler"],
+        "is_super_admin": False,
+    },
+]
+
+
+def seed_approval_test_users(db: Session) -> None:
+    """审批测试用户（幂等）。
+
+    统一放到一个"测试一部"部门（优先用已存在 dept_id=1；不存在则创建）。
+    同时把 admin 的 dept_id 也拉到这个部门，确保以 admin 身份发起的审批
+    _resolve_approvers 能查到同部门的审批人。
+    """
+    # 1) 确保目标部门存在
+    target_dept = db.scalar(select(Department).where(Department.name == "测试一部"))
+    if target_dept is None:
+        target_dept = Department(name="测试一部", status=10)
+        db.add(target_dept)
+        db.flush()
+    dept_id = target_dept.id
+
+    fixes: list[str] = []
+
+    # 2) admin 也拉到这个部门（方便以 admin 身份发起审批走完整链路）
+    admin = db.scalar(select(User).where(User.username == "admin"))
+    if admin and admin.dept_id != dept_id:
+        admin.dept_id = dept_id
+        fixes.append("admin dept_id -> %d" % dept_id)
+
+    # 3) 审批测试用户 upsert（按 username 定位）
+    for spec in APPROVAL_TEST_USERS:
+        u = db.scalar(select(User).where(User.username == spec["username"]))
+        if u is None:
+            u = User(username=spec["username"])
+            db.add(u)
+            fixes.append("+ user %s" % spec["username"])
+
+        # 统一修正属性（新建时补齐非空字段）
+        u.name = spec["name"]
+        u.status = 10
+        u.dept_id = dept_id
+        u.is_super_admin = spec["is_super_admin"]
+        u.email = spec["username"] + "@whdb.local"
+        if u.password_hash is None:
+            u.password_hash = pwd_context.hash("Approval@Test123")
+        u.gender = 0
+        db.flush()
+
+        # 每个角色都绑定（幂等 upsert）
+        for role_code in spec["roles"]:
+            role = db.scalar(select(Role).where(Role.code == role_code))
+            if role is None:
+                raise RuntimeError(
+                    "角色 %s 不存在，请先执行 seed_roles()" % role_code
+                )
+            exists = db.scalar(
+                select(UserRole).where(
+                    UserRole.user_id == u.id, UserRole.role_id == role.id
+                )
+            )
+            if exists is None:
+                db.add(UserRole(user_id=u.id, role_id=role.id))
+                fixes.append("%s +role %s" % (spec["username"], role_code))
+
+    if fixes:
+        print("  审批测试用户 seed 修复 %d 处:" % len(fixes))
+        for f in fixes:
+            print("    %s" % f)
+    else:
+        print("  审批测试用户已就绪（4 人同部门 dept=%d）" % dept_id)
+
+
+def seed_products(db: Session) -> None:
+    """产品种子数据（幂等）。"""
+    from decimal import Decimal
+    existing = db.scalars(select(ArticleProduct)).all()
+    if existing:
+        return
+    products = [
+        ArticleProduct(name="流动资金贷款", difficulty_score=Decimal("60.00"), sort=10),
+        ArticleProduct(name="银行承兑汇票", difficulty_score=Decimal("50.00"), sort=20),
+        ArticleProduct(name="商业承兑汇票", difficulty_score=Decimal("55.00"), sort=30),
+        ArticleProduct(name="信用证", difficulty_score=Decimal("65.00"), sort=40),
+        ArticleProduct(name="保函", difficulty_score=Decimal("58.00"), sort=50),
+        ArticleProduct(name="保理", difficulty_score=Decimal("52.00"), sort=60),
+        ArticleProduct(name="固定资产贷款", difficulty_score=Decimal("70.00"), sort=70),
+    ]
+    db.add_all(products)
+
 def main() -> None:
     with SessionLocal() as db:
         with db.begin():
@@ -260,8 +420,10 @@ def main() -> None:
             seed_roles(db, perm_ids)
             seed_approval_flows(db)
             seed_super_admin(db)
+            seed_approval_test_users(db)
+            seed_products(db)
     total_perms = len(perm_ids)
-    print(f"seed 完成：8 内置角色 / {total_perms} 权限 / {len(menu_ids)} 菜单权限 / {len(APPROVAL_FLOWS)} 审批流 / 超管 admin")
+    print(f"seed 完成：8 内置角色 / {total_perms} 权限 / {len(menu_ids)} 菜单权限 / {len(APPROVAL_FLOWS)} 审批流 / 超管 admin / 审批测试用户（4人同部门）")
     print(f"超管初始密码：{ADMIN_INIT_PASSWORD}（首登强制改密）")
 
 

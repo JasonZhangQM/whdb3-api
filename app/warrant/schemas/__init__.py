@@ -167,6 +167,14 @@ class DraftExtendUpdate(BaseModel):
     due_date: date | None = None
 
 
+# ===== 审批相关 =====
+class ReleaseOutRequestCreate(BaseModel):
+    """发起解保出库审批（审批通过后 executor 自动执行出库）。"""
+
+    storage_explain: str | None = Field(None, max_length=255)
+    storage_date: date
+
+
 # ===== 批量操作 / 字典 =====
 class BatchStorageReq(BaseModel):
     warrant_ids: list[int] = Field(..., min_length=1, max_length=100)

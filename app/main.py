@@ -14,7 +14,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
+from app.appraisal.api.v1 import router as appraisal_router
 from app.approval.api.v1 import router as approval_router
+from app.article.api.v1 import router as article_router
 from app.attachment.api.v1 import router as attachment_router
 from app.core.dicts import router as dict_router
 from app.core.exceptions import BizError
@@ -28,6 +30,15 @@ from app.warrant.api.v1 import router as warrant_router
 logger = logging.getLogger(__name__)
 
 setup_logging()
+
+# ========== 审批引擎 executor 注册 ==========
+# 业务模块在 services/executors.py 里调用 register_executor()，
+# 必须在 FastAPI 启动时就 import 进来，不依赖调用链间接引入。
+# 否则通过 API 发起审批到达末节点时，APPLY_EXECUTORS 注册表为空，
+# 引擎会抛 BizError(5001, "未注册生效函数") 导致整单回滚。
+# 新增业务模块的 executor 请在此行追加 import。
+import app.article.services.executors  # noqa: F401  register_executor(article_sign, ...)
+import app.warrant.services.executors  # noqa: F401  register_executor(warrant_release_out)
 
 app = FastAPI(
     title="WHDB 担保业务管理系统 API",
@@ -63,6 +74,8 @@ MODULE_ROUTERS = (
     institution_router,
     customer_router,
     warrant_router,
+    article_router,      # M3a 项目（L3）
+    appraisal_router,    # M3a 评审（L3，依赖 article 表）
 )
 
 

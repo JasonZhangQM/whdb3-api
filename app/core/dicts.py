@@ -23,7 +23,9 @@ router = APIRouter(tags=["dict"])
 # 每个模块 import 本枚举的 LABELS，统一加上模块前缀防 key 冲突。
 # 新增模块的枚举时在下面追加一行即可。
 
+from app.appraisal.enums import LABELS as appraisal_labels  # noqa: E402
 from app.approval.enums import LABELS as approval_labels  # noqa: E402
+from app.article.enums import LABELS as article_labels  # noqa: E402
 from app.customer.enums import LABELS as customer_labels  # noqa: E402
 from app.institution.enums import LABELS as institution_labels  # noqa: E402
 from app.user.enums import LABELS as user_labels  # noqa: E402
@@ -40,6 +42,8 @@ def _flatten() -> dict[str, list[dict]]:
         ("institution", institution_labels),
         ("approval", approval_labels),
         ("user", user_labels),
+        ("article", article_labels),
+        ("appraisal", appraisal_labels),
     ]
 
     for module_name, labels in module_labels:

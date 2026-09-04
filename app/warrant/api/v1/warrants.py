@@ -25,6 +25,7 @@ from app.warrant.schemas import (
     OwnershipUpdate,
     ReceiveExtendCreate,
     RecheckCreate,
+    ReleaseOutRequestCreate,
     StorageCreate,
     TypeDetailUpdate,
     WarrantCreate,
@@ -338,10 +339,40 @@ def add_storage(
     db: Session = Depends(get_db),
     user: AuthContext = Depends(require_perm("warrant:storage")),
 ):
-    """新增出入库记录（联动更新主表 warrant_state）。"""
+    """新增出入库记录（联动更新主表 warrant_state）。
+
+    注：解保出库 / 续抵出库 / 借出 需走审批流程，此处提交会被拦截。
+    """
     sid = warrant_service.add_storage(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": sid}, message="出入库记录已添加")
+
+
+# ===== 解保出库审批 =====
+
+@router.post("/{warrant_id}/release-out-requests")
+def submit_release_out_request(
+    warrant_id: int,
+    body: ReleaseOutRequestCreate,
+    db: Session = Depends(get_db),
+    user: AuthContext = Depends(require_perm("warrant:storage")),
+):
+    """发起解保出库审批（通过后自动执行出库）。"""
+    instance_id = warrant_service.submit_release_out_request(
+        db, warrant_id, body, user.user_id, user
+    )
+    return ok({"instance_id": instance_id}, message="解保出库审批已发起")
+
+
+@router.get("/{warrant_id}/release-out-pending")
+def get_release_out_pending(
+    warrant_id: int,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
+):
+    """查询权证是否有待审的解保出库审批实例（供前端按钮状态控制）。"""
+    pending = warrant_service.get_release_out_pending(db, warrant_id)
+    return ok({"pending": pending})
 
 
 @router.get("/{warrant_id}/evaluates")

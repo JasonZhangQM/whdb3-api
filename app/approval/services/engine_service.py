@@ -60,14 +60,40 @@ def _get_flow(db: Session, flow_code: str) -> tuple[ApprovalFlowDef, list[Approv
 
 
 def _resolve_approvers(db: Session, node: ApprovalFlowNode, submitted_by: int) -> list[int]:
-    """解析节点审批人：提交人本部门中拥有指定角色的用户（排除提交人自己）。"""
-    # approval(L1) -> user(L1) 同层引用；局部 import 保持模块顶层干净
-    from app.user.models import Role, User, UserRole
+    """解析节点审批人，按 approver_scope 分派：
+
+    scope=10 DEPT_ROLE：提交人本部门中拥有指定角色的用户（排除提交人自己）。
+    scope=20 SUBMITTER_LEADER：提交人所在部门的负责人（Department.leader_user_id）。
+    """
+    from app.approval.enums import ApproverScope
+    from app.user.models import Department, Role, User, UserRole
 
     submitter = db.get(User, submitted_by)
     if submitter is None or submitter.dept_id is None:
         raise BizError(4001, "提交人无部门归属，无法解析审批人")
 
+    if node.approver_scope == ApproverScope.SUBMITTER_LEADER:
+        # scope=20：取提交人部门负责人
+        dept = db.get(Department, submitter.dept_id)
+        if dept is None or dept.leader_user_id is None:
+            raise BizError(
+                4091,
+                f"节点「{node.name}」审批人解析失败：部门「{dept.name if dept else submitter.dept_id}」未设置负责人",
+            )
+        if dept.leader_user_id == submitted_by:
+            raise BizError(
+                4091,
+                f"节点「{node.name}」审批人无效：提交人即部门负责人，自审不可跳过（skip_condition 未实现）",
+            )
+        leader = db.get(User, dept.leader_user_id)
+        if leader is None or leader.status != 10:
+            raise BizError(
+                4091,
+                f"节点「{node.name}」部门负责人已离职或停用，请联系管理员",
+            )
+        return [leader.id]
+
+    # scope=10 默认：本部门角色匹配
     stmt = (
         select(User.id)
         .join(UserRole, UserRole.user_id == User.id)

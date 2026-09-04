@@ -398,7 +398,23 @@ def delete(db: Session, warrant_id: int, ctx: AuthContext) -> None:
 
 # ===== 出入库（联动主表状态）=====
 
+# 需要审批的出库类型集合——直接调 add_storage / batch_storage 会被拦截
+_APPROVAL_REQUIRED_TYPES = frozenset([
+    StorageType.RENEW_OUT.value,   # 续抵出库
+    StorageType.LEND_OUT.value,    # 借出
+    StorageType.RELEASE_OUT.value, # 解保出库（主场景）
+])
+_APPROVAL_REQUIRED_HINT = {
+    StorageType.RELEASE_OUT.value: "请走解保审批流程",
+    StorageType.LEND_OUT.value: "借出需审批，请联系管理员",
+    StorageType.RENEW_OUT.value: "续抵出库需审批，请联系管理员",
+}
+
+
 def add_storage(db: Session, warrant_id: int, body: StorageCreate, user_id: int, ctx: AuthContext) -> int:
+    # 拦截需要审批的出库类型，提示走对应审批流程
+    if body.storage_type in _APPROVAL_REQUIRED_TYPES:
+        raise BizError(4091, _APPROVAL_REQUIRED_HINT.get(body.storage_type, "该出库类型需审批"))
     w = _get_warrant_with_scope(db, warrant_id, ctx)
     s = WarrantStorage(
         warrant_id=warrant_id,
@@ -458,6 +474,8 @@ def add_recheck(db: Session, warrant_id: int, evaluate_id: int, body, user_id: i
 
 def batch_storage(db: Session, warrant_ids: list[int], body, user_id: int, ctx: AuthContext) -> int:
     """批量出入库：全部成功或全部回滚（调用方事务）。"""
+    if body.storage_type in _APPROVAL_REQUIRED_TYPES:
+        raise BizError(4091, _APPROVAL_REQUIRED_HINT.get(body.storage_type, "该出库类型需审批"))
     count = 0
     for wid in warrant_ids:
         w = _get_warrant_with_scope(db, wid, ctx)
@@ -521,6 +539,71 @@ def batch_cancel(db: Session, warrant_ids: list[int], reason: str, user_id: int,
             )
         )
     return len(warrant_ids)
+
+
+# ===== 审批对接 =====
+
+def submit_release_out_request(
+    db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext
+) -> int:
+    """发起解保出库审批。
+
+    前置校验：
+    1. 权证存在 + 数据级权限
+    2. warrant_state ∈ {STORED=20, GUARDED=30}（已入库/已加保才允许解保）
+    3. 审批引擎内置互斥（同一 warrant 同时只允许 1 个 pending 实例）
+    """
+    from app.approval.services.engine_service import submit as approval_submit
+
+    w = _get_warrant_with_scope(db, warrant_id, ctx)
+    if w.warrant_state not in (WarrantState.STORED.value, WarrantState.GUARDED.value):
+        raise BizError(
+            4031,
+            f"当前权证状态为「{_disp('warrant_state', w.warrant_state)}」，仅已入库/已加保可发起解保审批",
+        )
+
+    payload = {
+        "storage_type": StorageType.RELEASE_OUT.value,
+        "storage_explain": body.storage_explain,
+        "storage_date": str(body.storage_date),
+    }
+    instance_id = approval_submit(
+        db,
+        flow_code="warrant_release_out",
+        biz_type="warrant",
+        biz_id=warrant_id,
+        payload=payload,
+        summary=f"权证 {w.warrant_num} 发起解保出库",
+        submitted_by=user_id,
+    )
+    db.commit()
+    return instance_id
+
+
+def get_release_out_pending(db: Session, warrant_id: int) -> dict | None:
+    """查询权证当前是否有 pending 的解保出库审批实例。
+
+    返回简易信息供前端展示待审状态；无 pending 实例返回 None。
+    """
+    from app.approval.models import ApprovalInstance
+    from app.approval.enums import InstanceStatus
+
+    stmt = select(ApprovalInstance).where(
+        ApprovalInstance.flow_code == "warrant_release_out",
+        ApprovalInstance.biz_type == "warrant",
+        ApprovalInstance.biz_id == warrant_id,
+        ApprovalInstance.status == InstanceStatus.PENDING,
+    )
+    inst = db.scalar(stmt)
+    if inst is None:
+        return None
+    return {
+        "instance_id": inst.id,
+        "flow_code": inst.flow_code,
+        "status": inst.status,
+        "current_step": inst.current_step,
+        "submitted_at": inst.submitted_at,
+    }
 
 
 # ===== 统计 =====
