@@ -17,7 +17,7 @@ router = APIRouter(prefix="/departments", tags=["部门"])
 
 
 @router.get("")
-def dept_tree(ctx: AuthContext = Depends(require_perm("dept:list")),
+def dept_tree(ctx: AuthContext = Depends(require_perm("user:dept_list")),
               db: Session = Depends(get_db)):
     """部门树（带人数/负责人/状态）。"""
     return ok([n.model_dump() for n in org_service.dept_tree(db)])
@@ -32,7 +32,7 @@ def dept_tree_simple(ctx: AuthContext = Depends(get_current_user),
 
 @router.get("/{dept_id}")
 def dept_detail(dept_id: int,
-                ctx: AuthContext = Depends(require_perm("dept:list")),
+                ctx: AuthContext = Depends(require_perm("user:dept_list")),
                 db: Session = Depends(get_db)):
     """部门详情：基础信息 + 在职成员 + 直接下级部门。"""
     return ok(org_service.get_dept_detail(db, dept_id))
@@ -41,7 +41,7 @@ def dept_detail(dept_id: int,
 @router.post("")
 @audit_log(module="dept", action="create", target_type="dept")
 def create_dept(req: DeptCreate, request: Request,
-                ctx: AuthContext = Depends(require_perm("dept:create")),
+                ctx: AuthContext = Depends(require_perm("user:dept_create")),
                 db: Session = Depends(get_db)):
     dept_id = org_service.create_dept(db, req)
     return ok({"id": dept_id})
@@ -50,7 +50,7 @@ def create_dept(req: DeptCreate, request: Request,
 @router.patch("/{dept_id}")
 @audit_log(module="dept", action="update", target_type="dept")
 def update_dept(dept_id: int, req: DeptUpdate, request: Request,
-                ctx: AuthContext = Depends(require_perm("dept:update")),
+                ctx: AuthContext = Depends(require_perm("user:dept_update")),
                 db: Session = Depends(get_db)):
     org_service.update_dept(db, dept_id, req)
     return ok()
@@ -59,7 +59,7 @@ def update_dept(dept_id: int, req: DeptUpdate, request: Request,
 @router.delete("/{dept_id}")
 @audit_log(module="dept", action="delete", target_type="dept")
 def delete_dept(dept_id: int, request: Request,
-                ctx: AuthContext = Depends(require_perm("dept:delete")),
+                ctx: AuthContext = Depends(require_perm("user:dept_delete")),
                 db: Session = Depends(get_db)):
     """删除（拦截：仍有成员/子部门）。"""
     org_service.delete_dept(db, dept_id)

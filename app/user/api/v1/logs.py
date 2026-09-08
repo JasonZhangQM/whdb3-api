@@ -22,7 +22,7 @@ def list_operation_logs(page: int = 1, page_size: int = 20,
                         target_id: int | None = None,
                         start_time: datetime | None = None,
                         end_time: datetime | None = None,
-                        ctx: AuthContext = Depends(require_perm("log:operation")),
+                        ctx: AuthContext = Depends(require_perm("user:log_operation")),
                         db: Session = Depends(get_db)):
     """操作日志列表（筛选：模块/操作人/时间/对象）。"""
     logs, total = org_service.list_operation_logs(
@@ -42,7 +42,7 @@ def list_operation_logs(page: int = 1, page_size: int = 20,
 
 @router.get("/operation-logs/{log_id}")
 def get_operation_log(log_id: int,
-                      ctx: AuthContext = Depends(require_perm("log:operation")),
+                      ctx: AuthContext = Depends(require_perm("user:log_operation")),
                       db: Session = Depends(get_db)):
     """日志详情（before/after/diff 对比）。"""
     l = org_service.get_operation_log(db, log_id)
@@ -60,7 +60,7 @@ def get_operation_log(log_id: int,
 def list_login_logs(page: int = 1, page_size: int = 20,
                     username: str | None = None,
                     status: int | None = Query(None),
-                    ctx: AuthContext = Depends(require_perm("log:login")),
+                    ctx: AuthContext = Depends(require_perm("user:log_login")),
                     db: Session = Depends(get_db)):
     """登录日志（成功/失败、IP、UA、锁定记录）。"""
     logs, total = org_service.list_login_logs(db, page, page_size, username, status)

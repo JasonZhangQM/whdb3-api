@@ -5,6 +5,7 @@
 
 # 操作权限（type=20）。菜单权限（type=10）由 MENUS 树自动生成并挂 menu_id。
 ACTION_PERMISSIONS: list[tuple[str, str]] = [
+    # 用户
     ("user:create", "用户新增"),
     ("user:update", "用户修改"),
     ("user:delete", "用户删除"),
@@ -12,17 +13,19 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
     ("user:reset_pwd", "重置密码"),
     ("user:assign_role", "分配用户角色"),
     ("user:transfer", "业务移交"),
-    ("dept:create", "部门新增"),
-    ("dept:update", "部门修改"),
-    ("dept:delete", "部门删除"),
-    ("role:create", "角色新增"),
-    ("role:update", "角色修改"),
-    ("role:delete", "角色删除"),
-    ("role:assign", "角色权限分配"),
-    ("menu:create", "菜单新增"),
-    ("menu:update", "菜单修改"),
-    ("menu:delete", "菜单删除"),
-    ("region:list", "行政区划查看"),
+    # 部门
+    ("user:dept_create", "部门新增"),
+    ("user:dept_update", "部门修改"),
+    ("user:dept_delete", "部门删除"),
+    # 角色
+    ("user:role_create", "角色新增"),
+    ("user:role_update", "角色修改"),
+    ("user:role_delete", "角色删除"),
+    ("user:role_assign", "角色权限分配"),
+    # 菜单
+    ("user:menu_create", "菜单新增"),
+    ("user:menu_update", "菜单修改"),
+    ("user:menu_delete", "菜单删除"),
 ]
 
 # 菜单树：permission_code 即 type=10 菜单权限（seed 自动建权限记录并回挂 menu_id）
@@ -44,12 +47,12 @@ MENUS: list[dict] = [
         "type": 10,  # 目录
         "children": [
             {"caption": "用户管理", "path": "/system/users", "component": "system/user/index", "type": 20, "permission_code": "user:list"},
-            {"caption": "部门管理", "path": "/system/departments", "component": "system/dept/index", "type": 20, "permission_code": "dept:list"},
-            {"caption": "角色管理", "path": "/system/roles", "component": "system/role/index", "type": 20, "permission_code": "role:list"},
-            {"caption": "菜单管理", "path": "/system/menus", "component": "system/menu/index", "type": 20, "permission_code": "menu:list"},
-            {"caption": "行政区划", "path": "/system/regions", "component": "system/region/index", "type": 20, "permission_code": "region:list"},
-            {"caption": "操作日志", "path": "/system/operation-logs", "component": "system/log/operation", "type": 20, "permission_code": "log:operation"},
-            {"caption": "登录日志", "path": "/system/login-logs", "component": "system/log/login", "type": 20, "permission_code": "log:login"},
+            {"caption": "部门管理", "path": "/system/departments", "component": "system/dept/index", "type": 20, "permission_code": "user:dept_list"},
+            {"caption": "角色管理", "path": "/system/roles", "component": "system/role/index", "type": 20, "permission_code": "user:role_list"},
+            {"caption": "菜单管理", "path": "/system/menus", "component": "system/menu/index", "type": 20, "permission_code": "user:menu_list"},
+            {"caption": "行政区划", "path": "/system/regions", "component": "system/region/index", "type": 20, "permission_code": "user:region_list"},
+            {"caption": "操作日志", "path": "/system/operation-logs", "component": "system/log/operation", "type": 20, "permission_code": "user:log_operation"},
+            {"caption": "登录日志", "path": "/system/login-logs", "component": "system/log/login", "type": 20, "permission_code": "user:log_login"},
         ],
     },
 ]

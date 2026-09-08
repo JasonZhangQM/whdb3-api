@@ -69,12 +69,12 @@ ALL_ACTIONS: list[tuple[str, str]] = (
 # 菜单权限（type=10）中文名：与各模块 MENUS 的 permission_code 对应
 MENU_PERM_NAMES: dict[str, str] = {
     "user:list": "用户列表",
-    "dept:list": "部门列表",
-    "role:list": "角色列表",
-    "menu:list": "菜单列表",
-    "region:list": "行政区划查看",
-    "log:operation": "操作日志查询",
-    "log:login": "登录日志查询",
+    "user:dept_list": "部门列表",
+    "user:role_list": "角色列表",
+    "user:menu_list": "菜单列表",
+    "user:region_list": "行政区划查看",
+    "user:log_operation": "操作日志查询",
+    "user:log_login": "登录日志查询",
     "institution:list": "机构列表",
     "customer:list": "客户列表",
     "customer:tags_list": "客户标签",

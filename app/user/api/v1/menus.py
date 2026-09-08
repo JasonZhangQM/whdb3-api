@@ -14,14 +14,14 @@ router = APIRouter(tags=["权限与菜单"])
 
 
 @router.get("/permissions")
-def list_permissions(ctx: AuthContext = Depends(require_perm("menu:list")),
+def list_permissions(ctx: AuthContext = Depends(require_perm("user:menu_list")),
                      db: Session = Depends(get_db)):
     """全部权限清单（按模块分组用，前端配置页）。"""
     return ok(org_service.list_permissions(db))
 
 
 @router.get("/menus")
-def list_menus(ctx: AuthContext = Depends(require_perm("menu:list")),
+def list_menus(ctx: AuthContext = Depends(require_perm("user:menu_list")),
                db: Session = Depends(get_db)):
     """全部菜单树（配置页用，含按钮）。"""
     return ok(org_service.list_menus(db))
@@ -30,7 +30,7 @@ def list_menus(ctx: AuthContext = Depends(require_perm("menu:list")),
 @router.post("/menus")
 @audit_log(module="menu", action="create", target_type="menu")
 def create_menu(req: MenuCreate, request: Request,
-                ctx: AuthContext = Depends(require_perm("menu:create")),
+                ctx: AuthContext = Depends(require_perm("user:menu_create")),
                 db: Session = Depends(get_db)):
     """新增菜单/目录/按钮（自动生成对应 permission_code + 权限点）。"""
     menu_id = org_service.create_menu(db, req)
@@ -40,7 +40,7 @@ def create_menu(req: MenuCreate, request: Request,
 @router.patch("/menus/{menu_id}")
 @audit_log(module="menu", action="update", target_type="menu")
 def update_menu(menu_id: int, req: MenuUpdate, request: Request,
-                ctx: AuthContext = Depends(require_perm("menu:update")),
+                ctx: AuthContext = Depends(require_perm("user:menu_update")),
                 db: Session = Depends(get_db)):
     org_service.update_menu(db, menu_id, req)
     return ok()
@@ -49,7 +49,7 @@ def update_menu(menu_id: int, req: MenuUpdate, request: Request,
 @router.delete("/menus/{menu_id}")
 @audit_log(module="menu", action="delete", target_type="menu")
 def delete_menu(menu_id: int, request: Request,
-                ctx: AuthContext = Depends(require_perm("menu:delete")),
+                ctx: AuthContext = Depends(require_perm("user:menu_delete")),
                 db: Session = Depends(get_db)):
     """删除（子级联动删；菜单权限已被角色引用则拦截）。"""
     org_service.delete_menu(db, menu_id)
