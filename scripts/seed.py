@@ -412,16 +412,22 @@ def seed_products(db: Session) -> None:
     if existing:
         return
     products = [
+        # 融资担保
         ArticleProduct(name="综合担保", difficulty_score=Decimal("60.00"), sort=10),
-        ArticleProduct(name="流动资金贷款担保", difficulty_score=Decimal("60.00"), sort=10),
-        ArticleProduct(name="银行承兑汇票敞口担保", difficulty_score=Decimal("50.00"), sort=20),
-        ArticleProduct(name="商业承兑汇票担保", difficulty_score=Decimal("55.00"), sort=30),
-        ArticleProduct(name="信用证担保", difficulty_score=Decimal("65.00"), sort=40),
-        ArticleProduct(name="保函", difficulty_score=Decimal("58.00"), sort=50),
-        ArticleProduct(name="委托贷款担保", difficulty_score=Decimal("52.00"), sort=60),
-        ArticleProduct(name="保理", difficulty_score=Decimal("52.00"), sort=60),
-        ArticleProduct(name="保理", difficulty_score=Decimal("52.00"), sort=60),
-        ArticleProduct(name="展期", difficulty_score=Decimal("70.00"), sort=70),
+        ArticleProduct(name="贷款担保", difficulty_score=Decimal("60.00"), sort=11),
+        ArticleProduct(name="银承敞口担保", difficulty_score=Decimal("50.00"), sort=15),
+        ArticleProduct(name="票据保(核心)", difficulty_score=Decimal("65.00"), sort=21),
+        ArticleProduct(name="票据保(提用)", difficulty_score=Decimal("65.00"), sort=22),
+        ArticleProduct(name="票据保(上银票易保)", difficulty_score=Decimal("65.00"), sort=23),
+        ArticleProduct(name="房抵贷", difficulty_score=Decimal("65.00"), sort=31),
+        ArticleProduct(name="信用证担保", difficulty_score=Decimal("65.00"), sort=41),
+        # 非融资担保
+        ArticleProduct(name="分离式保函", difficulty_score=Decimal("58.00"), sort=51),
+        ArticleProduct(name="商业保函", difficulty_score=Decimal("58.00"), sort=55),
+        ArticleProduct(name="支付保函", difficulty_score=Decimal("58.00"), sort=57),
+        # 其他产品
+        ArticleProduct(name="委托贷款", difficulty_score=Decimal("52.00"), sort=61),
+        ArticleProduct(name="展期", difficulty_score=Decimal("70.00"), sort=91),
     ]
     db.add_all(products)
 
