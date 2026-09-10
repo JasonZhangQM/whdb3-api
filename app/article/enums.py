@@ -16,18 +16,6 @@ class ArticleState(LabeledIntEnum):
     CANCELLED = 99, '已注销'
 
 
-class ArticleProduct(LabeledIntEnum):
-    """产品类型（种子数据，含难度系数）。"""
-    FLOW_LOAN = 10, '流贷担保'
-    BANK_ACCEPT = 20, '银承敞口担保'
-    GUARANTEE = 30, '保函担保'
-    COMPREHENSIVE = 40, '综合授信担保'
-    ENTRUSTED = 50, '委托贷款担保'
-    MORTGAGE = 60, '房抵保'
-    DRAFT_GUARANTEE = 70, '票据保'
-    OTHER = 90, '其他'
-
-
 class RepayMethod(LabeledIntEnum):
     """还款方式。"""
     MONTHLY_INTEREST = 10, '按月付息到期还本'
@@ -102,6 +90,6 @@ class ChangeView(LabeledIntEnum):
 
 
 LABELS = make_labels(
-    ArticleState, ArticleProduct, RepayMethod, Propose,
+    ArticleState, RepayMethod, Propose,
     CreditModel, SureType, ChangeView,
 )

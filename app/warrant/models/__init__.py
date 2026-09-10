@@ -233,13 +233,9 @@ class WarrantStorage(Base):
 
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
-    storage_type: Mapped[int] = mapped_column(
-        SmallInteger, comment="10入库20续抵出库30已加保60无需入库110借出120归还310解保出库410移交990注销"
-    )
+    storage_type: Mapped[int] = mapped_column(SmallInteger, comment="10入库20续抵出库30已加保60无需入库110借出120归还310解保出库410移交990注销")
     storage_explain: Mapped[str | None] = mapped_column(String(255))
-    transfer_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id"), comment="移交/接收者"
-    )
+    transfer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), comment="移交/接收者")
     conservator_id: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="权证管理岗")
     storage_date: Mapped[date]
 

@@ -412,13 +412,16 @@ def seed_products(db: Session) -> None:
     if existing:
         return
     products = [
-        ArticleProduct(name="流动资金贷款", difficulty_score=Decimal("60.00"), sort=10),
-        ArticleProduct(name="银行承兑汇票", difficulty_score=Decimal("50.00"), sort=20),
-        ArticleProduct(name="商业承兑汇票", difficulty_score=Decimal("55.00"), sort=30),
-        ArticleProduct(name="信用证", difficulty_score=Decimal("65.00"), sort=40),
+        ArticleProduct(name="综合担保", difficulty_score=Decimal("60.00"), sort=10),
+        ArticleProduct(name="流动资金贷款担保", difficulty_score=Decimal("60.00"), sort=10),
+        ArticleProduct(name="银行承兑汇票敞口担保", difficulty_score=Decimal("50.00"), sort=20),
+        ArticleProduct(name="商业承兑汇票担保", difficulty_score=Decimal("55.00"), sort=30),
+        ArticleProduct(name="信用证担保", difficulty_score=Decimal("65.00"), sort=40),
         ArticleProduct(name="保函", difficulty_score=Decimal("58.00"), sort=50),
+        ArticleProduct(name="委托贷款担保", difficulty_score=Decimal("52.00"), sort=60),
         ArticleProduct(name="保理", difficulty_score=Decimal("52.00"), sort=60),
-        ArticleProduct(name="固定资产贷款", difficulty_score=Decimal("70.00"), sort=70),
+        ArticleProduct(name="保理", difficulty_score=Decimal("52.00"), sort=60),
+        ArticleProduct(name="展期", difficulty_score=Decimal("70.00"), sort=70),
     ]
     db.add_all(products)
 

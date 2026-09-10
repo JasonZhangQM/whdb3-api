@@ -25,7 +25,6 @@ def article_dict(_=Depends(get_current_user)):
     """项目模块全部枚举。"""
     return ok({
         "article_state": _enum("article_state"),
-        "article_product": _enum("article_product"),
         "repay_method": _enum("repay_method"),
         "propose": _enum("propose"),
         "credit_model": _enum("credit_model"),
