@@ -60,9 +60,24 @@ MENUS: list[dict] = [
 # 内置角色（总体方案 §5.2；super_admin 由 seed 创建且不可经界面增删）
 BUILTIN_ROLES: list[dict] = [
     {"code": "super_admin", "name": "超级管理员", "data_scope": 40, "description": "全部数据，系统内置"},
-    {"code": "dept_manager", "name": "部门负责人", "data_scope": 30, "description": "本部门及下级"},
-    {"code": "controler", "name": "风控专员", "data_scope": 10, "description": "本人"},
+    # 业务岗位（data_scope=10：本人；20：本部门；30：本部门及下级；40：全部）
     {"code": "pm", "name": "项目经理", "data_scope": 10, "description": "本人"},
+    {"code": "controler", "name": "风控岗", "data_scope": 10, "description": "本人"},
+    {"code": "lawyer", "name": "法务岗", "data_scope": 10, "description": "本人"},
+    {"code": "recovery_specialist", "name": "追偿岗", "data_scope": 10, "description": "本人"},
+    # 部门岗位
+    {"code": "dept_manager", "name": "部门负责人", "data_scope": 30, "description": "本部门及下级"},
+    # 后台岗位
+    {"code": "committee_secretary", "name": "审保会秘书", "data_scope": 40, "description": "全部"},
+    {"code": "warrant_manager", "name": "权证管理岗", "data_scope": 40, "description": "全部"},
+    {"code": "records_manager", "name": "档案管理岗", "data_scope": 40, "description": "全部"},
+    {"code": "accounting_specialist", "name": "会计岗", "data_scope": 40, "description": "全部"},
+    # 管理层
+    {"code": "business_manager", "name": "分管业务副总经理", "data_scope": 40, "description": "全部"},
+    {"code": "risk_manager", "name": "分管风控副总经理", "data_scope": 40, "description": "全部"},
+    {"code": "general_manager", "name": "总经理", "data_scope": 40, "description": "全部"},
+    {"code": "board_chairman", "name": "董事长", "data_scope": 40, "description": "全部"},
+    # 只读岗位
     {"code": "auditor", "name": "审计", "data_scope": 40, "description": "全部只读"},
     {"code": "reader", "name": "只读", "data_scope": 20, "description": "本部门只读"},
 ]

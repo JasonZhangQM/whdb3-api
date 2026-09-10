@@ -273,7 +273,7 @@ def seed_super_admin(db: Session) -> None:
         admin = User(username="admin")
         db.add(admin)
     admin.name = "超级管理员"
-    admin.email = "admin@whdb.local"
+    admin.email = "admin@whdb.com"
     admin.password_hash = pwd_context.hash(ADMIN_INIT_PASSWORD)
     admin.gender = 0
     admin.status = 10
@@ -364,7 +364,7 @@ def seed_approval_test_users(db: Session) -> None:
         u.status = 10
         u.dept_id = dept_id
         u.is_super_admin = spec["is_super_admin"]
-        u.email = spec["username"] + "@whdb.local"
+        u.email = spec["username"] + "@whdb.com"
         if u.password_hash is None:
             u.password_hash = pwd_context.hash("Approval@Test123")
         u.gender = 0
