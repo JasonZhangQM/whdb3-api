@@ -93,6 +93,27 @@ def _resolve_approvers(db: Session, node: ApprovalFlowNode, submitted_by: int) -
             )
         return [leader.id]
 
+    if node.approver_scope == ApproverScope.GLOBAL_ROLE:
+        # scope=30：全局找指定角色的用户（不限部门，排除提交人）
+        stmt = (
+            select(User.id)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(
+                User.status == 10,
+                Role.code == node.approver_role_code,
+                User.id != submitted_by,
+            )
+            .distinct()
+        )
+        approvers = list(db.scalars(stmt))
+        if not approvers:
+            raise BizError(
+                4091,
+                f"节点「{node.name}」无可用审批人（需全局角色 {node.approver_role_code}）",
+            )
+        return approvers
+
     # scope=10 默认：本部门角色匹配
     stmt = (
         select(User.id)

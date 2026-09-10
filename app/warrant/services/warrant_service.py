@@ -406,7 +406,7 @@ _APPROVAL_REQUIRED_TYPES = frozenset([
 ])
 _APPROVAL_REQUIRED_HINT = {
     StorageType.RELEASE_OUT.value: "请走解保审批流程",
-    StorageType.LEND_OUT.value: "借出需审批，请联系管理员",
+    StorageType.LEND_OUT.value: "请走权证借出审批流程",
     StorageType.RENEW_OUT.value: "续抵出库需审批，请联系管理员",
 }
 
@@ -590,6 +590,66 @@ def get_release_out_pending(db: Session, warrant_id: int) -> dict | None:
 
     stmt = select(ApprovalInstance).where(
         ApprovalInstance.flow_code == "warrant_release_out",
+        ApprovalInstance.biz_type == "warrant",
+        ApprovalInstance.biz_id == warrant_id,
+        ApprovalInstance.status == InstanceStatus.PENDING,
+    )
+    inst = db.scalar(stmt)
+    if inst is None:
+        return None
+    return {
+        "instance_id": inst.id,
+        "flow_code": inst.flow_code,
+        "status": inst.status,
+        "current_step": inst.current_step,
+        "submitted_at": inst.submitted_at,
+    }
+
+
+def submit_lend_out_request(
+    db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext
+) -> int:
+    """发起权证借出审批。
+
+    前置校验：
+    1. 权证存在 + 数据级权限
+    2. warrant_state ∈ {STORED=20, GUARDED=30}（已入库/已加保才允许借出）
+    3. 审批引擎内置互斥
+    """
+    from app.approval.services.engine_service import submit as approval_submit
+
+    w = _get_warrant_with_scope(db, warrant_id, ctx)
+    if w.warrant_state not in (WarrantState.STORED.value, WarrantState.GUARDED.value):
+        raise BizError(
+            4031,
+            f"当前权证状态为「{_disp('warrant_state', w.warrant_state)}」，仅已入库/已加保可发起借出审批",
+        )
+
+    payload = {
+        "storage_type": StorageType.LEND_OUT.value,
+        "storage_explain": body.storage_explain,
+        "storage_date": str(body.storage_date),
+    }
+    instance_id = approval_submit(
+        db,
+        flow_code="warrant_lend_out",
+        biz_type="warrant",
+        biz_id=warrant_id,
+        payload=payload,
+        summary=f"权证 {w.warrant_num} 发起借出审批",
+        submitted_by=user_id,
+    )
+    db.commit()
+    return instance_id
+
+
+def get_lend_out_pending(db: Session, warrant_id: int) -> dict | None:
+    """查询权证当前是否有 pending 的借出审批实例。"""
+    from app.approval.models import ApprovalInstance
+    from app.approval.enums import InstanceStatus
+
+    stmt = select(ApprovalInstance).where(
+        ApprovalInstance.flow_code == "warrant_lend_out",
         ApprovalInstance.biz_type == "warrant",
         ApprovalInstance.biz_id == warrant_id,
         ApprovalInstance.status == InstanceStatus.PENDING,

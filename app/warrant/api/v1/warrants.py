@@ -375,6 +375,31 @@ def get_release_out_pending(
     return ok({"pending": pending})
 
 
+@router.post("/{warrant_id}/lend-out-requests")
+def submit_lend_out_request(
+    warrant_id: int,
+    body: ReleaseOutRequestCreate,
+    db: Session = Depends(get_db),
+    user: AuthContext = Depends(require_perm("warrant:storage")),
+):
+    """发起权证借出审批（通过后自动执行借出出库）。"""
+    instance_id = warrant_service.submit_lend_out_request(
+        db, warrant_id, body, user.user_id, user
+    )
+    return ok({"instance_id": instance_id}, message="权证借出审批已发起")
+
+
+@router.get("/{warrant_id}/lend-out-pending")
+def get_lend_out_pending(
+    warrant_id: int,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:detail")),
+):
+    """查询权证是否有待审的借出审批实例。"""
+    pending = warrant_service.get_lend_out_pending(db, warrant_id)
+    return ok({"pending": pending})
+
+
 @router.get("/{warrant_id}/evaluates")
 def list_evaluates(
     warrant_id: int,

@@ -112,9 +112,20 @@ APPROVAL_FLOWS: list[dict] = [
         "name": "权证解保出库",
         "description": "权证释放担保责任的解保出库审批",
         "nodes": [
-            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
-            {"step": 2, "name": "风控审批", "approver_role_code": "controler"},
-            {"step": 3, "name": "总经理审批", "approver_role_code": "super_admin"},
+            {"step": 1, "name": "业务部负责人审核", "approver_role_code": "dept_manager", "approver_scope": 20},
+            {"step": 2, "name": "风控部负责人审核", "approver_role_code": "controler", "approver_scope": 30},
+            {"step": 3, "name": "分管风控副总经理审核", "approver_role_code": "risk_manager", "approver_scope": 30},
+            {"step": 4, "name": "董事长审批", "approver_role_code": "board_chairman", "approver_scope": 30},
+        ],
+    },
+    {
+        "code": "warrant_lend_out",
+        "name": "权证借出",
+        "description": "权证实物借出审批",
+        "nodes": [
+            {"step": 1, "name": "部门负责人审核", "approver_role_code": "dept_manager", "approver_scope": 20},
+            {"step": 2, "name": "风控部负责人审核", "approver_role_code": "controler", "approver_scope": 30},
+            {"step": 3, "name": "分管风控副总经理审批", "approver_role_code": "risk_manager", "approver_scope": 30},
         ],
     },
 ]
@@ -260,7 +271,7 @@ def seed_approval_flows(db: Session) -> None:
                     step=node["step"],
                     name=node["name"],
                     approver_role_code=node["approver_role_code"],
-                    approver_scope=10,
+                    approver_scope=node.get("approver_scope", 10),
                     or_sign=True,
                 )
             )

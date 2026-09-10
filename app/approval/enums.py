@@ -29,10 +29,11 @@ class ApproveAction(LabeledIntEnum):
 
 
 class ApproverScope(LabeledIntEnum):
-    """审批人解析范围：提交人所在部门的指定角色。"""
+    """审批人解析范围。"""
 
     DEPT_ROLE = 10, '提交人本部门中拥有指定角色的用户'
     SUBMITTER_LEADER = 20, '提交人部门负责人'
+    GLOBAL_ROLE = 30, '全局拥有指定角色的用户（不限部门）'
 
 
 # instance_status_display 是接口专用的冗余 key，从 InstanceStatus 派生
