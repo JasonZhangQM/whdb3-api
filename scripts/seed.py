@@ -407,27 +407,30 @@ def seed_approval_test_users(db: Session) -> None:
 
 def seed_products(db: Session) -> None:
     """产品种子数据（幂等）。"""
-    from decimal import Decimal
+    from app.article.enums import ProductCategory
     existing = db.scalars(select(ArticleProduct)).all()
     if existing:
         return
+    # 按产品类别分组
+    FC = ProductCategory
     products = [
         # 融资担保
-        ArticleProduct(name="综合担保", difficulty_score=Decimal("60.00"), sort=10),
-        ArticleProduct(name="贷款担保", difficulty_score=Decimal("60.00"), sort=11),
-        ArticleProduct(name="银承敞口担保", difficulty_score=Decimal("50.00"), sort=15),
-        ArticleProduct(name="票据保(核心)", difficulty_score=Decimal("65.00"), sort=21),
-        ArticleProduct(name="票据保(提用)", difficulty_score=Decimal("65.00"), sort=22),
-        ArticleProduct(name="票据保(上银票易保)", difficulty_score=Decimal("65.00"), sort=23),
-        ArticleProduct(name="房抵贷", difficulty_score=Decimal("65.00"), sort=31),
-        ArticleProduct(name="信用证担保", difficulty_score=Decimal("65.00"), sort=41),
+        ArticleProduct(name="综合担保", category=FC.FINANCING, sort=10),
+        ArticleProduct(name="贷款担保", category=FC.FINANCING, sort=11),
+        ArticleProduct(name="银承敞口担保", category=FC.FINANCING, sort=15),
+        ArticleProduct(name="票据保(核心)", category=FC.FINANCING, sort=21),
+        ArticleProduct(name="票据保(提用)", category=FC.FINANCING, sort=22),
+        ArticleProduct(name="票据保(上银票易保)", category=FC.FINANCING, sort=23),
+        ArticleProduct(name="房抵贷", category=FC.FINANCING, sort=31),
+        ArticleProduct(name="信用证担保", category=FC.FINANCING, sort=41),
         # 非融资担保
-        ArticleProduct(name="分离式保函", difficulty_score=Decimal("58.00"), sort=51),
-        ArticleProduct(name="商业保函", difficulty_score=Decimal("58.00"), sort=55),
-        ArticleProduct(name="支付保函", difficulty_score=Decimal("58.00"), sort=57),
-        # 其他产品
-        ArticleProduct(name="委托贷款", difficulty_score=Decimal("52.00"), sort=61),
-        ArticleProduct(name="展期", difficulty_score=Decimal("70.00"), sort=91),
+        ArticleProduct(name="分离式保函", category=FC.NON_FINANCING, sort=51),
+        ArticleProduct(name="商业保函", category=FC.NON_FINANCING, sort=55),
+        ArticleProduct(name="支付保函", category=FC.NON_FINANCING, sort=57),
+        # 委托贷款
+        ArticleProduct(name="委托贷款", category=FC.ENTRUSTED_LOAN, sort=61),
+        # 其他业务
+        ArticleProduct(name="展期", category=FC.OTHER, sort=91),
     ]
     db.add_all(products)
 

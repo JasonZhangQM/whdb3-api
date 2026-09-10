@@ -92,9 +92,7 @@ class ArticleProduct(Base):
     __tablename__ = "article_products"
 
     name: Mapped[str] = mapped_column(String(64), unique=True, comment="产品名称")
-    difficulty_score: Mapped[Decimal] = mapped_column(
-        Numeric(6, 2), default=Decimal("1.00"), comment="难度系数"
-    )
+    category: Mapped[int] = mapped_column(SmallInteger, default=10, comment="产品类别")
     sort: Mapped[int] = mapped_column(default=1)
 
 

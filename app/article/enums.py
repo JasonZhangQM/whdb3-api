@@ -89,7 +89,15 @@ class ChangeView(LabeledIntEnum):
     REJECTED = 21, '否决变更'
 
 
+class ProductCategory(LabeledIntEnum):
+    """产品类别。"""
+    FINANCING = 10, '融资担保'
+    NON_FINANCING = 20, '非融资担保'
+    ENTRUSTED_LOAN = 30, '委托贷款'
+    OTHER = 90, '其他业务'
+
+
 LABELS = make_labels(
     ArticleState, RepayMethod, Propose,
-    CreditModel, SureType, ChangeView,
+    CreditModel, SureType, ChangeView, ProductCategory,
 )

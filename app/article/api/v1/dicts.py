@@ -30,6 +30,7 @@ def article_dict(_=Depends(get_current_user)):
         "credit_model": _enum("credit_model"),
         "sure_type": _enum("sure_type"),
         "change_view": _enum("change_view"),
+        "product_category": _enum("product_category"),
     })
 
 
@@ -39,9 +40,12 @@ def article_products(db: Session = Depends(get_db), _=Depends(get_current_user))
     rows = db.scalars(
         select(ArticleProduct).order_by(ArticleProduct.sort)
     ).all()
+    # 从全局 LABELS 取 product_category 映射，与 _enum() 同源
+    cat_map = LABELS.get("product_category", {})
     return ok([{
         "id": r.id,
         "name": r.name,
-        "difficulty_score": float(r.difficulty_score),
+        "category": r.category,
+        "category_display": cat_map.get(r.category, ""),
         "sort": r.sort,
     } for r in rows])
