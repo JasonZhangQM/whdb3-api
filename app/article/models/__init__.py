@@ -92,7 +92,7 @@ class ArticleBorrower(Base):
 
 
 class ArticleFeedback(Base):
-    """风控反馈（每项目一份，upsert）。"""
+    """风控反馈（每项目一份，upsert；created_by/created_at 继承自 Base）。"""
 
     __tablename__ = "article_feedbacks"
 
@@ -100,8 +100,6 @@ class ArticleFeedback(Base):
     propose: Mapped[int | None] = mapped_column(SmallInteger, comment="上会建议")
     analysis: Mapped[str | None] = mapped_column(Text, comment="风险分析")
     suggestion: Mapped[str | None] = mapped_column(Text, comment="风控意见")
-    submitted_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="提交人")
-    submitted_at: Mapped[date | None] = mapped_column(Date, comment="提交日期")
 
 
 class ArticleMortgageExt(Base):

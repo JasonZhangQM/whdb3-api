@@ -184,7 +184,7 @@ def list_articles(
 
 
 def get_article(db: Session, article_id: int) -> dict:
-    """项目详情聚合（含关联名称填充）。"""
+    """项目详情聚合（含关联名称填充 + feedback 聚合）。"""
     article = _get_or_404(db, article_id)
     dicts = _build_name_dicts(db, [article])
     item = _to_item(article, dicts)
@@ -198,6 +198,31 @@ def get_article(db: Session, article_id: int) -> dict:
         "sign_type": article.sign_type,
         "review_date": str(article.review_date) if article.review_date else None,
     })
+
+    # 聚合风控反馈（LEFT JOIN 语义：无反馈时全 None）
+    feedback = db.scalar(
+        select(ArticleFeedback).where(ArticleFeedback.article_id == article_id)
+    )
+    if feedback is not None:
+        # created_by 名称：先从 dicts 拿（Article.created_by 已覆盖），没有补查
+        fb_creator_name = dicts["users"].get(feedback.created_by)
+        if fb_creator_name is None and feedback.created_by is not None:
+            fb_creator_name = db.get(User, feedback.created_by).name if db.get(User, feedback.created_by) else None
+        item.update({
+            "feedback_propose": feedback.propose,
+            "feedback_analysis": feedback.analysis,
+            "feedback_suggestion": feedback.suggestion,
+            "feedback_created_by_name": fb_creator_name,
+            "feedback_created_at": str(feedback.created_at) if feedback.created_at else None,
+        })
+    else:
+        item.update({
+            "feedback_propose": None,
+            "feedback_analysis": None,
+            "feedback_suggestion": None,
+            "feedback_created_by_name": None,
+            "feedback_created_at": None,
+        })
     return item
 
 
@@ -295,7 +320,10 @@ def delete_article(db: Session, article_id: int, user_id: int) -> None:
 def submit_feedback(
     db: Session, article_id: int, body: FeedbackCreate, user_id: int
 ) -> None:
-    """提交风控反馈（upsert，提交后状态 → 20 已反馈）。"""
+    """提交风控反馈（upsert，提交后状态 → 20 已反馈）。
+
+    新建时手动赋 created_by（Base 自动写 created_at）；更新时保留原值不变。
+    """
     article = _get_or_404(db, article_id)
     if article.article_state not in (10, 20):
         raise BizError(4031, "当前状态不允许提交反馈")
@@ -304,14 +332,12 @@ def submit_feedback(
         select(ArticleFeedback).where(ArticleFeedback.article_id == article_id)
     )
     if feedback is None:
-        feedback = ArticleFeedback(article_id=article_id)
+        feedback = ArticleFeedback(article_id=article_id, created_by=user_id)
         db.add(feedback)
 
     feedback.propose = body.propose
     feedback.analysis = body.analysis
     feedback.suggestion = body.suggestion
-    feedback.submitted_by = user_id
-    feedback.submitted_at = date.today()
 
     article.article_state = ArticleState.FEEDBACK_DONE.value
     db.commit()
