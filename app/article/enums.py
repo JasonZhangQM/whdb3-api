@@ -82,6 +82,13 @@ class SureType(LabeledIntEnum):
     MULTI_DRAW = 61, '分次提用协议'
 
 
+class CreditTermUnit(LabeledIntEnum):
+    """期限单位。"""
+    YEAR = 10, '年'
+    MONTH = 20, '月'
+    DAY = 30, '天'
+
+
 class ChangeView(LabeledIntEnum):
     """变更结论。"""
     APPLY = 10, '变更申请'
@@ -99,5 +106,5 @@ class ProductCategory(LabeledIntEnum):
 
 LABELS = make_labels(
     ArticleState, RepayMethod, Propose,
-    CreditModel, SureType, ChangeView, ProductCategory,
+    CreditModel, SureType, CreditTermUnit, ChangeView, ProductCategory,
 )

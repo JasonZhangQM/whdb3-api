@@ -124,8 +124,8 @@ def _to_item(article: Article, dicts: dict) -> dict:
         "renewal": float(article.renewal or 0),
         "augment": float(article.augment or 0),
         "credit_term": article.credit_term,
-        "repay_method": article.repay_method,
-        "repay_method_display": _disp(ARTICLE_LABELS.get("repay_method"), article.repay_method),
+        "credit_term_unit": article.credit_term_unit,
+        "credit_term_unit_display": _disp(ARTICLE_LABELS.get("credit_term_unit"), article.credit_term_unit),
         "director_id": article.director_id,
         "director_name": users.get(article.director_id),
         "assistant_id": article.assistant_id,
@@ -237,10 +237,11 @@ def create_article(
         renewal=body.renewal,
         augment=body.augment,
         credit_term=body.credit_term,
+        credit_term_unit=body.credit_term_unit,
         director_id=body.director_id,
         assistant_id=body.assistant_id,
         control_id=body.control_id,
-        repay_method=body.repay_method,
+        created_by=user_id,
     )
     db.add(article)
     db.flush()

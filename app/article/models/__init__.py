@@ -39,8 +39,8 @@ class Article(Base):
     renewal: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="续贷金额(元)")
     augment: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="新增金额(元)")
     # amount = renewal + augment — 后端计算，不落库
-    credit_term: Mapped[int] = mapped_column(SmallInteger, default=12, comment="授信期限(月)")
-    repay_method: Mapped[int | None] = mapped_column(SmallInteger, comment="还款方式")
+    credit_term: Mapped[int] = mapped_column(SmallInteger, default=1, comment="授信期限")
+    credit_term_unit: Mapped[int] = mapped_column(SmallInteger, default=10, comment="期限单位 10年 20月 30天")
     director_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="项目经理")
     assistant_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="项目助理")
     control_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="风控专员")

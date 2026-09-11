@@ -12,11 +12,11 @@ class ArticleCreate(BaseModel):
     product_id: int
     renewal: Decimal = Decimal("0")
     augment: Decimal = Decimal("0")
-    credit_term: int = Field(default=12, ge=1, le=120)
+    credit_term: int = Field(default=1, ge=1)
+    credit_term_unit: int = Field(default=10)
     director_id: int
     assistant_id: int | None = None
     control_id: int | None = None
-    repay_method: int | None = None
     borrower_ids: list[int] = Field(default_factory=list)
 
 
@@ -24,11 +24,11 @@ class ArticleUpdate(BaseModel):
     """修改项目（允许的自由字段）。"""
     renewal: Decimal | None = None
     augment: Decimal | None = None
-    credit_term: int | None = Field(default=None, ge=1, le=120)
+    credit_term: int | None = Field(default=None, ge=1)
+    credit_term_unit: int | None = None
     director_id: int | None = None
     assistant_id: int | None = None
     control_id: int | None = None
-    repay_method: int | None = None
     borrower_ids: list[int] | None = None
 
 
@@ -45,8 +45,8 @@ class ArticleItem(BaseModel):
     renewal: Decimal
     augment: Decimal
     credit_term: int
-    repay_method: int | None = None
-    repay_method_display: str | None = None
+    credit_term_unit: int
+    credit_term_unit_display: str | None = None
     director_id: int
     director_name: str | None = None
     assistant_id: int | None = None

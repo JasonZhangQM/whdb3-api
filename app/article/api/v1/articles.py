@@ -50,7 +50,7 @@ def list_articles(
 def get_article(
     article_id: int,
     db=Depends(get_db),
-    _: AuthContext = Depends(require_perm("article:read")),
+    _: AuthContext = Depends(require_perm("article:detail")),
 ):
     return ok(article_service.get_article(db, article_id))
 
@@ -167,7 +167,7 @@ def submit_change_request(
 def get_article_comments(
     article_id: int,
     db=Depends(get_db),
-    _: AuthContext = Depends(require_perm("article:read")),
+    _: AuthContext = Depends(require_perm("article:detail")),
 ):
     return ok(article_service.list_article_comments(db, article_id))
 
@@ -176,7 +176,7 @@ def get_article_comments(
 def get_article_supplies(
     article_id: int,
     db=Depends(get_db),
-    _: AuthContext = Depends(require_perm("article:read")),
+    _: AuthContext = Depends(require_perm("article:detail")),
 ):
     return ok(article_service.list_article_supplies(db, article_id))
 
@@ -185,6 +185,6 @@ def get_article_supplies(
 def get_article_approval_instances(
     article_id: int,
     db=Depends(get_db),
-    _: AuthContext = Depends(require_perm("article:read")),
+    _: AuthContext = Depends(require_perm("article:detail")),
 ):
     return ok(article_service.list_article_approval_instances(db, article_id))
