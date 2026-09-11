@@ -36,23 +36,6 @@ def apply_sign(db: Session, instance) -> None:
     )
 
 
-def apply_change(db: Session, instance) -> None:
-    """变更申请通过 → 项目置 PENDING_CHANGE + 放款次序联动 + 写变更历史。"""
-    article = db.get(Article, instance.biz_id)
-    if article is None:
-        raise BizError(4041, "项目不存在")
-
-    article.article_state = ArticleState.PENDING_CHANGE.value
-    # 放款次序状态联动
-    db.execute(
-        ArticleLendingOrder.__table__.update().where(
-            ArticleLendingOrder.article_id == article.id
-        ).values(state=ArticleState.PENDING_CHANGE.value)
-    )
-
-
 # ============ 注册到审批引擎 ============
 
-register_executor("article_sign", apply_sign)
 register_executor("article_bill_sign", apply_sign)
-register_executor("article_change", apply_change)

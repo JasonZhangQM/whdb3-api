@@ -89,25 +89,6 @@ MENU_PERM_NAMES: dict[str, str] = {
 # M3a 新增：项目签批 + 项目变更
 APPROVAL_FLOWS: list[dict] = [
     {
-        "code": "article_sign",
-        "name": "项目签批",
-        "description": "项目评审完成后发起签批，通过后方可放款",
-        "nodes": [
-            {"step": 1, "name": "部门负责人审批", "approver_role_code": "dept_manager"},
-            {"step": 2, "name": "风控审批", "approver_role_code": "controler"},
-            {"step": 3, "name": "总经理审批", "approver_role_code": "super_admin"},
-        ],
-    },
-    {
-        "code": "article_change",
-        "name": "项目变更申请",
-        "description": "已签批/已放款项目的变更申请",
-        "nodes": [
-            {"step": 1, "name": "风控审批", "approver_role_code": "controler"},
-            {"step": 2, "name": "总经理审批", "approver_role_code": "super_admin"},
-        ],
-    },
-    {
         "code": "warrant_release_out",
         "name": "权证解保出库",
         "description": "权证释放担保责任的解保出库审批",
