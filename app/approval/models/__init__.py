@@ -52,7 +52,8 @@ class ApprovalFlowNode(Base):
     flow_def_id: Mapped[int] = mapped_column(
         ForeignKey("approval_flow_defs.id")
     )
-    step: Mapped[int] = mapped_column(SmallInteger, comment="节点顺序，从 1 开始")
+    step: Mapped[int] = mapped_column(SmallInteger, comment="节点顺序，stage 内部序号（同 stage 可并行）")
+    stage: Mapped[int] = mapped_column(SmallInteger, default=1, comment="阶段号，stage 之间顺序推进，同 stage 内节点并行")
     name: Mapped[str] = mapped_column(String(64), comment="节点名称")
     approver_role_code: Mapped[str] = mapped_column(
         String(64), comment="审批岗位角色 code"
@@ -89,7 +90,8 @@ class ApprovalInstance(Base):
     status: Mapped[int] = mapped_column(
         SmallInteger, default=10, index=True, comment="10审批中20通过30驳回40撤回"
     )
-    current_step: Mapped[int] = mapped_column(SmallInteger, default=1, comment="当前节点 step")
+    current_step: Mapped[int] = mapped_column(SmallInteger, default=1, comment="当前节点 step（stage 内部序号）")
+    current_stage: Mapped[int] = mapped_column(SmallInteger, default=1, comment="当前阶段 stage")
     submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     submitted_at: Mapped[datetime] = mapped_column(
         server_default=text("CURRENT_TIMESTAMP")
@@ -111,7 +113,8 @@ class ApprovalTask(Base):
     instance_id: Mapped[int] = mapped_column(
         ForeignKey("approval_instances.id")
     )
-    step: Mapped[int] = mapped_column(SmallInteger, comment="对应节点 step")
+    step: Mapped[int] = mapped_column(SmallInteger, comment="对应节点 step（stage 内部序号）")
+    stage: Mapped[int] = mapped_column(SmallInteger, default=1, comment="对应节点 stage")
     node_name: Mapped[str] = mapped_column(String(64), comment="节点名称冗余")
     approver_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     status: Mapped[int] = mapped_column(

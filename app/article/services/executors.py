@@ -54,4 +54,5 @@ def apply_change(db: Session, instance) -> None:
 # ============ 注册到审批引擎 ============
 
 register_executor("article_sign", apply_sign)
+register_executor("article_bill_sign", apply_sign)
 register_executor("article_change", apply_change)

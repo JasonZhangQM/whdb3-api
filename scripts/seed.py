@@ -128,6 +128,20 @@ APPROVAL_FLOWS: list[dict] = [
             {"step": 3, "name": "分管风控副总经理审批", "approver_role_code": "risk_manager", "approver_scope": 30},
         ],
     },
+    {
+        "code": "article_bill_sign",
+        "name": "票据保提用签批",
+        "description": "票据保提用业务签批流程（含并行审批）",
+        "nodes": [
+            {"step": 1, "stage": 1, "name": "发起部门负责人审核", "approver_role_code": "dept_manager", "approver_scope": 20},
+            {"step": 2, "stage": 2, "name": "风控岗审核", "approver_role_code": "controler", "approver_scope": 30},
+            # stage=3 并行：风控法务部负责人 和 分管业务副总经理 不分先后
+            {"step": 3, "stage": 3, "name": "风控法务部负责人审核", "approver_role_code": "risk_leader", "approver_scope": 30},
+            {"step": 4, "stage": 3, "name": "分管业务副总经理审核", "approver_role_code": "business_manager", "approver_scope": 30},
+            {"step": 5, "stage": 4, "name": "分管风控副总经理审核", "approver_role_code": "risk_manager", "approver_scope": 30},
+            {"step": 6, "stage": 5, "name": "董事长审批", "approver_role_code": "board_chairman", "approver_scope": 30},
+        ],
+    },
 ]
 
 
@@ -269,6 +283,7 @@ def seed_approval_flows(db: Session) -> None:
                 ApprovalFlowNode(
                     flow_def_id=flow.id,
                     step=node["step"],
+                    stage=node.get("stage", node["step"]),  # 默认 stage=step（线性流程）
                     name=node["name"],
                     approver_role_code=node["approver_role_code"],
                     approver_scope=node.get("approver_scope", 10),

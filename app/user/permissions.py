@@ -66,8 +66,9 @@ BUILTIN_ROLES: list[dict] = [
     {"code": "lawyer", "name": "法务岗", "data_scope": 10, "description": "本人"},
     {"code": "recovery_specialist", "name": "追偿岗", "data_scope": 10, "description": "本人"},
     # 部门岗位
-    {"code": "dept_manager", "name": "部门负责人", "data_scope": 30, "description": "本部门及下级"},
+    {"code": "dept_manager", "name": "业务部负责人", "data_scope": 30, "description": "本部门及下级"},
     # 后台岗位
+    {"code": "risk_leader", "name": "风控法务部负责人", "data_scope": 40, "description": "全部"},
     {"code": "committee_secretary", "name": "审保会秘书", "data_scope": 40, "description": "全部"},
     {"code": "warrant_manager", "name": "权证管理岗", "data_scope": 40, "description": "全部"},
     {"code": "records_manager", "name": "档案管理岗", "data_scope": 40, "description": "全部"},

@@ -33,39 +33,21 @@ class Article(Base):
 
     # === 业务字段 ===
     article_num: Mapped[str] = mapped_column(String(32), unique=True, comment="项目编号")
-    article_state: Mapped[int] = mapped_column(
-        SmallInteger, default=10, index=True, comment="项目状态机"
-    )
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id", ondelete="RESTRICT"), comment="客户"
-    )
-    product_id: Mapped[int] = mapped_column(
-        ForeignKey("article_products.id", ondelete="RESTRICT"), comment="产品类型"
-    )
-    renewal: Mapped[Decimal] = mapped_column(
-        Numeric(18, 2), default=0, comment="续贷金额"
-    )
-    augment: Mapped[Decimal] = mapped_column(
-        Numeric(18, 2), default=0, comment="新增金额"
-    )
+    article_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="项目状态机")
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"), comment="客户")
+    product_id: Mapped[int] = mapped_column(ForeignKey("article_products.id", ondelete="RESTRICT"), comment="产品类型")
+    renewal: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="续贷金额(元)")
+    augment: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="新增金额(元)")
     # amount = renewal + augment — 后端计算，不落库
     credit_term: Mapped[int] = mapped_column(SmallInteger, default=12, comment="授信期限(月)")
     repay_method: Mapped[int | None] = mapped_column(SmallInteger, comment="还款方式")
-    director_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), comment="项目经理"
-    )
-    assistant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), comment="项目助理"
-    )
-    control_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), comment="风控专员"
-    )
+    director_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="项目经理")
+    assistant_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="项目助理")
+    control_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="风控专员")
 
     # === 评审/签批信息 ===
     review_date: Mapped[date | None] = mapped_column(Date, comment="上会日期(评审模块写入)")
-    summary_num: Mapped[str | None] = mapped_column(
-        String(32), unique=True, comment="纪要编号(评审模块生成)"
-    )
+    summary_num: Mapped[str | None] = mapped_column(String(32), unique=True, comment="纪要编号(评审模块生成)")
     summary: Mapped[str | None] = mapped_column(Text, comment="纪要")
     opinion: Mapped[str | None] = mapped_column(Text, comment="项目意见")
     rcd_opinion: Mapped[str | None] = mapped_column(Text, comment="风控部意见(签批时录入)")
@@ -101,12 +83,8 @@ class ArticleBorrower(Base):
 
     __tablename__ = "article_borrowers"
 
-    article_id: Mapped[int] = mapped_column(
-        ForeignKey("articles.id", ondelete="CASCADE")
-    )
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id", ondelete="RESTRICT")
-    )
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"))
 
     __table_args__ = (
         UniqueConstraint("article_id", "customer_id", name="uq_borrower_article_customer"),
@@ -118,15 +96,11 @@ class ArticleFeedback(Base):
 
     __tablename__ = "article_feedbacks"
 
-    article_id: Mapped[int] = mapped_column(
-        ForeignKey("articles.id", ondelete="CASCADE"), unique=True
-    )
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), unique=True)
     propose: Mapped[int | None] = mapped_column(SmallInteger, comment="上会建议")
     analysis: Mapped[str | None] = mapped_column(Text, comment="风险分析")
     suggestion: Mapped[str | None] = mapped_column(Text, comment="风控意见")
-    submitted_by: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), comment="提交人"
-    )
+    submitted_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="提交人")
     submitted_at: Mapped[date | None] = mapped_column(Date, comment="提交日期")
 
 
@@ -135,9 +109,7 @@ class ArticleMortgageExt(Base):
 
     __tablename__ = "article_mortgage_exts"
 
-    article_id: Mapped[int] = mapped_column(
-        ForeignKey("articles.id", ondelete="CASCADE"), unique=True
-    )
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), unique=True)
     product_type: Mapped[str | None] = mapped_column(String(64), comment="业务品种")
     provide_bank: Mapped[str | None] = mapped_column(String(64), comment="放款银行")
     credit_type: Mapped[str | None] = mapped_column(String(64), comment="授信类型")
@@ -152,9 +124,7 @@ class ArticleMortgageExt(Base):
     register_addr: Mapped[str | None] = mapped_column(String(255), comment="登记地址")
     industry_c: Mapped[str | None] = mapped_column(String(64), comment="行业")
     mate_unit: Mapped[str | None] = mapped_column(String(128), comment="配偶单位")
-    ownership_structure: Mapped[dict | None] = mapped_column(
-        JSON, comment="股东结构（动态行，允许 JSON）"
-    )
+    ownership_structure: Mapped[dict | None] = mapped_column(JSON, comment="股东结构（动态行，允许 JSON）")
 
 
 class ArticleSingleQuota(Base):
@@ -162,9 +132,7 @@ class ArticleSingleQuota(Base):
 
     __tablename__ = "article_single_quotas"
 
-    article_id: Mapped[int] = mapped_column(
-        ForeignKey("articles.id", ondelete="CASCADE")
-    )
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     credit_model: Mapped[int] = mapped_column(SmallInteger, comment="授信类型")
     credit_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0)
     flow_rate: Mapped[str | None] = mapped_column(Text, comment="费率（文本）")
@@ -184,15 +152,11 @@ class ArticleLendingOrder(Base):
 
     __tablename__ = "article_lending_orders"
 
-    article_id: Mapped[int] = mapped_column(
-        ForeignKey("articles.id", ondelete="CASCADE")
-    )
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     seq: Mapped[int] = mapped_column(SmallInteger, comment="发放次序 1-5")
     order_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="拟放金额")
     remark: Mapped[str | None] = mapped_column(Text)
-    state: Mapped[int] = mapped_column(
-        SmallInteger, default=40, comment="次序状态（跟随项目状态机）"
-    )
+    state: Mapped[int] = mapped_column(SmallInteger, default=40, comment="次序状态（跟随项目状态机）")
 
     __table_args__ = (
         UniqueConstraint("article_id", "seq", name="uq_lending_order_article_seq"),
@@ -208,9 +172,7 @@ class ArticleSure(Base):
 
     __tablename__ = "article_sures"
 
-    article_id: Mapped[int] = mapped_column(
-        ForeignKey("articles.id", ondelete="CASCADE")
-    )
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     sure_type: Mapped[int] = mapped_column(SmallInteger, comment="反担保类型")
     remark: Mapped[str | None] = mapped_column(Text)
 
@@ -224,12 +186,8 @@ class ArticleSureCustomer(Base):
 
     __tablename__ = "article_sure_customers"
 
-    sure_id: Mapped[int] = mapped_column(
-        ForeignKey("article_sures.id", ondelete="CASCADE")
-    )
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id", ondelete="RESTRICT")
-    )
+    sure_id: Mapped[int] = mapped_column(ForeignKey("article_sures.id", ondelete="CASCADE"))
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"))
 
     __table_args__ = (
         UniqueConstraint("sure_id", "customer_id", name="uq_sure_customer_sure_customer"),
@@ -241,9 +199,7 @@ class ArticleChange(Base):
 
     __tablename__ = "article_changes"
 
-    article_id: Mapped[int] = mapped_column(
-        ForeignKey("articles.id", ondelete="CASCADE")
-    )
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     change_view: Mapped[int] = mapped_column(SmallInteger, comment="变更结论")
     change_detail: Mapped[str | None] = mapped_column(Text, comment="变更详情")
     change_date: Mapped[date | None] = mapped_column(Date, comment="变更日期")
