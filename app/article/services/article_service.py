@@ -23,7 +23,6 @@ from app.article.schemas import (
     ArticleCreate,
     ArticleUpdate,
     ChangeRequestCreate,
-    FeedbackCreate,
     SignRequestCreate,
 )
 from app.core.deps import AuthContext
@@ -33,6 +32,7 @@ from app.user.models import User
 
 # ---------- 子模块 re-export（按 AGENTS.md §2.2 拆分到独立 service）----------
 from .article_comment_service import list_article_comments  # noqa: E402
+from .article_feedback_service import submit_feedback  # noqa: E402
 from .article_lending_order_service import add_lending_order  # noqa: E402
 from .article_single_quota_service import add_single_quota  # noqa: E402
 from .article_supply_service import list_article_supplies  # noqa: E402
@@ -262,29 +262,6 @@ def delete_article(db: Session, article_id: int, user_id: int) -> None:
     if article.article_state != ArticleState.PENDING_FEEDBACK.value:
         raise BizError(4031, "仅待反馈状态可删除")
     db.delete(article)
-    db.commit()
-
-
-def submit_feedback(
-    db: Session, article_id: int, body: FeedbackCreate, user_id: int
-) -> None:
-    """提交风控反馈（upsert，提交后状态 → 20 已反馈）。"""
-    article = _get_or_404(db, article_id)
-    if article.article_state not in (10, 20):
-        raise BizError(4031, "当前状态不允许提交反馈")
-
-    feedback = db.scalar(
-        select(ArticleFeedback).where(ArticleFeedback.article_id == article_id)
-    )
-    if feedback is None:
-        feedback = ArticleFeedback(article_id=article_id, created_by=user_id)
-        db.add(feedback)
-
-    feedback.propose = body.propose
-    feedback.analysis = body.analysis
-    feedback.suggestion = body.suggestion
-
-    article.article_state = ArticleState.FEEDBACK_DONE.value
     db.commit()
 
 
