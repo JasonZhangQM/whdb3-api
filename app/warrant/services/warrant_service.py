@@ -53,10 +53,20 @@ TYPE_EXT_FIELD = {
 }
 
 
+# ---------- 子模块 re-export（按 AGENTS.md §2.2 拆分到独立 service）----------
+from .warrant_evaluate_service import (
+    list_evaluates, add_evaluate, add_recheck,
+    list_evaluate_companies, create_evaluate_company, delete_evaluate_company,
+)  # noqa: F402,E402
+from .warrant_storage_service import (
+    list_storages, add_storage,
+)  # noqa: F402,E402
+
 def _disp(group: str, value: int | None) -> str | None:
     if value is None:
         return None
     return LABELS[group].get(value, str(value))
+
 
 
 def _get_or_404(db: Session, warrant_id: int) -> Warrant:
@@ -64,6 +74,7 @@ def _get_or_404(db: Session, warrant_id: int) -> Warrant:
     if w is None:
         raise BizError(4041, "权证不存在")
     return w
+
 
 
 def _get_warrant_with_scope(
@@ -82,6 +93,7 @@ def _get_warrant_with_scope(
 
 
 # ===== 列表 =====
+
 
 def list_warrants(
     db: Session,
@@ -136,6 +148,7 @@ def list_warrants(
     return items, total
 
 
+
 def _owner_names_map(db: Session, warrant_ids: list[int]) -> dict[int, list[str]]:
     if not warrant_ids:
         return {}
@@ -150,6 +163,7 @@ def _owner_names_map(db: Session, warrant_ids: list[int]) -> dict[int, list[str]
     return result
 
 
+
 def _user_names(db: Session, user_ids: set[int]) -> dict[int, str]:
     if not user_ids:
         return {}
@@ -160,119 +174,6 @@ def _user_names(db: Session, user_ids: set[int]) -> dict[int, str]:
     )
 
 
-def _latest_storages(db: Session, warrant_ids: list[int]) -> dict[int, dict]:
-    """批量取每个权证最近一条出入库——ROW_NUMBER() 窗口函数，数据库层完成分组，
-    避免 Python 拉全量记录再按 warrant_id 分组。
-    """
-    from sqlalchemy import func
-
-    if not warrant_ids:
-        return {}
-
-    # 用 CTE / 子查询先给每条出入库编排名，再取 rn=1——一条 SQL 搞定
-    storage = WarrantStorage
-    rn = func.row_number().over(
-        partition_by=storage.warrant_id,
-        order_by=(storage.storage_date.desc(), storage.id.desc()),
-    ).label("rn")
-    subq = (
-        select(storage.id, storage.warrant_id, storage.storage_type,
-               storage.storage_explain, storage.transfer_id,
-               storage.conservator_id, storage.storage_date, rn)
-        .where(storage.warrant_id.in_(warrant_ids))
-        .subquery()
-    )
-    rows = db.execute(select(subq).where(subq.c.rn == 1)).all()
-    return {
-        r.warrant_id: {
-            "id": r.id,
-            "storage_type": r.storage_type,
-            "storage_type_display": _disp("storage_type", r.storage_type),
-            "storage_explain": r.storage_explain,
-            "transfer_id": r.transfer_id,
-            "conservator_id": r.conservator_id,
-            "conservator_name": None,
-            "storage_date": r.storage_date,
-        }
-        for r in rows
-    }
-
-
-def _storage_brief(s: WarrantStorage, transfer_name, conservator_name) -> dict:
-    return {
-        "id": s.id,
-        "storage_type": s.storage_type,
-        "storage_type_display": _disp("storage_type", s.storage_type),
-        "storage_explain": s.storage_explain,
-        "transfer_id": s.transfer_id,
-        "transfer_name": transfer_name,
-        "conservator_id": s.conservator_id,
-        "conservator_name": conservator_name,
-        "storage_date": s.storage_date,
-    }
-
-
-# ===== 出入库 / 评估（独立轻量查询 + 被 get_detail 复用）=====
-
-def list_storages(db: Session, warrant_id: int, ctx: AuthContext) -> list[dict]:
-    """出入库历史列表（独立接口 + get_detail 内部复用，不查扩展表）。"""
-    _get_warrant_with_scope(db, warrant_id, ctx)  # 鉴权 + 存在性校验
-    storages = db.scalars(
-        select(WarrantStorage)
-        .where(WarrantStorage.warrant_id == warrant_id)
-        .order_by(WarrantStorage.storage_date.desc(), WarrantStorage.id.desc())
-    ).all()
-    uids = {s.conservator_id for s in storages if s.conservator_id}
-    uids |= {s.transfer_id for s in storages if s.transfer_id}
-    user_names = _user_names(db, uids)
-    return [
-        _storage_brief(s, user_names.get(s.transfer_id), user_names.get(s.conservator_id))
-        for s in storages
-    ]
-
-
-def list_evaluates(db: Session, warrant_id: int, ctx: AuthContext) -> list[dict]:
-    """评估历史列表（含复核）。独立接口 + get_detail 内部复用。"""
-    _get_warrant_with_scope(db, warrant_id, ctx)
-    evaluates = db.scalars(
-        select(WarrantEvaluate)
-        .where(WarrantEvaluate.warrant_id == warrant_id)
-        .order_by(WarrantEvaluate.evaluate_date.desc(), WarrantEvaluate.id.desc())
-    ).all()
-    user_names = _user_names(db, {e.created_by for e in evaluates if e.created_by})
-    eval_ids = [e.id for e in evaluates]
-    recheck_map = dict()
-    if eval_ids:
-        rr = db.scalars(
-            select(WarrantEvaluateRecheck).where(WarrantEvaluateRecheck.evaluate_id.in_(eval_ids))
-        ).all()
-        recheck_map = {r.evaluate_id: r for r in rr}
-    return [
-        {
-            "id": e.id,
-            "evaluate_method": e.evaluate_method,
-            "evaluate_method_display": _disp("evaluate_method", e.evaluate_method),
-            "evaluate_value": float(e.evaluate_value),
-            "evaluate_date": e.evaluate_date,
-            "evaluate_explain": e.evaluate_explain,
-            "evaluate_company": e.evaluate_company,
-            "created_by_name": user_names.get(e.created_by, ""),
-            "recheck": (
-                {
-                    "id": rc.id,
-                    "check_value": float(rc.check_value),
-                    "recheck_value": float(rc.recheck_value),
-                    "recheck_channel": rc.recheck_channel,
-                    "remark": rc.remark,
-                }
-                if (rc := recheck_map.get(e.id)) else None
-            ),
-        }
-        for e in evaluates
-    ]
-
-
-# ===== 详情（一次性聚合）=====
 
 def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     from app.warrant.services import ext_service
@@ -323,6 +224,7 @@ def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
 
 # ===== 创建 / 修改 / 删除 =====
 
+
 def create(db: Session, body: WarrantCreate, user_id: int) -> int:
     """创建权证：主表 + 按类型扩展 + 所有权人（单事务）。"""
     from app.warrant.services import ext_service
@@ -356,6 +258,7 @@ def create(db: Session, body: WarrantCreate, user_id: int) -> int:
     return w.id
 
 
+
 def _add_owners(db: Session, warrant_id: int, owners, user_id: int) -> None:
     for o in owners:
         if db.get(Customer, o.owner_id) is None:
@@ -376,11 +279,13 @@ def _add_owners(db: Session, warrant_id: int, owners, user_id: int) -> None:
         )
 
 
+
 def update(db: Session, warrant_id: int, body: WarrantUpdate, ctx: AuthContext) -> None:
     w = _get_warrant_with_scope(db, warrant_id, ctx)
     data = body.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(w, k, v)
+
 
 
 def delete(db: Session, warrant_id: int, ctx: AuthContext) -> None:
@@ -411,66 +316,6 @@ _APPROVAL_REQUIRED_HINT = {
 }
 
 
-def add_storage(db: Session, warrant_id: int, body: StorageCreate, user_id: int, ctx: AuthContext) -> int:
-    # 拦截需要审批的出库类型，提示走对应审批流程
-    if body.storage_type in _APPROVAL_REQUIRED_TYPES:
-        raise BizError(4091, _APPROVAL_REQUIRED_HINT.get(body.storage_type, "该出库类型需审批"))
-    w = _get_warrant_with_scope(db, warrant_id, ctx)
-    s = WarrantStorage(
-        warrant_id=warrant_id,
-        storage_type=body.storage_type,
-        storage_explain=body.storage_explain,
-        transfer_id=body.transfer_id,
-        conservator_id=user_id,
-        storage_date=body.storage_date,
-    )
-    db.add(s)
-    db.flush()
-    _apply_state(db, w, body.storage_type)
-    return s.id
-
-
-def _apply_state(db: Session, w: Warrant, storage_type: int) -> None:
-    """出入库联动主表状态（设计 §3.5）。"""
-    new_state = STORAGE_STATE_MAP.get(StorageType(storage_type))
-    if new_state is not None:
-        w.warrant_state = new_state
-
-
-# ===== 评估（联动主表最新评估）=====
-
-def add_evaluate(db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext) -> int:
-    """新增评估记录（仅写 warrant_evaluates 子表，主表已无评估字段）。"""
-    _get_warrant_with_scope(db, warrant_id, ctx)
-    e = WarrantEvaluate(
-        warrant_id=warrant_id, **body.model_dump(), created_by=user_id
-    )
-    db.add(e)
-    db.flush()
-    return e.id
-
-
-def add_recheck(db: Session, warrant_id: int, evaluate_id: int, body, user_id: int, ctx: AuthContext) -> int:
-    _get_warrant_with_scope(db, warrant_id, ctx)
-    e = db.get(WarrantEvaluate, evaluate_id)
-    if e is None or e.warrant_id != warrant_id:
-        raise BizError(4041, "评估记录不存在")
-    existing = db.scalar(
-        select(WarrantEvaluateRecheck.id).where(
-            WarrantEvaluateRecheck.evaluate_id == evaluate_id
-        )
-    )
-    if existing is not None:
-        raise BizError(4091, "该评估已有复核记录")
-    r = WarrantEvaluateRecheck(
-        evaluate_id=evaluate_id, **body.model_dump(), created_by=user_id
-    )
-    db.add(r)
-    db.flush()
-    return r.id
-
-
-# ===== 批量操作 =====
 
 def batch_storage(db: Session, warrant_ids: list[int], body, user_id: int, ctx: AuthContext) -> int:
     """批量出入库：全部成功或全部回滚（调用方事务）。"""
@@ -492,6 +337,7 @@ def batch_storage(db: Session, warrant_ids: list[int], body, user_id: int, ctx: 
         _apply_state(db, w, body.storage_type)
         count += 1
     return count
+
 
 
 def batch_transfer(db: Session, warrant_ids: list[int], to_conservator_id: int, reason: str, user_id: int, ctx: AuthContext) -> int:
@@ -519,6 +365,7 @@ def batch_transfer(db: Session, warrant_ids: list[int], to_conservator_id: int, 
     return len(warrant_ids)
 
 
+
 def batch_cancel(db: Session, warrant_ids: list[int], reason: str, user_id: int, ctx: AuthContext) -> int:
     """批量注销：状态置已注销 + 写注销出入库记录。"""
     from datetime import date
@@ -542,6 +389,7 @@ def batch_cancel(db: Session, warrant_ids: list[int], reason: str, user_id: int,
 
 
 # ===== 审批对接 =====
+
 
 def submit_release_out_request(
     db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext
@@ -580,6 +428,7 @@ def submit_release_out_request(
     return instance_id
 
 
+
 def get_release_out_pending(db: Session, warrant_id: int) -> dict | None:
     """查询权证当前是否有 pending 的解保出库审批实例。
 
@@ -604,6 +453,7 @@ def get_release_out_pending(db: Session, warrant_id: int) -> dict | None:
         "current_step": inst.current_step,
         "submitted_at": inst.submitted_at,
     }
+
 
 
 def submit_lend_out_request(
@@ -643,6 +493,7 @@ def submit_lend_out_request(
     return instance_id
 
 
+
 def get_lend_out_pending(db: Session, warrant_id: int) -> dict | None:
     """查询权证当前是否有 pending 的借出审批实例。"""
     from app.approval.models import ApprovalInstance
@@ -668,6 +519,7 @@ def get_lend_out_pending(db: Session, warrant_id: int) -> dict | None:
 
 # ===== 统计 =====
 
+
 def stats_overview(db: Session) -> dict:
     total = db.scalar(select(func.count(Warrant.id))) or 0
     by_type_rows = db.execute(
@@ -687,6 +539,7 @@ def stats_overview(db: Session) -> dict:
         "by_state": {_disp("warrant_state", s): n for s, n in by_state_rows},
         "total_evaluate_value": float(value_sum or 0),
     }
+
 
 
 def stats_by_customer(db: Session, customer_id: int) -> dict:
@@ -717,31 +570,3 @@ def stats_by_customer(db: Session, customer_id: int) -> dict:
 
 # ===== 评估公司字典 =====
 
-def list_evaluate_companies(db: Session) -> list[dict]:
-    rows = db.scalars(select(WarrantEvaluateCompany).order_by(WarrantEvaluateCompany.id)).all()
-    return [{"id": r.id, "name": r.name} for r in rows]
-
-
-def create_evaluate_company(db: Session, name: str, user_id: int) -> int:
-    dup = db.scalar(
-        select(WarrantEvaluateCompany.id).where(WarrantEvaluateCompany.name == name)
-    )
-    if dup is not None:
-        raise BizError(4091, "评估公司已存在")
-    c = WarrantEvaluateCompany(name=name, created_by=user_id)
-    db.add(c)
-    db.flush()
-    return c.id
-
-
-def delete_evaluate_company(db: Session, company_id: int) -> None:
-    """删除拦截：已被评估记录引用。"""
-    c = db.get(WarrantEvaluateCompany, company_id)
-    if c is None:
-        raise BizError(4041, "评估公司不存在")
-    used = db.scalar(
-        select(WarrantEvaluate.id).where(WarrantEvaluate.evaluate_company == c.name).limit(1)
-    )
-    if used is not None:
-        raise BizError(4091, "评估公司已被评估记录引用，不可删除")
-    db.delete(c)

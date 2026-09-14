@@ -1,7 +1,7 @@
-"""项目主 Service：标准模式（§3.7）。
+"""项目主 service（聚合根编排层）。
 
-文件顶部标配：_get_or_404 + _disp 两个私有函数。
-函数命名：list_articles / get_article / create_article / update_article / delete_article ...
+按 AGENTS.md §2.2 拆分：跨表 CRUD 已移到独立 service 文件，
+这里只保留主表函数 + 审批业务编排 + re-export。
 """
 
 from datetime import date
@@ -16,30 +16,30 @@ from app.article.models import (
     Article,
     ArticleBorrower,
     ArticleFeedback,
-    ArticleLendingOrder,
     ArticleMortgageExt,
     ArticleProduct,
-    ArticleSingleQuota,
-    ArticleSure,
-    ArticleSureCustomer,
 )
 from app.article.schemas import (
     ArticleCreate,
     ArticleUpdate,
     ChangeRequestCreate,
     FeedbackCreate,
-    LendingOrderCreate,
     SignRequestCreate,
-    SingleQuotaCreate,
-    SureCreate,
 )
 from app.core.deps import AuthContext
 from app.core.exceptions import BizError
 from app.customer.models import Customer
 from app.user.models import User
 
+# ---------- 子模块 re-export（按 AGENTS.md §2.2 拆分到独立 service）----------
+from .article_comment_service import list_article_comments  # noqa: E402
+from .article_lending_order_service import add_lending_order  # noqa: E402
+from .article_single_quota_service import add_single_quota  # noqa: E402
+from .article_supply_service import list_article_supplies  # noqa: E402
+from .article_sure_service import upsert_sure  # noqa: E402
 
-# ============ 文件顶部标配（§3.7.2）============
+
+# ============ 主表辅助函数 ============
 
 def _get_or_404(db: Session, article_id: int) -> Article:
     """查项目，不存在抛 404。"""
@@ -50,64 +50,29 @@ def _get_or_404(db: Session, article_id: int) -> Article:
 
 
 def _disp(label: dict[int, str] | None, value) -> str | None:
-    """从 LABELS 字典取中文，value 为 None 返回 None。"""
+    """label dict 反查 value 的 display 值。"""
     if label is None or value is None:
         return None
-    return label.get(value)
+    return label.get(value, str(value))
 
 
 def _build_name_dicts(db: Session, articles: list[Article]) -> dict:
-    """§3.7.3 N+1 消除：批量取 user/product/customer 名称。
+    """N+1 消除：批量查 user/customer/product → name dict。"""
+    user_ids = {a.director_id for a in articles} | {a.assistant_id for a in articles} | {a.control_id for a in articles} | {a.created_by for a in articles}
+    customer_ids = {a.customer_id for a in articles}
+    product_ids = {a.product_id for a in articles}
 
-    返回 dict 含 users / customers / products 三个子 dict。
-    """
-    user_ids = set()
-    customer_ids = set()
-    product_ids = set()
-
-    for a in articles:
-        user_ids.add(a.director_id)
-        if a.assistant_id:
-            user_ids.add(a.assistant_id)
-        if a.control_id:
-            user_ids.add(a.control_id)
-        if a.created_by:
-            user_ids.add(a.created_by)
-        customer_ids.add(a.customer_id)
-        product_ids.add(a.product_id)
-
-    # users: {id: name}
-    users = {}
-    if user_ids:
-        users = dict(
-            db.execute(select(User.id, User.name).where(User.id.in_(user_ids))).all()
-        )
-
-    # customers: {id: name}
-    customers = {}
-    if customer_ids:
-        customers = dict(
-            db.execute(
-                select(Customer.id, Customer.name).where(Customer.id.in_(customer_ids))
-            ).all()
-        )
-
-    # products: {id: name}
-    products = {}
-    if product_ids:
-        products = dict(
-            db.execute(
-                select(ArticleProduct.id, ArticleProduct.name).where(
-                    ArticleProduct.id.in_(product_ids)
-                )
-            ).all()
-        )
+    users = {u.id: u.name for u in db.scalars(select(User).where(User.id.in_(user_ids))).all()}
+    customers = {c.id: c.name for c in db.scalars(select(Customer).where(Customer.id.in_(customer_ids))).all()}
+    products = {p.id: p.name for p in db.scalars(select(ArticleProduct).where(
+        ArticleProduct.id.in_(product_ids)
+    )).all()}
 
     return {"users": users, "customers": customers, "products": products}
 
 
 def _to_item(article: Article, dicts: dict) -> dict:
-    """模型 → 列表项 dict（扁平化）。dicts 由 _build_name_dicts 构建。"""
+    """模型 → 列表项 dict（扁平化）。"""
     users = dicts["users"]
     customers = dicts["customers"]
     products = dicts["products"]
@@ -156,10 +121,7 @@ def list_articles(
     director_id: int | None = None,
     keyword: str | None = None,
 ) -> tuple[list[dict], int]:
-    """项目列表。
-
-    §3.7.3 N+1 消除：批量取 user/product/customer 名称 → dict → 循环取值。
-    """
+    """项目列表。"""
     stmt = select(Article).order_by(Article.created_at.desc())
     if article_state is not None:
         stmt = stmt.where(Article.article_state == article_state)
@@ -178,7 +140,6 @@ def list_articles(
         stmt.offset((page - 1) * page_size).limit(page_size)
     ).all()
 
-    # §3.7.3 N+1 消除
     dicts = _build_name_dicts(db, items)
     return [_to_item(a, dicts) for a in items], total
 
@@ -204,7 +165,6 @@ def get_article(db: Session, article_id: int) -> dict:
         select(ArticleFeedback).where(ArticleFeedback.article_id == article_id)
     )
     if feedback is not None:
-        # created_by 名称：先从 dicts 拿（Article.created_by 已覆盖），没有补查
         fb_creator_name = dicts["users"].get(feedback.created_by)
         if fb_creator_name is None and feedback.created_by is not None:
             fb_creator_name = db.get(User, feedback.created_by).name if db.get(User, feedback.created_by) else None
@@ -229,18 +189,12 @@ def get_article(db: Session, article_id: int) -> dict:
 def create_article(
     db: Session, body: ArticleCreate, user_id: int
 ) -> tuple[int, str]:
-    """创建项目。
-
-    设计决策 A3：不联动写客户（删除旧方案的 managementor/controler/custom_state 写入）。
-    设计决策 A4：不联动写权证 meeting_date（删除）。
-    """
-    # 校验客户/产品存在（Customer 已上移到顶部 import）
+    """创建项目。"""
     if db.get(Customer, body.customer_id) is None:
         raise BizError(4041, "客户不存在")
     if db.get(ArticleProduct, body.product_id) is None:
         raise BizError(4041, "产品不存在")
 
-    # 生成项目编号：XDB{year}{seq:04d}
     year = date.today().year
     max_seq = db.scalar(
         select(Article).where(
@@ -250,7 +204,6 @@ def create_article(
     seq = (int(max_seq.article_num[-4:]) + 1) if max_seq else 1
     article_num = f"XDB{year}{seq:04d}"
 
-    # §3.7.6 前置唯一性预检
     if db.scalar(select(Article).where(Article.article_num == article_num)):
         raise BizError(4091, "项目编号已存在，请重试")
 
@@ -271,7 +224,6 @@ def create_article(
     db.add(article)
     db.flush()
 
-    # 共借人批量写入
     for cid in body.borrower_ids:
         db.add(ArticleBorrower(article_id=article.id, customer_id=cid))
 
@@ -282,10 +234,7 @@ def create_article(
 def update_article(
     db: Session, article_id: int, body: ArticleUpdate, user_id: int
 ) -> None:
-    """修改项目（自由字段 + flush 自动计算 amount）。
-
-    仅允许 article_state ∈ {10,20,30,40,61}；存在 pending 审批实例时拒绝。
-    """
+    """修改项目。仅允许 article_state ∈ {10,20,30,40,61}；存在 pending 审批实例时拒绝。"""
     article = _get_or_404(db, article_id)
     if article.article_state not in (10, 20, 30, 40, 61):
         raise BizError(4031, "当前状态不允许修改")
@@ -295,7 +244,6 @@ def update_article(
         for k, v in data.items():
             setattr(article, k, v)
 
-    # 共借人全量替换
     if body.borrower_ids is not None:
         db.execute(
             ArticleBorrower.__table__.delete().where(
@@ -320,10 +268,7 @@ def delete_article(db: Session, article_id: int, user_id: int) -> None:
 def submit_feedback(
     db: Session, article_id: int, body: FeedbackCreate, user_id: int
 ) -> None:
-    """提交风控反馈（upsert，提交后状态 → 20 已反馈）。
-
-    新建时手动赋 created_by（Base 自动写 created_at）；更新时保留原值不变。
-    """
+    """提交风控反馈（upsert，提交后状态 → 20 已反馈）。"""
     article = _get_or_404(db, article_id)
     if article.article_state not in (10, 20):
         raise BizError(4031, "当前状态不允许提交反馈")
@@ -343,95 +288,7 @@ def submit_feedback(
     db.commit()
 
 
-def add_single_quota(
-    db: Session, article_id: int, body: SingleQuotaCreate, user_id: int
-) -> None:
-    """添加/更新单项额度（upsert）。"""
-    article = _get_or_404(db, article_id)
-    if article.article_state not in (40, 61):
-        raise BizError(4031, "已上会/待变更状态可设置额度")
-
-    # §3.7.6 前置唯一性预检
-    quota = db.scalar(
-        select(ArticleSingleQuota).where(
-            ArticleSingleQuota.article_id == article_id,
-            ArticleSingleQuota.credit_model == body.credit_model,
-        )
-    )
-    if quota is None:
-        quota = ArticleSingleQuota(
-            article_id=article_id, credit_model=body.credit_model
-        )
-        db.add(quota)
-
-    quota.credit_amount = body.credit_amount
-    quota.flow_rate = body.flow_rate
-    quota.remark = body.remark
-    db.commit()
-
-
-def add_lending_order(
-    db: Session, article_id: int, body: LendingOrderCreate, user_id: int
-) -> None:
-    """添加放款次序。"""
-    article = _get_or_404(db, article_id)
-    if article.article_state not in (40, 61):
-        raise BizError(4031, "已上会/待变更状态可添加放款次序")
-
-    if db.scalar(
-        select(ArticleLendingOrder).where(
-            ArticleLendingOrder.article_id == article_id,
-            ArticleLendingOrder.seq == body.seq,
-        )
-    ):
-        raise BizError(4091, f"次序 {body.seq} 已存在")
-
-    db.add(ArticleLendingOrder(
-        article_id=article_id,
-        seq=body.seq,
-        order_amount=body.order_amount,
-        remark=body.remark,
-        state=article.article_state,
-    ))
-    db.commit()
-
-
-def upsert_sure(
-    db: Session, article_id: int, body: SureCreate, user_id: int
-) -> None:
-    """添加/更新反担保措施（upsert by sure_type）。"""
-    article = _get_or_404(db, article_id)
-    if article.article_state not in (10, 20, 30, 40, 61):
-        raise BizError(4031, "当前状态不允许设置反担保措施")
-
-    # §3.7.6 前置唯一性预检
-    sure = db.scalar(
-        select(ArticleSure).where(
-            ArticleSure.article_id == article_id,
-            ArticleSure.sure_type == body.sure_type,
-        )
-    )
-    if sure is None:
-        sure = ArticleSure(article_id=article_id, sure_type=body.sure_type)
-        db.add(sure)
-
-    sure.remark = body.remark
-    db.flush()
-
-    # 保证类：反担保人 M2M
-    if body.sure_type in (1, 2):
-        db.execute(
-            ArticleSureCustomer.__table__.delete().where(
-                ArticleSureCustomer.sure_id == sure.id
-            )
-        )
-        for cid in body.customer_ids:
-            db.add(ArticleSureCustomer(sure_id=sure.id, customer_id=cid))
-
-    db.commit()
-
-
-# ============ 审批对接 ============
+# ============ 审批对接（主表编排层）============
 
 def submit_sign_request(
     db: Session, article_id: int, body: SignRequestCreate, user_id: int
@@ -443,6 +300,8 @@ def submit_sign_request(
     2. 金额三方校验：Σ额度 = Σ放款次序 = 签批总额（允许 ±0.01 误差）
     3. 审批引擎内置互斥（_check_pending_mutex）
     """
+    from app.article.models import ArticleSingleQuota, ArticleLendingOrder
+
     article = _get_or_404(db, article_id)
     if article.article_state not in (40, 61):
         raise BizError(4031, "已上会/待变更状态可发起签批")
@@ -460,7 +319,6 @@ def submit_sign_request(
         )
     ) or Decimal("0")
 
-    # 允许 0.01 误差（浮点/Decimal 精度问题）
     tolerance = Decimal("0.01")
     if (abs(total_from_body - total_from_quotas) > tolerance
             or abs(total_from_body - total_from_orders) > tolerance):
@@ -470,7 +328,6 @@ def submit_sign_request(
             f"Σ额度 {total_from_quotas} ≠ Σ放款 {total_from_orders}",
         )
 
-    # 提交审批（审批引擎内置互斥校验）
     payload = {
         "renewal": float(body.renewal),
         "augment": float(body.augment),
@@ -520,69 +377,11 @@ def submit_change_request(
     return instance_id
 
 
-# ============ 详情关联查询（供前端详情抽屉 Tab 使用）============
-
-def list_article_comments(db: Session, article_id: int) -> list[dict]:
-    """项目的评委意见列表（含专家姓名）。
-
-    注：AppraisalComment model 无 score 字段，这里返回 None 占位——
-    原项目评审分制已迁移为 comment_type + concrete 的定性评价。
-    """
-    from app.appraisal.models import AppraisalComment, ReviewExpert
-    stmt = (
-        select(AppraisalComment, ReviewExpert.name.label("expert_name"))
-        .outerjoin(ReviewExpert, ReviewExpert.id == AppraisalComment.expert_id)
-        .where(AppraisalComment.article_id == article_id)
-        .order_by(AppraisalComment.id.asc())
-    )
-    rows = db.execute(stmt).all()
-    return [
-        {
-            "id": c.id,
-            "expert_name": expert_name or f"专家#{c.expert_id}",
-            "comment_type": c.comment_type,
-            "comment_type_display": {10: "同意上会", 20: "复议", 30: "不同意"}.get(c.comment_type, "未发表"),
-            "score": None,
-            "concrete": c.concrete,
-            "created_at": str(c.created_at) if c.created_at else None,
-        }
-        for c, expert_name in rows
-    ]
-
-
-def list_article_supplies(db: Session, article_id: int) -> list[dict]:
-    """项目的补调记录列表。
-
-    注：AppraisalSupply model 已废弃 resolved_at 字段（原审计用），
-    这里返回 None 占位，保持前端表格渲染契约不变。
-    """
-    from app.appraisal.models import AppraisalSupply
-    from app.user.models import User
-    stmt = (
-        select(AppraisalSupply, User.name.label("supplyor_name"))
-        .outerjoin(User, User.id == AppraisalSupply.supplyor_id)
-        .where(AppraisalSupply.article_id == article_id)
-        .order_by(AppraisalSupply.id.desc())
-    )
-    rows = db.execute(stmt).all()
-    return [
-        {
-            "id": s.id,
-            "supply_detail": s.supply_detail,
-            "is_resolved": s.is_resolved,
-            "resolve_reply": s.resolve_reply,
-            "supplyor_name": supplyor_name or f"#{s.supplyor_id}",
-            "created_at": str(s.created_at) if s.created_at else None,
-            "resolved_at": None,
-        }
-        for s, supplyor_name in rows
-    ]
-
+# ============ 审批实例查询（供详情抽屉 Timeline）============
 
 def list_article_approval_instances(db: Session, article_id: int) -> list[dict]:
     """项目的审批实例列表（含 tasks，供 Timeline 展示）。"""
     from app.approval.models import ApprovalInstance, ApprovalTask, ApprovalFlowDef
-    from app.user.models import User
 
     stmt = (
         select(ApprovalInstance, ApprovalFlowDef.name.label("flow_name"), User.name.label("submitter_name"))
@@ -605,7 +404,6 @@ def list_article_approval_instances(db: Session, article_id: int) -> list[dict]:
             .order_by(ApprovalTask.step.asc(), ApprovalTask.id.asc())
         )
         task_rows = db.execute(tasks_stmt).all()
-        # 审批动作枚举：20=通过 / 30=驳回 / 40=跳过 / 其余=待处理
         _ACTION_MAP = {20: "approve", 30: "reject", 40: "skip"}
         tasks = [
             {
