@@ -201,6 +201,14 @@ class CompanyProfileCreate(BaseModel):
     representative: str | None = None
 
 
+class CompanyProfileUpdate(BaseModel):
+    """更新企业扩展信息（三个字段一起编辑，PATCH 语义）。"""
+
+    capital: float | None = None
+    paid_capital: float | None = None
+    representative: str | None = None
+
+
 class PersonalProfileCreate(BaseModel):
     marital_status: int | None = None
     household_nature: int | None = None

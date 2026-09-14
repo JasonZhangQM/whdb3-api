@@ -12,6 +12,7 @@ from app.core.response import ok
 from app.core.response import page as page_result
 from app.customer.schemas import (
     ClassificationChange,
+    CompanyProfileUpdate,
     ControlerChangeReq,
     CoreLimitCreate,
     CoreLimitUpdate,
@@ -414,6 +415,25 @@ def update_personal_profile(
     )
     db.commit()
     return ok(message="个人信息已更新")
+
+
+@router.patch("/{customer_id}/company")
+def update_company_profile(
+    customer_id: int,
+    body: CompanyProfileUpdate,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:update")),
+):
+    """更新企业扩展信息（法定代表人/注册资本/实收资本）。"""
+    customer_service.update_company_profile(
+        db,
+        customer_id,
+        capital=body.capital,
+        paid_capital=body.paid_capital,
+        representative=body.representative,
+    )
+    db.commit()
+    return ok(message="企业信息已更新")
 
 
 # ===== 联系人 =====

@@ -846,6 +846,23 @@ def unbind_spouse(db: Session, customer_id: int, user_id: int) -> None:
         cp2.marital_status = 90
 
 
+def update_company_profile(
+    db: Session,
+    customer_id: int,
+    capital: float | None = None,
+    paid_capital: float | None = None,
+    representative: str | None = None,
+) -> None:
+    """更新企业扩展信息（简单字段更新，无跨表联动）。"""
+    cp = _get_company_profile(db, customer_id)
+    if capital is not None:
+        cp.capital = capital
+    if paid_capital is not None:
+        cp.paid_capital = paid_capital
+    if representative is not None:
+        cp.representative = representative
+
+
 def update_personal_profile(
     db: Session,
     customer_id: int,
