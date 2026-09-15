@@ -129,7 +129,7 @@ class ArticleOrder(Base):
     article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     seq: Mapped[int] = mapped_column(SmallInteger, comment="发放次序 1-5")
     order_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="拟放金额")
-    remark: Mapped[str | None] = mapped_column(Text)
+    remark: Mapped[str | None] = mapped_column(String(256), comment="备注")
     state: Mapped[int] = mapped_column(SmallInteger, default=40, comment="次序状态（跟随项目状态机）")
 
     __table_args__ = (

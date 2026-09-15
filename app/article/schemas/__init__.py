@@ -1,4 +1,4 @@
-﻿"""项目模块 Schemas。"""
+"""项目模块 Schemas。"""
 
 from datetime import date
 from decimal import Decimal
@@ -119,13 +119,13 @@ class LendingOrderCreate(BaseModel):
     """放款次序。"""
     seq: int = Field(..., ge=1, le=5)
     order_amount: Decimal
-    remark: str | None = None
+    remark: str | None = Field(None, max_length=256)
 
 
 class LendingOrderUpdate(BaseModel):
     """放款次序部分更新（仅支持金额 + 备注，次序序号不允许改）。"""
     order_amount: Decimal | None = None
-    remark: str | None = None
+    remark: str | None = Field(None, max_length=256)
 
 
 # ---------- Response models（仅供列表聚合返回，不作为请求体）----------
