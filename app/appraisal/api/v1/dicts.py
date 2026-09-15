@@ -1,31 +1,19 @@
-"""评审模块字典接口（无 data_scope，登录即可）。"""
+"""评审模块字典接口（无 data_scope，登录即可）。
+
+纯枚举聚合已统一走 core 的 /dicts/{name} 通配（/dicts/appraisal），
+本文件仅保留 DB 数据字典接口。
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.appraisal.enums import LABELS
 from app.appraisal.models import ExpertCategory
 from app.core.deps import get_current_user
 from app.core.db import get_db
 from app.core.response import ok
 
 router = APIRouter(prefix="/dicts", tags=["appraisal-dict"])
-
-
-def _enum(group: str) -> list[dict]:
-    return [{"value": v, "label": l} for v, l in LABELS.get(group, {}).items()]
-
-
-@router.get("/appraisal")
-def appraisal_dict(_=Depends(get_current_user)):
-    return ok({
-        "review_model": _enum("review_model"),
-        "meeting_state": _enum("meeting_state"),
-        "comment_type": _enum("comment_type"),
-        "expert_type": _enum("expert_type"),
-        "supply_status": _enum("supply_status"),
-    })
 
 
 @router.get("/expert-categories")

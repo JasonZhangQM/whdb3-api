@@ -1,6 +1,8 @@
 """项目模块字典接口（无 data_scope，登录即可）。
 
 §5.2 约定：只读字典类接口只要求 get_current_user。
+纯枚举聚合已统一走 core 的 /dicts/{name} 通配（/dicts/article），
+本文件仅保留 DB 数据字典接口。
 """
 
 from fastapi import APIRouter, Depends
@@ -15,23 +17,6 @@ from app.core.response import ok
 from app.customer.models import Customer
 
 router = APIRouter(prefix="/dicts", tags=["article-dict"])
-
-
-def _enum(group: str) -> list[dict]:
-    return [{"value": v, "label": l} for v, l in LABELS.get(group, {}).items()]
-
-
-@router.get("/article")
-def article_dict(_=Depends(get_current_user)):
-    """项目模块全部枚举。"""
-    return ok({
-        "article_state": _enum("article_state"),
-        "credit_term_unit": _enum("credit_term_unit"),
-        "propose": _enum("propose"),
-        "sure_type": _enum("sure_type"),
-        "change_view": _enum("change_view"),
-        "product_category": _enum("product_category"),
-    })
 
 
 @router.get("/article-products")

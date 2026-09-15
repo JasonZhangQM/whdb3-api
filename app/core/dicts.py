@@ -1,4 +1,4 @@
-﻿"""统一字典接口：GET /api/v1/dicts 聚合各模块枚举，前端三值分离的真相源。
+"""统一字典接口：GET /api/v1/dicts 聚合各模块枚举，前端三值分离的真相源。
 
 返回格式：
 {
@@ -12,8 +12,9 @@
 }
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.core.deps import get_current_user
 from app.core.response import ok
 
 router = APIRouter(tags=["dict"])
@@ -61,13 +62,17 @@ _ALL_DICTS = _flatten()
 
 
 @router.get("/dicts")
-def get_all_dicts() -> dict:
-    """返回所有枚举字典。前端启动时拉取一次，Pinia 全局缓存。"""
+def get_all_dicts(_: None = Depends(get_current_user)) -> dict:
+    """返回所有枚举字典。前端启动时拉取一次，Pinia 全局缓存。
+
+    纯枚举字典无敏感性，但仍要求登录（对齐 §5.2 只读字典接口约定，
+    与业务模块级字典路由的认证策略保持一致）。
+    """
     return ok(_ALL_DICTS)
 
 
 @router.get("/dicts/{name}")
-def get_dict(name: str) -> dict:
+def get_dict(name: str, _: None = Depends(get_current_user)) -> dict:
     """按 key 或模块前缀查字典。
 
     - 精确 key 匹配（如 "article.sure_type"）→ 返回 [{value, label}, ...]
