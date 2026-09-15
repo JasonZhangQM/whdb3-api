@@ -1,4 +1,4 @@
-﻿"""评审主 Service（§3.7 标准模式）。
+"""评审主 Service（§3.7 标准模式）。
 
 P5 合并：评审会 + 补调 + 意见 → 一个 appraisal_service.py。
 """
@@ -26,7 +26,7 @@ from app.appraisal.schemas import (
     SummaryUpdate,
 )
 from app.article.enums import ArticleState
-from app.article.models import Article
+from app.article.models import Article, ArticleApproval
 from app.core.exceptions import BizError
 from app.user.models import User
 
@@ -259,10 +259,15 @@ def finish_appraisal(
     # 批量更新项目（跨模块写项目——评审模块是 owner，允许单向轻量写）
     for article in articles:
         article.article_state = ArticleState.REVIEW_DONE.value
-        article.review_date = finish_date
-        # 纪要编号：JY{year}{seq}，同项目多次上会追加序号
-        if article.summary_num is None:
-            article.summary_num = f"JY{appraisal.year}{appraisal.seq:02d}"
+        # 评审字段写一对一表 ArticleApproval
+        ap = db.scalar(select(ArticleApproval).where(ArticleApproval.article_id == article.id))
+        if ap is None:
+            ap = ArticleApproval(article_id=article.id)
+            db.add(ap)
+            db.flush()
+        ap.review_date = finish_date
+        if ap.summary_num is None:
+            ap.summary_num = f"JY{appraisal.year}{appraisal.seq:02d}"
 
     db.commit()
 
@@ -357,9 +362,14 @@ def update_summary(
     if article.article_state not in (40, 61):
         raise BizError(4031, "已上会后可编辑纪要")
 
+    ap = db.scalar(select(ArticleApproval).where(ArticleApproval.article_id == article.id))
+    if ap is None:
+        ap = ArticleApproval(article_id=article.id)
+        db.add(ap)
+        db.flush()
     if body.summary is not None:
-        article.summary = body.summary
+        ap.summary = body.summary
     if body.opinion is not None:
-        article.opinion = body.opinion
+        ap.opinion = body.opinion
 
     db.commit()

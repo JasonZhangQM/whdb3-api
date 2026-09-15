@@ -45,17 +45,6 @@ class Article(Base):
     assistant_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="项目助理")
     control_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="风控专员")
 
-    # === 评审/签批信息 ===
-    review_date: Mapped[date | None] = mapped_column(Date, comment="上会日期(评审模块写入)")
-    summary_num: Mapped[str | None] = mapped_column(String(32), unique=True, comment="纪要编号(评审模块生成)")
-    summary: Mapped[str | None] = mapped_column(Text, comment="纪要")
-    opinion: Mapped[str | None] = mapped_column(Text, comment="项目意见")
-    rcd_opinion: Mapped[str | None] = mapped_column(Text, comment="风控部意见(签批时录入)")
-    convenor_opinion: Mapped[str | None] = mapped_column(Text, comment="招集人意见")
-    sign_detail: Mapped[str | None] = mapped_column(Text, comment="签批人意见")
-    sign_type: Mapped[int | None] = mapped_column(SmallInteger, comment="签批结论 1同意 2不同意")
-    sign_date: Mapped[date | None] = mapped_column(Date, comment="签批日期")
-
     # === 列表缓存（分层混合：详情页实时统计覆盖） ===
     notify_sum: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="通知金额(缓存)")
     provide_sum: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="放款金额(缓存)")
@@ -91,6 +80,31 @@ class ArticleBorrower(Base):
     )
 
 
+class ArticleApproval(Base):
+    """评审/签批信息（每项目一份，一对一扩展）。
+
+    原评审/签批字段在 Article 主表，抽出来做一对一，和 ArticleFeedback /
+    ArticleMortgageExt 同构。article_id CASCADE 删除，主表不存在时本表记录无意义。
+    """
+
+    __tablename__ = "article_approvals"
+
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), unique=True)
+
+    # === 评审侧（appraisal 模块写入） ===
+    review_date: Mapped[date | None] = mapped_column(Date, comment="上会日期")
+    summary_num: Mapped[str | None] = mapped_column(String(32), unique=True, comment="纪要编号")
+    summary: Mapped[str | None] = mapped_column(Text, comment="纪要")
+    opinion: Mapped[str | None] = mapped_column(Text, comment="项目意见")
+
+    # === 签批侧（审批 executor 写入） ===
+    rcd_opinion: Mapped[str | None] = mapped_column(Text, comment="风控部意见")
+    convenor_opinion: Mapped[str | None] = mapped_column(Text, comment="招集人意见")
+    sign_detail: Mapped[str | None] = mapped_column(Text, comment="签批人意见")
+    sign_type: Mapped[int | None] = mapped_column(SmallInteger, comment="签批结论 1同意 2不同意")
+    sign_date: Mapped[date | None] = mapped_column(Date, comment="签批日期")
+
+
 class ArticleFeedback(Base):
     """风控反馈（每项目一份，upsert；created_by/created_at 继承自 Base）。"""
 
@@ -101,28 +115,6 @@ class ArticleFeedback(Base):
     analysis: Mapped[str | None] = mapped_column(Text, comment="风险分析")
     suggestion: Mapped[str | None] = mapped_column(Text, comment="风控意见")
 
-
-class ArticleMortgageExt(Base):
-    """房抵保扩展（仅 product=房抵保 的项目，唯一）。"""
-
-    __tablename__ = "article_mortgage_exts"
-
-    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), unique=True)
-    product_type: Mapped[str | None] = mapped_column(String(64), comment="业务品种")
-    provide_bank: Mapped[str | None] = mapped_column(String(64), comment="放款银行")
-    credit_type: Mapped[str | None] = mapped_column(String(64), comment="授信类型")
-    custom_unit: Mapped[str | None] = mapped_column(String(128), comment="申请单位")
-    provide_term: Mapped[str | None] = mapped_column(String(32), comment="放款期限")
-    entity_name: Mapped[str | None] = mapped_column(String(128), comment="主体名称")
-    entity_owner: Mapped[str | None] = mapped_column(String(64), comment="主体所有人")
-    owner_link: Mapped[str | None] = mapped_column(String(64), comment="与借款人关系")
-    license_type: Mapped[str | None] = mapped_column(String(64), comment="证照类型")
-    license_no: Mapped[str | None] = mapped_column(String(64), comment="证照号")
-    register_date: Mapped[date | None] = mapped_column(Date, comment="登记日期")
-    register_addr: Mapped[str | None] = mapped_column(String(255), comment="登记地址")
-    industry_c: Mapped[str | None] = mapped_column(String(64), comment="行业")
-    mate_unit: Mapped[str | None] = mapped_column(String(128), comment="配偶单位")
-    ownership_structure: Mapped[dict | None] = mapped_column(JSON, comment="股东结构（动态行，允许 JSON）")
 
 
 class ArticleSingleQuota(Base):
@@ -162,25 +154,39 @@ class ArticleLendingOrder(Base):
 
 
 class ArticleSure(Base):
-    """反担保措施（项目级）。
+    """反担保措施（按放款次序组织）。
 
-    注：article_id + sure_type 唯一——每类型一条，update_or_create 语义。
-    抵质押/监管/预售类通过 article_warrant_bindings 关联权证（复用权证模块）。
+    旧系统对应 LendingSures：lending → LendingOrder。
+    新系统：lending_order_id 是第一归属（唯一性约束落在它上面），
+    article_id 做冗余列（方便项目级筛选，无需 JOIN 放款次序表）。
+    保证类通过 ArticleSureCustomer（M2M customer），
+    抵质押类通过 ArticleSureWarrant（M2M warrant）。
     """
 
     __tablename__ = "article_sures"
 
-    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
+    lending_order_id: Mapped[int] = mapped_column(
+        ForeignKey("article_lending_orders.id", ondelete="CASCADE"),
+        comment="放款次序",
+    )
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("articles.id", ondelete="CASCADE"),
+        comment="项目（冗余，便于筛选）",
+    )
     sure_type: Mapped[int] = mapped_column(SmallInteger, comment="反担保类型")
     remark: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
-        UniqueConstraint("article_id", "sure_type", name="uq_sure_article_type"),
+        UniqueConstraint("lending_order_id", "sure_type", name="uq_sure_order_type"),
     )
 
 
 class ArticleSureCustomer(Base):
-    """保证类反担保人 M2M（sure_id ↔ customer_id）。"""
+    """保证类反担保人 M2M（sure_id ↔ customer_id）。
+
+    旧系统对应 LendingCustoms：sure（O2O LendingSures）+ custome（M2M Customes）。
+    新系统直接落成 M2M 中间表。
+    """
 
     __tablename__ = "article_sure_customers"
 
@@ -190,6 +196,46 @@ class ArticleSureCustomer(Base):
     __table_args__ = (
         UniqueConstraint("sure_id", "customer_id", name="uq_sure_customer_sure_customer"),
     )
+
+
+class ArticleSureWarrant(Base):
+    """抵质押反担保 M2M（sure_id ↔ warrant_id）。
+
+    旧系统对应 LendingWarrants：sure（O2O LendingSures）+ warrant（M2M Warrants）。
+    新系统直接落成 M2M 中间表，一个反担保措施可挂多个权证。
+    """
+
+    __tablename__ = "article_sure_warrants"
+
+    sure_id: Mapped[int] = mapped_column(ForeignKey("article_sures.id", ondelete="CASCADE"))
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="RESTRICT"))
+
+    __table_args__ = (
+        UniqueConstraint("sure_id", "warrant_id", name="uq_sure_warrant_sure_warrant"),
+    )
+
+
+class ArticleMortgageExt(Base):
+    """房抵保扩展（仅 product=房抵保 的项目，唯一）。"""
+
+    __tablename__ = "article_mortgage_exts"
+
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), unique=True)
+    product_type: Mapped[str | None] = mapped_column(String(64), comment="业务品种")
+    provide_bank: Mapped[str | None] = mapped_column(String(64), comment="放款银行")
+    credit_type: Mapped[str | None] = mapped_column(String(64), comment="授信类型")
+    custom_unit: Mapped[str | None] = mapped_column(String(128), comment="申请单位")
+    provide_term: Mapped[str | None] = mapped_column(String(32), comment="放款期限")
+    entity_name: Mapped[str | None] = mapped_column(String(128), comment="主体名称")
+    entity_owner: Mapped[str | None] = mapped_column(String(64), comment="主体所有人")
+    owner_link: Mapped[str | None] = mapped_column(String(64), comment="与借款人关系")
+    license_type: Mapped[str | None] = mapped_column(String(64), comment="证照类型")
+    license_no: Mapped[str | None] = mapped_column(String(64), comment="证照号")
+    register_date: Mapped[date | None] = mapped_column(Date, comment="登记日期")
+    register_addr: Mapped[str | None] = mapped_column(String(255), comment="登记地址")
+    industry_c: Mapped[str | None] = mapped_column(String(64), comment="行业")
+    mate_unit: Mapped[str | None] = mapped_column(String(128), comment="配偶单位")
+    ownership_structure: Mapped[dict | None] = mapped_column(JSON, comment="股东结构（动态行，允许 JSON）")
 
 
 class ArticleChange(Base):

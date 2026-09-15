@@ -14,6 +14,7 @@ from app.approval.services.engine_service import submit as approval_submit
 from app.article.enums import LABELS as ARTICLE_LABELS, ArticleState
 from app.article.models import (
     Article,
+    ArticleApproval,
     ArticleBorrower,
     ArticleFeedback,
     ArticleMortgageExt,
@@ -71,7 +72,11 @@ def _build_name_dicts(db: Session, articles: list[Article]) -> dict:
     return {"users": users, "customers": customers, "products": products}
 
 
-def _to_item(article: Article, dicts: dict) -> dict:
+def _to_item(
+    article: Article,
+    dicts: dict,
+    approval: ArticleApproval | None = None,
+) -> dict:
     """模型 → 列表项 dict（扁平化）。"""
     users = dicts["users"]
     customers = dicts["customers"]
@@ -101,7 +106,7 @@ def _to_item(article: Article, dicts: dict) -> dict:
         "notify_sum": float(article.notify_sum or 0),
         "provide_sum": float(article.provide_sum or 0),
         "repayment_sum": float(article.repayment_sum or 0),
-        "sign_date": str(article.sign_date) if article.sign_date else None,
+        "sign_date": str(approval.sign_date) if approval and approval.sign_date else None,
         "created_at": str(article.created_at) if article.created_at else None,
         "created_by_name": users.get(article.created_by),
     }
@@ -140,24 +145,41 @@ def list_articles(
         stmt.offset((page - 1) * page_size).limit(page_size)
     ).all()
 
+    # 批量取 ArticleApproval（一对一，避免 N+1）
+    _item_ids = [a.id for a in items]
+    approval_map: dict[int, ArticleApproval] = {}
+    if _item_ids:
+        approval_map = {
+            ap.article_id: ap
+            for ap in db.scalars(
+                select(ArticleApproval).where(ArticleApproval.article_id.in_(_item_ids))
+            ).all()
+        }
+
     dicts = _build_name_dicts(db, items)
-    return [_to_item(a, dicts) for a in items], total
+    return [_to_item(a, dicts, approval_map.get(a.id)) for a in items], total
 
 
 def get_article(db: Session, article_id: int) -> dict:
-    """项目详情聚合（含关联名称填充 + feedback 聚合）。"""
+    """项目详情聚合（含关联名称填充 + approval + feedback 聚合）。"""
     article = _get_or_404(db, article_id)
     dicts = _build_name_dicts(db, [article])
-    item = _to_item(article, dicts)
+
+    # 取一对一表 ArticleApproval（评审/签批字段）
+    approval = db.scalar(
+        select(ArticleApproval).where(ArticleApproval.article_id == article_id)
+    )
+
+    item = _to_item(article, dicts, approval)
     item.update({
-        "summary_num": article.summary_num,
-        "summary": article.summary,
-        "opinion": article.opinion,
-        "rcd_opinion": article.rcd_opinion,
-        "convenor_opinion": article.convenor_opinion,
-        "sign_detail": article.sign_detail,
-        "sign_type": article.sign_type,
-        "review_date": str(article.review_date) if article.review_date else None,
+        "summary_num": approval.summary_num if approval else None,
+        "summary": approval.summary if approval else None,
+        "opinion": approval.opinion if approval else None,
+        "rcd_opinion": approval.rcd_opinion if approval else None,
+        "convenor_opinion": approval.convenor_opinion if approval else None,
+        "sign_detail": approval.sign_detail if approval else None,
+        "sign_type": approval.sign_type if approval else None,
+        "review_date": str(approval.review_date) if approval and approval.review_date else None,
     })
 
     # 聚合风控反馈（LEFT JOIN 语义：无反馈时全 None）

@@ -101,7 +101,12 @@ class ChangeRequestCreate(BaseModel):
 
 
 class SureCreate(BaseModel):
-    """反担保措施。"""
+    """反担保措施（按放款次序 upsert）。
+
+    旧系统对应 LendingSures + LendingCustoms + LendingWarrants。
+    """
+
+    lending_order_id: int = Field(..., description="放款次序 ID（article_lending_orders.id）")
     sure_type: int
     remark: str | None = None
     customer_ids: list[int] = Field(default_factory=list)  # 保证类
