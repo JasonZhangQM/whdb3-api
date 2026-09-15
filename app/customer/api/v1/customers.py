@@ -424,10 +424,13 @@ def update_company_profile(
     db: Session = Depends(get_db),
     _: AuthContext = Depends(require_perm("customer:update")),
 ):
-    """更新企业扩展信息（法定代表人/注册资本/实收资本）。"""
+    """更新企业扩展信息（决策机构/企业性质/工信部行业/资本/法人）。"""
     customer_service.update_company_profile(
         db,
         customer_id,
+        decisionor=body.decisionor,
+        custom_nature=body.custom_nature,
+        industry_c=body.industry_c,
         capital=body.capital,
         paid_capital=body.paid_capital,
         representative=body.representative,

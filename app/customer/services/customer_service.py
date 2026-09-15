@@ -849,12 +849,24 @@ def unbind_spouse(db: Session, customer_id: int, user_id: int) -> None:
 def update_company_profile(
     db: Session,
     customer_id: int,
+    decisionor: int | None = None,
+    custom_nature: int | None = None,
+    industry_c: int | None = None,
     capital: float | None = None,
     paid_capital: float | None = None,
     representative: str | None = None,
 ) -> None:
-    """更新企业扩展信息（简单字段更新，无跨表联动）。"""
+    """更新企业扩展信息（全部可写字段，简单字段更新，无跨表联动）。
+
+    typing（企业划型）由经营快照自动计算，不在此更新。
+    """
     cp = _get_company_profile(db, customer_id)
+    if decisionor is not None:
+        cp.decisionor = decisionor
+    if custom_nature is not None:
+        cp.custom_nature = custom_nature
+    if industry_c is not None:
+        cp.industry_c = industry_c
     if capital is not None:
         cp.capital = capital
     if paid_capital is not None:

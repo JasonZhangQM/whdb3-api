@@ -1,4 +1,4 @@
-﻿"""项目主管理路由。
+"""项目主管理路由。
 
 路由层职责（§3.1）：只做 参数接收 → 鉴权依赖注入 → 调 service → 返回 R。零业务逻辑。
 """
@@ -12,6 +12,7 @@ from app.article.schemas import (
     ChangeRequestCreate,
     FeedbackCreate,
     LendingOrderCreate,
+    LendingOrderUpdate,
     SingleQuotaCreate,
     SureCreate,
     SignRequestCreate,
@@ -123,6 +124,39 @@ def add_lending_order(
 ):
     article_service.add_lending_order(db, article_id, body, user.user_id)
     return ok(message="放款次序已添加")
+
+
+@router.get("/{article_id}/lending-orders")
+def list_lending_orders(
+    article_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("article:detail")),
+):
+    """查询某项目的全部放款次序（嵌套反担保措施列表）。"""
+    return ok(article_service.list_lending_orders(db, article_id))
+
+
+@router.put("/{article_id}/lending-orders/{order_id}")
+def update_lending_order(
+    article_id: int,
+    order_id: int,
+    body: LendingOrderUpdate,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("article:lending")),
+):
+    article_service.update_lending_order(db, article_id, order_id, body)
+    return ok(message="放款次序已更新")
+
+
+@router.delete("/{article_id}/lending-orders/{order_id}")
+def delete_lending_order(
+    article_id: int,
+    order_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("article:lending")),
+):
+    article_service.delete_lending_order(db, article_id, order_id)
+    return ok(message="放款次序已删除")
 
 
 @router.post("/{article_id}/sures")

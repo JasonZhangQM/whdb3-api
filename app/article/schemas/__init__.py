@@ -126,3 +126,34 @@ class LendingOrderCreate(BaseModel):
     seq: int = Field(..., ge=1, le=5)
     order_amount: Decimal
     remark: str | None = None
+
+
+class LendingOrderUpdate(BaseModel):
+    """放款次序部分更新（仅支持金额 + 备注，次序序号不允许改）。"""
+    order_amount: Decimal | None = None
+    remark: str | None = None
+
+
+# ---------- Response models（仅供列表聚合返回，不作为请求体）----------
+
+class SureResponse(BaseModel):
+    """反担保措施嵌套结构（含保证人 / 抵质押物名称，供详情 Tab 渲染）。"""
+    sure_type: int
+    sure_type_display: str
+    remark: str | None = None
+    # 保证类：客户 ID + 名称
+    customer_ids: list[int] = []
+    customer_names: list[str] = []
+    # 抵质押类：权证 ID + 名称
+    warrant_ids: list[int] = []
+    warrant_names: list[str] = []
+
+
+class LendingOrderResponse(BaseModel):
+    """放款次序嵌套（含该次序下的反担保措施列表）。"""
+    id: int
+    seq: int
+    order_amount: Decimal
+    state: int
+    remark: str | None = None
+    sures: list[SureResponse] = []

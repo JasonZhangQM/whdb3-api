@@ -202,8 +202,14 @@ class CompanyProfileCreate(BaseModel):
 
 
 class CompanyProfileUpdate(BaseModel):
-    """更新企业扩展信息（三个字段一起编辑，PATCH 语义）。"""
+    """更新企业扩展信息（全部可写字段，PATCH 语义）。
 
+    typing（企业划型）由经营快照自动计算，不在此编辑。
+    """
+
+    decisionor: int | None = None
+    custom_nature: int | None = None
+    industry_c: int | None = None
     capital: float | None = None
     paid_capital: float | None = None
     representative: str | None = None

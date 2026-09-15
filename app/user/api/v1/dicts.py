@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.deps import AuthContext, get_current_user
 from app.core.response import ok
+from app.customer.enums import LABELS as CUSTOMER_LABELS
 from app.user.enums import LABELS
 from app.user.services import org_service
 
@@ -51,3 +52,23 @@ def user_options(dept_id: int | None = None, position: str | None = None,
                  db: Session = Depends(get_db)):
     """员工下拉（在职，按部门/职务/角色 code 筛选）。role 传角色 code 如 pm/controler。"""
     return ok(org_service.list_user_options(db, dept_id, position, role))
+
+
+# ===== 客户模块业务枚举字典 =====
+
+@router.get("/decisionors")
+def decisionors(ctx: AuthContext = Depends(get_current_user)):
+    """决策机构枚举字典。"""
+    return ok([{"value": v, "label": t} for v, t in CUSTOMER_LABELS["decisionor"].items()])
+
+
+@router.get("/custom-natures")
+def custom_natures(ctx: AuthContext = Depends(get_current_user)):
+    """企业性质枚举字典。"""
+    return ok([{"value": v, "label": t} for v, t in CUSTOMER_LABELS["custom_nature"].items()])
+
+
+@router.get("/typings")
+def typings(ctx: AuthContext = Depends(get_current_user)):
+    """企业划型枚举字典。"""
+    return ok([{"value": v, "label": t} for v, t in CUSTOMER_LABELS["typing"].items()])

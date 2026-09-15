@@ -34,7 +34,12 @@ from app.user.models import User
 # ---------- 子模块 re-export（按 AGENTS.md §2.2 拆分到独立 service）----------
 from .article_comment_service import list_article_comments  # noqa: E402
 from .article_feedback_service import submit_feedback  # noqa: E402
-from .article_lending_order_service import add_lending_order  # noqa: E402
+from .article_lending_order_service import (  # noqa: E402
+    add_lending_order,
+    delete_lending_order,
+    list_lending_orders,
+    update_lending_order,
+)
 from .article_single_quota_service import add_single_quota  # noqa: E402
 from .article_supply_service import list_article_supplies  # noqa: E402
 from .article_sure_service import upsert_sure  # noqa: E402

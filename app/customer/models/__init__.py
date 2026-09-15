@@ -173,8 +173,8 @@ class CompanyProfile(Base):
     custom_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="企业性质")
     industry_c: Mapped[int | None] = mapped_column(BigInteger, comment="工信部划分行业")
     typing: Mapped[int] = mapped_column(SmallInteger, default=90, comment="企业划型")
-    capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="注册资本")
-    paid_capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="实收资本")
+    capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="注册资本(万元)")
+    paid_capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="实收资本(万元)")
     representative: Mapped[str | None] = mapped_column(String(64), comment="法人代表")
 
 
