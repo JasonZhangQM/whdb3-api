@@ -133,14 +133,14 @@ class ArticleSingleQuota(Base):
     )
 
 
-class ArticleLendingOrder(Base):
+class ArticleOrder(Base):
     """放款次序（article + seq 唯一）。
 
     注：旧方案每个次序有 provide_sum/repayment_sum/balance 三个缓存。
     设计决策 A12 删除——放款数据量不大，次序缓存实时 SUM 即可。
     """
 
-    __tablename__ = "article_lending_orders"
+    __tablename__ = "article_order"
 
     article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     seq: Mapped[int] = mapped_column(SmallInteger, comment="发放次序 1-5")
@@ -166,7 +166,7 @@ class ArticleSure(Base):
     __tablename__ = "article_sures"
 
     lending_order_id: Mapped[int] = mapped_column(
-        ForeignKey("article_lending_orders.id", ondelete="CASCADE"),
+        ForeignKey("article_order.id", ondelete="CASCADE"),
         comment="放款次序",
     )
     article_id: Mapped[int] = mapped_column(

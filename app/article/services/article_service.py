@@ -1,4 +1,4 @@
-"""项目主 service（聚合根编排层）。
+﻿"""项目主 service（聚合根编排层）。
 
 按 AGENTS.md §2.2 拆分：跨表 CRUD 已移到独立 service 文件，
 这里只保留主表函数 + 审批业务编排 + re-export。
@@ -34,11 +34,11 @@ from app.user.models import User
 # ---------- 子模块 re-export（按 AGENTS.md §2.2 拆分到独立 service）----------
 from .article_comment_service import list_article_comments  # noqa: E402
 from .article_feedback_service import submit_feedback  # noqa: E402
-from .article_lending_order_service import (  # noqa: E402
-    add_lending_order,
-    delete_lending_order,
-    list_lending_orders,
-    update_lending_order,
+from .article_order_service import (  # noqa: E402
+    add_order,
+    delete_order,
+    list_orders,
+    update_order,
 )
 from .article_single_quota_service import add_single_quota  # noqa: E402
 from .article_supply_service import list_article_supplies  # noqa: E402
@@ -304,7 +304,7 @@ def submit_sign_request(
     2. 金额三方校验：Σ额度 = Σ放款次序 = 签批总额（允许 ±0.01 误差）
     3. 审批引擎内置互斥（_check_pending_mutex）
     """
-    from app.article.models import ArticleSingleQuota, ArticleLendingOrder
+    from app.article.models import ArticleSingleQuota, ArticleOrder
 
     article = _get_or_404(db, article_id)
     if article.article_state not in (40, 61):
@@ -318,8 +318,8 @@ def submit_sign_request(
         )
     ) or Decimal("0")
     total_from_orders = db.scalar(
-        select(func.coalesce(func.sum(ArticleLendingOrder.order_amount), 0)).where(
-            ArticleLendingOrder.article_id == article_id
+        select(func.coalesce(func.sum(ArticleOrder.order_amount), 0)).where(
+            ArticleOrder.article_id == article_id
         )
     ) or Decimal("0")
 

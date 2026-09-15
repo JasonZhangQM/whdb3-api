@@ -1,7 +1,7 @@
-"""反担保措施 service（ArticleSure + ArticleSureCustomer + ArticleSureWarrant）。
+﻿"""反担保措施 service（ArticleSure + ArticleSureCustomer + ArticleSureWarrant）。
 
 旧系统对应 LendingSures + LendingCustoms + LendingWarrants：
-- ArticleSure          ← LendingSures（从 FK Articles 改 FK ArticleLendingOrder）
+- ArticleSure          ← LendingSures（从 FK Articles 改 FK ArticleOrder）
 - ArticleSureCustomer  ← LendingCustoms（O2O 改 M2M 中间表）
 - ArticleSureWarrant   ← LendingWarrants（O2O 改 M2M 中间表，新增）
 """
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.article.models import (
     Article,
-    ArticleLendingOrder,
+    ArticleOrder,
     ArticleSure,
     ArticleSureCustomer,
     ArticleSureWarrant,
@@ -22,9 +22,9 @@ from app.core.exceptions import BizError
 
 def _get_lending_or_404(
     db: Session, article_id: int, lending_order_id: int
-) -> ArticleLendingOrder:
+) -> ArticleOrder:
     """查放款次序，校验归属项目。"""
-    order = db.get(ArticleLendingOrder, lending_order_id)
+    order = db.get(ArticleOrder, lending_order_id)
     if order is None:
         raise BizError(4041, "放款次序不存在")
     if order.article_id != article_id:

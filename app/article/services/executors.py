@@ -1,4 +1,4 @@
-"""项目模块审批 executor：注册到 APPLY_EXECUTORS，审批通过时原子应用。
+﻿"""项目模块审批 executor：注册到 APPLY_EXECUTORS，审批通过时原子应用。
 
 设计决策 A13：executor 只做项目状态+签批字段写入 + 放款次序联动。
 旧方案的"写客户授信"、"写权证 meeting_date"已删除（A3/A4）。
@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.article.enums import ArticleState
-from app.article.models import Article, ArticleApproval, ArticleLendingOrder
+from app.article.models import Article, ArticleApproval, ArticleOrder
 from app.approval.services import register_executor
 from app.core.exceptions import BizError
 
@@ -45,8 +45,8 @@ def apply_sign(db: Session, instance) -> None:
 
     # 放款次序状态联动
     db.execute(
-        ArticleLendingOrder.__table__.update().where(
-            ArticleLendingOrder.article_id == article.id
+        ArticleOrder.__table__.update().where(
+            ArticleOrder.article_id == article.id
         ).values(state=ArticleState.SIGNED.value)
     )
 

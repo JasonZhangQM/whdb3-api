@@ -1,10 +1,10 @@
-"""放款次序 service（ArticleLendingOrder + 嵌套反担保措施聚合）。
+"""放款次序 service（ArticleOrder + 嵌套反担保措施聚合）。
 
 提供：
-- add_lending_order:     新增放款次序（已有）
-- list_lending_orders:   按 article_id 查询全部放款次序，每条嵌套 sures 列表（含客户/权证名称）
-- update_lending_order:  更新金额/备注（seq 不允许改）
-- delete_lending_order:  删除放款次序 + 级联清理 sures / sure_customers / sure_warrants
+- add_order:         新增放款次序
+- list_orders:       按 article_id 查询全部放款次序，每条嵌套 sures 列表（含客户/权证名称）
+- update_order:      更新金额/备注（seq 不允许改）
+- delete_order:      删除放款次序 + 级联清理 sures / sure_customers / sure_warrants
 """
 
 from sqlalchemy import select
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.article.models import (
     Article,
-    ArticleLendingOrder,
+    ArticleOrder,
     ArticleSure,
     ArticleSureCustomer,
     ArticleSureWarrant,
@@ -57,11 +57,11 @@ def _get_article_or_404(db: Session, article_id: int) -> Article:
 
 def _get_order_or_404(
     db: Session, article_id: int, order_id: int
-) -> ArticleLendingOrder:
+) -> ArticleOrder:
     order = db.scalar(
-        select(ArticleLendingOrder).where(
-            ArticleLendingOrder.id == order_id,
-            ArticleLendingOrder.article_id == article_id,
+        select(ArticleOrder).where(
+            ArticleOrder.id == order_id,
+            ArticleOrder.article_id == article_id,
         )
     )
     if order is None:
@@ -130,7 +130,7 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
 
 # ============ CRUD ============
 
-def add_lending_order(
+def add_order(
     db: Session, article_id: int, body: LendingOrderCreate, user_id: int
 ) -> None:
     """添加放款次序。"""
@@ -139,14 +139,14 @@ def add_lending_order(
         raise BizError(4031, "已上会/待变更状态可添加放款次序")
 
     if db.scalar(
-        select(ArticleLendingOrder).where(
-            ArticleLendingOrder.article_id == article_id,
-            ArticleLendingOrder.seq == body.seq,
+        select(ArticleOrder).where(
+            ArticleOrder.article_id == article_id,
+            ArticleOrder.seq == body.seq,
         )
     ):
         raise BizError(4091, f"次序 {body.seq} 已存在")
 
-    db.add(ArticleLendingOrder(
+    db.add(ArticleOrder(
         article_id=article_id,
         seq=body.seq,
         order_amount=body.order_amount,
@@ -156,14 +156,14 @@ def add_lending_order(
     db.commit()
 
 
-def list_lending_orders(db: Session, article_id: int) -> list[dict]:
+def list_orders(db: Session, article_id: int) -> list[dict]:
     """查询某项目的全部放款次序（按 seq 升序），每条嵌套 sures 列表。"""
     _get_article_or_404(db, article_id)
 
     orders = db.scalars(
-        select(ArticleLendingOrder)
-        .where(ArticleLendingOrder.article_id == article_id)
-        .order_by(ArticleLendingOrder.seq.asc())
+        select(ArticleOrder)
+        .where(ArticleOrder.article_id == article_id)
+        .order_by(ArticleOrder.seq.asc())
     ).all()
 
     result = []
@@ -180,7 +180,7 @@ def list_lending_orders(db: Session, article_id: int) -> list[dict]:
     return result
 
 
-def update_lending_order(
+def update_order(
     db: Session, article_id: int, order_id: int, body: LendingOrderUpdate
 ) -> None:
     """更新放款次序（仅金额 + 备注，seq 不允许改；状态同文章状态同步）。"""
@@ -199,7 +199,7 @@ def update_lending_order(
     db.commit()
 
 
-def delete_lending_order(db: Session, article_id: int, order_id: int) -> None:
+def delete_order(db: Session, article_id: int, order_id: int) -> None:
     """删除放款次序 + 级联清理其下所有反担保措施及 M2M。"""
     _get_article_or_404(db, article_id)
     order = _get_order_or_404(db, article_id, order_id)

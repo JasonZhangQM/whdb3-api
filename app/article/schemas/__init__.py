@@ -1,4 +1,4 @@
-"""项目模块 Schemas。"""
+﻿"""项目模块 Schemas。"""
 
 from datetime import date
 from decimal import Decimal
@@ -106,7 +106,7 @@ class SureCreate(BaseModel):
     旧系统对应 LendingSures + LendingCustoms + LendingWarrants。
     """
 
-    lending_order_id: int = Field(..., description="放款次序 ID（article_lending_orders.id）")
+    lending_order_id: int = Field(..., description="放款次序 ID（article_order.id）")
     sure_type: int
     remark: str | None = None
     customer_ids: list[int] = Field(default_factory=list)  # 保证类

@@ -1,4 +1,4 @@
-"""端到端 seed：项目 + 子资源 + 审批实例（幂等）。
+﻿"""端到端 seed：项目 + 子资源 + 审批实例（幂等）。
 
 运行前确保已执行过 scripts/seed.py（创建流程定义、用户、产品、客户）。
 幂等：重复执行时会先清理旧的 article 审批实例、子资源、评审数据。
@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import select, delete
 
 from app.article.models import (
-    Article, ArticleSingleQuota, ArticleLendingOrder,
+    Article, ArticleSingleQuota, ArticleOrder,
 )
 from app.article.enums import ArticleState
 from app.approval.models import ApprovalFlowDef, ApprovalFlowNode, ApprovalInstance, ApprovalTask
@@ -40,7 +40,7 @@ def cleanup_children(db):
         db.execute(delete(ApprovalInstance).where(ApprovalInstance.id.in_(inst_ids)))
     # 子资源
     db.execute(delete(ArticleSingleQuota))
-    db.execute(delete(ArticleLendingOrder))
+    db.execute(delete(ArticleOrder))
     db.execute(delete(AppraisalComment))
     db.execute(delete(AppraisalSupply))
     print(f"  清理完成：审批实例 {len(inst_ids)} / 配额 / 放款 / 评审 / 补调")
@@ -78,7 +78,7 @@ def ensure_quotas_and_orders(db, articles):
         # 放款次序（2 笔，合计 = total）
         half = (total / Decimal("2")).quantize(Decimal("0.01"))
         for seq, amt in [(1, half), (2, total - half)]:
-            db.add(ArticleLendingOrder(
+            db.add(ArticleOrder(
                 article_id=art.id, seq=seq, order_amount=amt,
                 remark=f"第 {seq} 笔拟放",
             ))
