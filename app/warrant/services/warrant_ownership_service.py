@@ -43,6 +43,8 @@ def add_owner(db: Session, warrant_id: int, body: OwnershipCreate, user_id: int,
 
     _get_warrant(db, warrant_id, ctx)
     warrant_service._add_owners(db, warrant_id, [body], user_id)
+    # autoflush=False：需显式 flush 让挂起记录对后续查询可见
+    db.flush()
     o = db.scalar(
         select(WarrantOwnership)
         .where(
