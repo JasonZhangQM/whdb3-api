@@ -19,6 +19,7 @@ def _get_or_404(db: Session, warrant_id: int) -> Warrant:
 
 def list_storages(db: Session, warrant_id: int, ctx: AuthContext) -> list[dict]:
     """出入库历史列表（独立接口 + get_detail 内部复用，不查扩展表）。"""
+    from app.warrant.services.warrant_service import _get_warrant_with_scope, _user_names
     _get_warrant_with_scope(db, warrant_id, ctx)  # 鉴权 + 存在性校验
     storages = db.scalars(
         select(WarrantStorage)
@@ -35,6 +36,7 @@ def list_storages(db: Session, warrant_id: int, ctx: AuthContext) -> list[dict]:
 
 
 def _latest_storages(db: Session, warrant_ids: list[int]) -> dict[int, dict]:
+    from app.warrant.services.warrant_service import _disp
     """批量取每个权证最近一条出入库——ROW_NUMBER() 窗口函数，数据库层完成分组，
     避免 Python 拉全量记录再按 warrant_id 分组。
     """
@@ -73,6 +75,7 @@ def _latest_storages(db: Session, warrant_ids: list[int]) -> dict[int, dict]:
 
 
 def _storage_brief(s: WarrantStorage, transfer_name, conservator_name) -> dict:
+    from app.warrant.services.warrant_service import _disp
     return {
         "id": s.id,
         "storage_type": s.storage_type,
@@ -108,6 +111,7 @@ def add_storage(db: Session, warrant_id: int, body: StorageCreate, user_id: int,
 
 
 def _apply_state(db: Session, w: Warrant, storage_type: int) -> None:
+    from app.warrant.services.warrant_service import STORAGE_STATE_MAP
     """出入库联动主表状态（设计 §3.5）。"""
     new_state = STORAGE_STATE_MAP.get(StorageType(storage_type))
     if new_state is not None:

@@ -4,11 +4,17 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext
 from app.core.exceptions import BizError
+from app.customer.models import Customer
+from app.warrant.enums import WarrantType
 from app.warrant.models import Warrant, WarrantDraftExtend
 from app.warrant.schemas import DraftExtendCreate, DraftExtendUpdate
 
 def _get_warrant(db: Session, warrant_id: int, ctx: AuthContext | None = None) -> Warrant:
     """获取权证：有 ctx 则做数据级权限校验，无 ctx 则基础 404。"""
+    # 延迟导入避免与 warrant_service 的循环依赖
+    from app.warrant.services.warrant_service import _get_warrant_with_scope
+    if ctx is not None:
+        return _get_warrant_with_scope(db, warrant_id, ctx)
     w = db.get(Warrant, warrant_id)
     if w is None:
         raise BizError(4041, "权证不存在")
@@ -17,6 +23,8 @@ def _get_warrant(db: Session, warrant_id: int, ctx: AuthContext | None = None) -
 
 def list_draft_extends(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
     """票据明细列表（关联核心企业/承兑人名称）。"""
+    # 延迟导入避免与 warrant_service 的循环依赖
+    from app.warrant.services.warrant_service import _disp
     _get_warrant(db, warrant_id, ctx)
     rows = db.execute(
         select(WarrantDraftExtend, Customer.name)
@@ -93,9 +101,9 @@ def update_draft_extend(
 
 def delete_draft_extend(db: Session, warrant_id: int, extend_id: int, ctx: AuthContext) -> None:
     _get_warrant(db, warrant_id, ctx)
-    from app.warrant.models import WarrantDraftExtend as DE
-
-    db.query(DE).filter(DE.id == extend_id).delete(synchronize_session=False)
+    db.query(WarrantDraftExtend).filter(WarrantDraftExtend.id == extend_id).delete(
+        synchronize_session=False
+    )
 
 
 def _get_draft_extend(db: Session, warrant_id: int, extend_id: int) -> WarrantDraftExtend:
@@ -103,7 +111,4 @@ def _get_draft_extend(db: Session, warrant_id: int, extend_id: int) -> WarrantDr
     if e is None or e.warrant_id != warrant_id:
         raise BizError(4041, "票据明细不存在")
     return e
-
-
-# ===== 应收明细 =====
 

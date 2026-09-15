@@ -31,7 +31,14 @@ from app.warrant.schemas import (
     WarrantCreate,
     WarrantUpdate,
 )
-from app.warrant.services import ext_service, warrant_service
+from app.warrant.services import (
+    warrant_service,
+    warrant_draft_extend_service,
+    warrant_ownership_service,
+    warrant_real_estate_service,
+    warrant_receive_extend_service,
+    warrant_type_detail_service,
+)
 
 router = APIRouter(prefix="/warrants", tags=["warrant"])
 
@@ -171,7 +178,7 @@ def get_type_detail(
     ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """按类型获取扩展信息（warrant_houses / grounds / ...）。"""
-    return ok(ext_service.get_type_detail(db, warrant_id, ctx))
+    return ok(warrant_type_detail_service.get_type_detail(db, warrant_id, ctx))
 
 
 @router.put("/{warrant_id}/type-detail")
@@ -182,7 +189,7 @@ def update_type_detail(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """按类型整体替换扩展信息。"""
-    ext_service.update_type_detail(db, warrant_id, body, user.user_id, user)
+    warrant_type_detail_service.update_type_detail(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok(message="扩展信息已更新")
 
@@ -196,7 +203,7 @@ def list_owners(
     ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """产权证/所有权人列表。"""
-    return ok(ext_service.list_owners(db, warrant_id, ctx))
+    return ok(warrant_ownership_service.list_owners(db, warrant_id, ctx))
 
 
 @router.post("/{warrant_id}/owners")
@@ -207,7 +214,7 @@ def add_owner(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加产权证（所有权人 + 编号 + 共有份额）。"""
-    oid = ext_service.add_owner(db, warrant_id, body, user.user_id, user)
+    oid = warrant_ownership_service.add_owner(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": oid}, message="产权证已添加")
 
@@ -221,7 +228,7 @@ def update_owner(
     ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """修改产权证（编号/份额）。"""
-    ext_service.update_owner(db, warrant_id, owner_row_id, body, ctx)
+    warrant_ownership_service.update_owner(db, warrant_id, owner_row_id, body, ctx)
     db.commit()
     return ok(message="修改成功")
 
@@ -234,7 +241,7 @@ def delete_owner(
     ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除产权证。"""
-    ext_service.delete_owner(db, warrant_id, owner_row_id, ctx)
+    warrant_ownership_service.delete_owner(db, warrant_id, owner_row_id, ctx)
     db.commit()
     return ok(message="删除成功")
 
@@ -249,7 +256,7 @@ def add_house(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加一套房产。"""
-    hid = ext_service.add_house(db, warrant_id, body, user.user_id, user)
+    hid = warrant_real_estate_service.add_house(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": hid})
 
@@ -262,7 +269,7 @@ def delete_house(
     ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除一套房产。"""
-    ext_service.delete_house(db, warrant_id, house_id, ctx)
+    warrant_real_estate_service.delete_house(db, warrant_id, house_id, ctx)
     db.commit()
     return ok(message="删除成功")
 
@@ -275,7 +282,7 @@ def add_ground(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加一宗土地。"""
-    gid = ext_service.add_ground(db, warrant_id, body, user.user_id, user)
+    gid = warrant_real_estate_service.add_ground(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": gid})
 
@@ -288,7 +295,7 @@ def delete_ground(
     ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除一宗土地。"""
-    ext_service.delete_ground(db, warrant_id, ground_id, ctx)
+    warrant_real_estate_service.delete_ground(db, warrant_id, ground_id, ctx)
     db.commit()
     return ok(message="删除成功")
 
@@ -301,7 +308,7 @@ def add_construction(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加一项在建工程。"""
-    cid = ext_service.add_construction(db, warrant_id, body, user.user_id, user)
+    cid = warrant_real_estate_service.add_construction(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": cid})
 
@@ -314,7 +321,7 @@ def delete_construction(
     ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除一项在建工程。"""
-    ext_service.delete_construction(db, warrant_id, construction_id, ctx)
+    warrant_real_estate_service.delete_construction(db, warrant_id, construction_id, ctx)
     db.commit()
     return ok(message="删除成功")
 
@@ -447,7 +454,7 @@ def list_draft_extends(
     ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """票据明细列表（关联核心企业/承兑人名称）。"""
-    return ok(ext_service.list_draft_extends(db, warrant_id, ctx))
+    return ok(warrant_draft_extend_service.list_draft_extends(db, warrant_id, ctx))
 
 
 @router.post("/{warrant_id}/draft-extends")
@@ -458,7 +465,7 @@ def add_draft_extend(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加票据明细（校验承兑人/核心企业存在、票据号唯一）。"""
-    eid = ext_service.add_draft_extend(db, warrant_id, body, user.user_id, user)
+    eid = warrant_draft_extend_service.add_draft_extend(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": eid}, message="票据明细已添加")
 
@@ -472,7 +479,7 @@ def update_draft_extend(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """修改票据明细（状态/金额/到期日）。"""
-    ext_service.update_draft_extend(db, warrant_id, extend_id, body, user.user_id, user)
+    warrant_draft_extend_service.update_draft_extend(db, warrant_id, extend_id, body, user.user_id, user)
     db.commit()
     return ok(message="修改成功")
 
@@ -485,7 +492,7 @@ def delete_draft_extend(
     ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除票据明细。"""
-    ext_service.delete_draft_extend(db, warrant_id, extend_id, ctx)
+    warrant_draft_extend_service.delete_draft_extend(db, warrant_id, extend_id, ctx)
     db.commit()
     return ok(message="删除成功")
 
@@ -499,7 +506,7 @@ def list_receive_extends(
     ctx: AuthContext = Depends(require_perm("warrant:detail")),
 ):
     """应收账款明细（应收单位）列表。"""
-    return ok(ext_service.list_receive_extends(db, warrant_id, ctx))
+    return ok(warrant_receive_extend_service.list_receive_extends(db, warrant_id, ctx))
 
 
 @router.post("/{warrant_id}/receive-extends")
@@ -510,7 +517,7 @@ def add_receive_extend(
     user: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """添加应收单位（同一权证下不重复）。"""
-    eid = ext_service.add_receive_extend(db, warrant_id, body, user.user_id, user)
+    eid = warrant_receive_extend_service.add_receive_extend(db, warrant_id, body, user.user_id, user)
     db.commit()
     return ok({"id": eid}, message="应收单位已添加")
 
@@ -523,6 +530,6 @@ def delete_receive_extend(
     ctx: AuthContext = Depends(require_perm("warrant:update")),
 ):
     """删除应收单位。"""
-    ext_service.delete_receive_extend(db, warrant_id, extend_id, ctx)
+    warrant_receive_extend_service.delete_receive_extend(db, warrant_id, extend_id, ctx)
     db.commit()
     return ok(message="删除成功")

@@ -200,7 +200,7 @@ def _user_names(db: Session, user_ids: set[int]) -> dict[int, str]:
 
 
 def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
-    from app.warrant.services import ext_service
+    from app.warrant.services import warrant_type_detail_service
 
     w = _get_warrant_with_scope(db, warrant_id, ctx)
     user_ids = {w.created_by}
@@ -242,7 +242,7 @@ def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
         "evaluates": evaluate_items,
     }
     # 按类型聚合扩展信息
-    detail.update(ext_service.get_type_detail(db, warrant_id, ctx))
+    detail.update(warrant_type_detail_service.get_type_detail(db, warrant_id, ctx))
     return detail
 
 
@@ -251,7 +251,7 @@ def get_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
 
 def create(db: Session, body: WarrantCreate, user_id: int) -> int:
     """创建权证：主表 + 按类型扩展 + 所有权人（单事务）。"""
-    from app.warrant.services import ext_service
+    from app.warrant.services import warrant_type_detail_service
 
     dup = db.scalar(select(Warrant.id).where(Warrant.warrant_num == body.warrant_num))
     if dup is not None:
@@ -277,7 +277,7 @@ def create(db: Session, body: WarrantCreate, user_id: int) -> int:
     db.add(w)
     db.flush()
 
-    ext_service.create_ext(db, w.id, wtype, body, user_id)
+    warrant_type_detail_service.create_ext(db, w.id, wtype, body, user_id)
     _add_owners(db, w.id, body.owners, user_id)
     return w.id
 

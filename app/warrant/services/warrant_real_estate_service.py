@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext
 from app.core.exceptions import BizError
+from app.warrant.enums import WarrantType
 from app.warrant.models import Warrant, WarrantHouse, WarrantGround, WarrantConstruction
 
 def _get_warrant(db: Session, warrant_id: int, ctx: AuthContext | None = None) -> Warrant:

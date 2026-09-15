@@ -6,13 +6,17 @@ from app.core.deps import AuthContext
 from app.core.exceptions import BizError
 from app.warrant.enums import WarrantType
 from app.warrant.models import (
-    Warrant, WarrantStock, WarrantVehicle, WarrantChattel,
-    WarrantOther, WarrantPatent, WarrantSoftware,
+    Warrant, WarrantHouse, WarrantGround, WarrantConstruction,
+    WarrantReceiveExtend, WarrantDraftExtend, WarrantStock,
+    WarrantVehicle, WarrantChattel, WarrantOther, WarrantPatent,
+    WarrantSoftware,
 )
 from app.warrant.schemas import TypeDetailUpdate
 
 def _get_warrant(db: Session, warrant_id: int, ctx: AuthContext | None = None) -> Warrant:
     """获取权证：有 ctx 则做数据级权限校验，无 ctx 则基础 404。"""
+    # 延迟导入避免与 warrant_service 的循环依赖
+    from app.warrant.services.warrant_service import _get_warrant_with_scope, _get_or_404
     if ctx is not None:
         return _get_warrant_with_scope(db, warrant_id, ctx)
     return _get_or_404(db, warrant_id)
@@ -89,6 +93,8 @@ def _add_house(db: Session, warrant_id: int, house, user_id: int) -> None:
 # ===== 详情聚合（按类型返回扩展块）=====
 
 def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
+    from app.warrant.services.warrant_service import _disp
+    from app.warrant.services.warrant_real_estate_service import _ground_dict
     """按权证类型聚合扩展信息（详情页 type-detail 块）。"""
     w = _get_warrant(db, warrant_id, ctx)
     wtype = WarrantType(w.warrant_type)
@@ -178,6 +184,8 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
             "remark": s.remark,
         } if s else None
     elif wtype == WarrantType.DRAFT:
+        # 延迟导入避免与票据明细 service 的循环依赖
+        from app.warrant.services.warrant_draft_extend_service import list_draft_extends
         result["draft_extends"] = list_draft_extends(db, warrant_id, ctx)["items"]
     elif wtype == WarrantType.VEHICLE:
         v = db.scalar(select(WarrantVehicle).where(WarrantVehicle.warrant_id == warrant_id))
@@ -241,9 +249,6 @@ def update_type_detail(db: Session, warrant_id: int, body: TypeDetailUpdate, use
     create_ext(db, warrant_id, wtype, body, user_id)
 
 
-# _type_field 已合并到 warrant_service.TYPE_EXT_FIELD，ext_service 不再单独维护。
-
-
 def _delete_ext(db: Session, warrant_id: int, wtype: WarrantType) -> None:
     """物理删除旧扩展（含明细子表，权证无软删设计）。"""
     if wtype == WarrantType.HOUSE:
@@ -292,7 +297,4 @@ def _delete_ext(db: Session, warrant_id: int, wtype: WarrantType) -> None:
         db.query(WarrantOther).filter(WarrantOther.warrant_id == warrant_id).delete(
             synchronize_session=False
         )
-
-
-# ===== 票据明细 =====
 

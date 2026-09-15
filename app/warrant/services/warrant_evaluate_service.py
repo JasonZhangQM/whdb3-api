@@ -18,6 +18,7 @@ def _get_or_404(db: Session, warrant_id: int) -> Warrant:
 
 
 def list_evaluates(db: Session, warrant_id: int, ctx: AuthContext) -> list[dict]:
+    from app.warrant.services.warrant_service import _get_warrant_with_scope, _disp, _user_names
     """评估历史列表（含复核）。独立接口 + get_detail 内部复用。"""
     _get_warrant_with_scope(db, warrant_id, ctx)
     evaluates = db.scalars(
