@@ -1,4 +1,4 @@
-﻿"""放款次序 service（ArticleOrder + 嵌套反担保措施聚合）。
+"""放款次序 service（ArticleOrder + 嵌套反担保措施聚合）。
 
 提供：
 - add_order:         新增放款次序
@@ -135,8 +135,8 @@ def add_order(
 ) -> None:
     """添加放款次序。"""
     article = _get_article_or_404(db, article_id)
-    if article.article_state not in (40, 61):
-        raise BizError(4031, "已上会/待变更状态可添加放款次序")
+    if article.article_state not in (10, 61):
+        raise BizError(4031, "待反馈/待变更状态可添加放款次序")
 
     if db.scalar(
         select(ArticleOrder).where(
