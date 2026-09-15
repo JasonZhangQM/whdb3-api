@@ -1,4 +1,4 @@
-"""项目模块模型：9 张表。
+﻿"""项目模块模型：9 张表。
 
 设计决策（AGENTS.md 对齐）：
 - A2 FK ondelete 分层：子表→聚合根用 CASCADE；子表→字典/用户用 RESTRICT
@@ -157,7 +157,7 @@ class ArticleSure(Base):
     """反担保措施（按放款次序组织）。
 
     旧系统对应 LendingSures：lending → LendingOrder。
-    新系统：lending_order_id 是第一归属（唯一性约束落在它上面），
+    新系统：order_id 是第一归属（唯一性约束落在它上面），
     article_id 做冗余列（方便项目级筛选，无需 JOIN 放款次序表）。
     保证类通过 ArticleSureCustomer（M2M customer），
     抵质押类通过 ArticleSureWarrant（M2M warrant）。
@@ -165,7 +165,7 @@ class ArticleSure(Base):
 
     __tablename__ = "article_sures"
 
-    lending_order_id: Mapped[int] = mapped_column(
+    order_id: Mapped[int] = mapped_column(
         ForeignKey("article_order.id", ondelete="CASCADE"),
         comment="放款次序",
     )
@@ -177,7 +177,7 @@ class ArticleSure(Base):
     remark: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
-        UniqueConstraint("lending_order_id", "sure_type", name="uq_sure_order_type"),
+        UniqueConstraint("order_id", "sure_type", name="uq_sure_order_type"),
     )
 
 

@@ -1,4 +1,4 @@
-"""放款次序 service（ArticleOrder + 嵌套反担保措施聚合）。
+﻿"""放款次序 service（ArticleOrder + 嵌套反担保措施聚合）。
 
 提供：
 - add_order:         新增放款次序
@@ -72,7 +72,7 @@ def _get_order_or_404(
 def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
     """查某放款次序下的所有反担保措施 + 客户/权证名称，按 sure_type 排序返回 dict 列表。"""
     sures = db.scalars(
-        select(ArticleSure).where(ArticleSure.lending_order_id == order_id)
+        select(ArticleSure).where(ArticleSure.order_id == order_id)
     ).all()
     if not sures:
         return []
@@ -210,7 +210,7 @@ def delete_order(db: Session, article_id: int, order_id: int) -> None:
 
     # 收集 sure_id
     sure_ids = db.scalars(
-        select(ArticleSure.id).where(ArticleSure.lending_order_id == order_id)
+        select(ArticleSure.id).where(ArticleSure.order_id == order_id)
     ).all()
 
     if sure_ids:
