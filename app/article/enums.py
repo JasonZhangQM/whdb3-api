@@ -16,33 +16,11 @@ class ArticleState(LabeledIntEnum):
     CANCELLED = 99, '已注销'
 
 
-class RepayMethod(LabeledIntEnum):
-    """还款方式。"""
-    MONTHLY_INTEREST = 10, '按月付息到期还本'
-    EQUAL_INSTALLMENT = 20, '等额本息'
-    MONTHLY_INTEREST_INSTALLMENT = 30, '按月付息分期还本'
-    LUMP_SUM = 40, '到期一次还本付息'
-    BALLOON = 50, '气球贷'
-
-
 class Propose(LabeledIntEnum):
     """风控反馈上会建议。"""
     QUALIFIED = 10, '符合上会'
     NOT_YET = 20, '暂不符合'
     TERMINATE = 30, '建议终止'
-
-
-class CreditModel(LabeledIntEnum):
-    """授信类型（单项额度）。"""
-    FLOW_LOAN = 10, '流贷'
-    BANK_ACCEPT = 20, '银承敞口'
-    GUARANTEE_LETTER = 30, '保函'
-    COMPREHENSIVE = 40, '综合授信'
-    ENTRUSTED_LOAN = 50, '委托贷款'
-    MORTGAGE = 60, '按揭'
-    DRAFT_GUARANTEE = 70, '票据保'
-    DRAFT_EASY = 71, '上银票易保'
-    DRAFT_CORE = 72, '票据保(核心企业授信)'
 
 
 class SureType(LabeledIntEnum):
@@ -105,6 +83,6 @@ class ProductCategory(LabeledIntEnum):
 
 
 LABELS = make_labels(
-    ArticleState, RepayMethod, Propose,
-    CreditModel, SureType, CreditTermUnit, ChangeView, ProductCategory,
+    ArticleState, Propose,
+    SureType, CreditTermUnit, ChangeView, ProductCategory,
 )

@@ -1,4 +1,4 @@
-"""统一字典接口：GET /api/v1/dicts 聚合各模块枚举，前端三值分离的真相源。
+﻿"""统一字典接口：GET /api/v1/dicts 聚合各模块枚举，前端三值分离的真相源。
 
 返回格式：
 {
@@ -70,15 +70,15 @@ def get_all_dicts() -> dict:
 def get_dict(name: str) -> dict:
     """按 key 或模块前缀查字典。
 
-    - 精确 key 匹配（如 "article.credit_model"）→ 返回 [{value, label}, ...]
-    - 模块前缀（如 "article"）→ 返回聚合对象 {article_state: [...], credit_model: [...], ...}
+    - 精确 key 匹配（如 "article.sure_type"）→ 返回 [{value, label}, ...]
+    - 模块前缀（如 "article"）→ 返回聚合对象 {article_state: [...], sure_type: [...], ...}
     - 都匹配不到 → 返回空数组/空对象
     """
     # 1. 精确 key 匹配优先
     if name in _ALL_DICTS:
         return ok(_ALL_DICTS[name])
 
-    # 2. 模块前缀聚合（支持 /dicts/article → {article_state: [...], credit_model: [...]}）
+    # 2. 模块前缀聚合（支持 /dicts/article → {article_state: [...], sure_type: [...]}）
     prefix = f"{name}."
     grouped = {
         k[len(prefix):]: v

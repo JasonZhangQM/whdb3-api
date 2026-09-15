@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import select, delete
 
 from app.article.models import (
-    Article, ArticleSingleQuota, ArticleOrder,
+    Article, ArticleOrder,
 )
 from app.article.enums import ArticleState
 from app.approval.models import ApprovalFlowDef, ApprovalFlowNode, ApprovalInstance, ApprovalTask
@@ -39,7 +39,6 @@ def cleanup_children(db):
         db.execute(delete(ApprovalTask).where(ApprovalTask.instance_id.in_(inst_ids)))
         db.execute(delete(ApprovalInstance).where(ApprovalInstance.id.in_(inst_ids)))
     # 子资源
-    db.execute(delete(ArticleSingleQuota))
     db.execute(delete(ArticleOrder))
     db.execute(delete(AppraisalComment))
     db.execute(delete(AppraisalSupply))
@@ -66,16 +65,10 @@ def ensure_article_state(db):
     return articles
 
 
-def ensure_quotas_and_orders(db, articles):
-    """为每个 article 造配额 + 放款（金额 = renewal + augment，让金额三方校验通过）。"""
+def ensure_orders(db, articles):
+    """为每个 article 造放款次序（2 笔合计 = renewal + augment，让签批金额校验通过）。"""
     for art in articles:
-        total = art.renewal + art.augment  # 例如 1000 + 500 = 1500
-        # 单项额度（1 条足够通过校验；credit_model 取 1=流动资金）
-        db.add(ArticleSingleQuota(
-            article_id=art.id, credit_model=1, credit_amount=total,
-            flow_rate="年化 5.6%", remark="综合授信额度",
-        ))
-        # 放款次序（2 笔，合计 = total）
+        total = art.renewal + art.augment
         half = (total / Decimal("2")).quantize(Decimal("0.01"))
         for seq, amt in [(1, half), (2, total - half)]:
             db.add(ArticleOrder(
@@ -83,7 +76,7 @@ def ensure_quotas_and_orders(db, articles):
                 remark=f"第 {seq} 笔拟放",
             ))
     db.commit()
-    print(f"  配额 + 放款 OK（合计 {articles[0].renewal + articles[0].augment} / article）")
+    print(f"  放款次序 OK（合计 {articles[0].renewal + articles[0].augment} / article）")
 
 
 def ensure_experts_and_categories(db):
@@ -215,7 +208,7 @@ def main() -> None:
             return
 
         # 3) 配额 + 放款（金额三方校验通过）
-        ensure_quotas_and_orders(db, articles)
+        ensure_orders(db, articles)
 
         # 4) 评审专家 + 评审意见 + 补调记录
         experts = ensure_experts_and_categories(db)

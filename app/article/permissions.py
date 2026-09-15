@@ -11,8 +11,7 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
     ("article:detail", "项目详情"),
     # 子资源管理（状态流转 / 业务操作）
     ("article:feedback", "风控反馈提交"),
-    ("article:quota", "单项额度设置"),
-    ("article:lending", "放款次序管理"),
+    ("article:order", "放款次序管理"),
     ("article:sure", "反担保措施管理"),
     # 审批
     ("article:sign", "发起签批审批"),

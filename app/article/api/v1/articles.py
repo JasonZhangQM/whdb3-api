@@ -1,4 +1,4 @@
-"""项目主管理路由。
+﻿"""项目主管理路由。
 
 路由层职责（§3.1）：只做 参数接收 → 鉴权依赖注入 → 调 service → 返回 R。零业务逻辑。
 """
@@ -13,7 +13,6 @@ from app.article.schemas import (
     FeedbackCreate,
     LendingOrderCreate,
     LendingOrderUpdate,
-    SingleQuotaCreate,
     SureCreate,
     SignRequestCreate,
 )
@@ -104,23 +103,12 @@ def submit_feedback(
 
 # ============ 子资源 ============
 
-@router.post("/{article_id}/single-quotas")
-def add_single_quota(
-    article_id: int,
-    body: SingleQuotaCreate,
-    db=Depends(get_db),
-    user: AuthContext = Depends(require_perm("article:quota")),
-):
-    article_service.add_single_quota(db, article_id, body, user.user_id)
-    return ok(message="单项额度已保存")
-
-
 @router.post("/{article_id}/orders")
 def add_order(
     article_id: int,
     body: LendingOrderCreate,
     db=Depends(get_db),
-    user: AuthContext = Depends(require_perm("article:lending")),
+    user: AuthContext = Depends(require_perm("article:order")),
 ):
     article_service.add_order(db, article_id, body, user.user_id)
     return ok(message="放款次序已添加")
@@ -142,7 +130,7 @@ def update_order(
     order_id: int,
     body: LendingOrderUpdate,
     db=Depends(get_db),
-    _: AuthContext = Depends(require_perm("article:lending")),
+    _: AuthContext = Depends(require_perm("article:order")),
 ):
     article_service.update_order(db, article_id, order_id, body)
     return ok(message="放款次序已更新")
@@ -153,7 +141,7 @@ def delete_order(
     article_id: int,
     order_id: int,
     db=Depends(get_db),
-    _: AuthContext = Depends(require_perm("article:lending")),
+    _: AuthContext = Depends(require_perm("article:order")),
 ):
     article_service.delete_order(db, article_id, order_id)
     return ok(message="放款次序已删除")

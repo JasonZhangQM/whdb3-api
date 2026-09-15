@@ -19,7 +19,6 @@ class ArticleCreate(BaseModel):
     control_id: int | None = None
     borrower_ids: list[int] = Field(default_factory=list)
     orders: list["LendingOrderCreate"] = Field(default_factory=list, description="放款次序（可选）")
-    single_quotas: list["SingleQuotaCreate"] = Field(default_factory=list, description="单项额度（可选）")
 
 
 class ArticleUpdate(BaseModel):
@@ -114,14 +113,6 @@ class SureCreate(BaseModel):
     remark: str | None = None
     customer_ids: list[int] = Field(default_factory=list)  # 保证类
     warrant_ids: list[int] = Field(default_factory=list)   # 抵质押类
-
-
-class SingleQuotaCreate(BaseModel):
-    """单项额度。"""
-    credit_model: int
-    credit_amount: Decimal
-    flow_rate: str | None = None
-    remark: str | None = None
 
 
 class LendingOrderCreate(BaseModel):

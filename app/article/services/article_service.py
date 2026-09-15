@@ -40,7 +40,6 @@ from .article_order_service import (  # noqa: E402
     list_orders,
     update_order,
 )
-from .article_single_quota_service import add_single_quota  # noqa: E402
 from .article_supply_service import list_article_supplies  # noqa: E402
 from .article_sure_service import upsert_sure  # noqa: E402
 
@@ -274,25 +273,6 @@ def create_article(
                 created_by=user_id,
             ))
 
-    # 批量创建单项额度（article + credit_model 唯一，重复则覆盖——允许前端先建后改）
-    if body.single_quotas:
-        from app.article.models import ArticleSingleQuota
-
-        # 校验 credit_model 不重复
-        models_seen: list[int] = []
-        for q in body.single_quotas:
-            if q.credit_model in models_seen:
-                raise BizError(4001, "单项额度授信类型不能重复")
-            models_seen.append(q.credit_model)
-            db.add(ArticleSingleQuota(
-                article_id=article.id,
-                credit_model=q.credit_model,
-                credit_amount=q.credit_amount,
-                flow_rate=q.flow_rate,
-                remark=q.remark,
-                created_by=user_id,
-            ))
-
     db.commit()
     return article.id, article_num
 
@@ -340,22 +320,17 @@ def submit_sign_request(
 
     前置校验：
     1. 项目状态 ∈ {40 已上会, 61 待变更}
-    2. 金额三方校验：Σ额度 = Σ放款次序 = 签批总额（允许 ±0.01 误差）
+    2. 金额校验：Σ放款次序 = 签批总额（允许 ±0.01 误差）
     3. 审批引擎内置互斥（_check_pending_mutex）
     """
-    from app.article.models import ArticleSingleQuota, ArticleOrder
+    from app.article.models import ArticleOrder
 
     article = _get_or_404(db, article_id)
     if article.article_state not in (40, 61):
         raise BizError(4031, "已上会/待变更状态可发起签批")
 
-    # 金额三方校验
+    # 金额两方校验：放款次序 = 签批总额（允许 ±0.01 误差）
     total_from_body = body.renewal + body.augment
-    total_from_quotas = db.scalar(
-        select(func.coalesce(func.sum(ArticleSingleQuota.credit_amount), 0)).where(
-            ArticleSingleQuota.article_id == article_id
-        )
-    ) or Decimal("0")
     total_from_orders = db.scalar(
         select(func.coalesce(func.sum(ArticleOrder.order_amount), 0)).where(
             ArticleOrder.article_id == article_id
@@ -363,12 +338,10 @@ def submit_sign_request(
     ) or Decimal("0")
 
     tolerance = Decimal("0.01")
-    if (abs(total_from_body - total_from_quotas) > tolerance
-            or abs(total_from_body - total_from_orders) > tolerance):
+    if abs(total_from_body - total_from_orders) > tolerance:
         raise BizError(
             4031,
-            f"金额三方校验不通过：签批总额 {total_from_body} ≠ "
-            f"Σ额度 {total_from_quotas} ≠ Σ放款 {total_from_orders}",
+            f"金额校验不通过：签批总额 {total_from_body} ≠ Σ放款 {total_from_orders}",
         )
 
     payload = {

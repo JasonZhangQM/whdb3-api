@@ -117,22 +117,6 @@ class ArticleFeedback(Base):
 
 
 
-class ArticleSingleQuota(Base):
-    """单项额度（article + credit_model 唯一）。"""
-
-    __tablename__ = "article_single_quotas"
-
-    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
-    credit_model: Mapped[int] = mapped_column(SmallInteger, comment="授信类型")
-    credit_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0)
-    flow_rate: Mapped[str | None] = mapped_column(Text, comment="费率（文本）")
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    __table_args__ = (
-        UniqueConstraint("article_id", "credit_model", name="uq_single_quota_article_model"),
-    )
-
-
 class ArticleOrder(Base):
     """放款次序（article + seq 唯一）。
 

@@ -27,7 +27,6 @@ def article_dict(_=Depends(get_current_user)):
         "article_state": _enum("article_state"),
         "credit_term_unit": _enum("credit_term_unit"),
         "propose": _enum("propose"),
-        "credit_model": _enum("credit_model"),
         "sure_type": _enum("sure_type"),
         "change_view": _enum("change_view"),
         "product_category": _enum("product_category"),
