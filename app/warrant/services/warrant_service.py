@@ -95,6 +95,32 @@ def _get_warrant_with_scope(
 # ===== 列表 =====
 
 
+def warrant_dict(
+    db: Session,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 100,
+) -> tuple[list[dict], int]:
+    """权证下拉字典（表单选择用）。无 data_scope——业务模块（如项目担保措施）
+    选抵质押权证时需要看到全量权证，不应被 created_by 归属过滤。
+    """
+    stmt = select(Warrant.id, Warrant.warrant_num, Warrant.warrant_type)
+    if q:
+        stmt = stmt.where(Warrant.warrant_num.like(f"%{q.strip()}%"))
+
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = db.execute(
+        stmt.order_by(Warrant.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    items = [
+        {"id": wid, "warrant_num": wnum, "warrant_type": wtype}
+        for wid, wnum, wtype in rows
+    ]
+    return items, total
+
+
 def list_warrants(
     db: Session,
     ctx: AuthContext,
@@ -123,11 +149,10 @@ def list_warrants(
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = db.scalars(stmt.offset((page - 1) * page_size).limit(page_size)).all()
 
-    # 批量取所有权人名称与最近出入库（避免 N+1）
+    # 批量取所有权人名称（避免 N+1）
     wids = [w.id for w in rows]
     owner_map = _owner_names_map(db, wids)
     user_names = _user_names(db, {w.created_by for w in rows})
-    latest_storage = _latest_storages(db, wids)
 
     items = []
     for w in rows:
@@ -140,7 +165,6 @@ def list_warrants(
                 "warrant_state": w.warrant_state,
                 "warrant_state_display": _disp("warrant_state", w.warrant_state),
                 "owner_names": owner_map.get(w.id, []),
-                "storage_latest": latest_storage.get(w.id),
                 "created_by_name": user_names.get(w.created_by, ""),
                 "created_at": w.created_at,
             }

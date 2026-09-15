@@ -31,6 +31,21 @@ def warrant_types(_: AuthContext = Depends(get_current_user)):
     )
 
 
+@router.get("/warrants")
+def warrants_dict(
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 100,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(get_current_user),
+):
+    """权证下拉字典（表单选择用）。无 data_scope——业务模块选抵质押权证时
+    需要看到全量权证，不应被 created_by 归属过滤。
+    """
+    items, total = warrant_service.warrant_dict(db, q, page, page_size)
+    return ok({"items": items, "total": total, "page": page, "page_size": page_size})
+
+
 @router.get("/warrant-states")
 def warrant_states(_: AuthContext = Depends(get_current_user)):
     """权证状态 + 出入库类型字典（出入库联动状态，一并下发）。"""
