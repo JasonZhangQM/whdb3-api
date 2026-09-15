@@ -110,7 +110,7 @@ class SureCreate(BaseModel):
 
     order_id: int = Field(..., description="放款次序 ID（article_order.id）")
     sure_type: int
-    remark: str | None = None
+    remark: str | None = Field(None, max_length=256)
     customer_ids: list[int] = Field(default_factory=list)  # 保证类
     warrant_ids: list[int] = Field(default_factory=list)   # 抵质押类
 

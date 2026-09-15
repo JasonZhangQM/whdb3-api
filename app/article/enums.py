@@ -37,7 +37,7 @@ class SureType(LabeledIntEnum):
     # 顺位
     HOUSE_SUCCESSION = 21, '房产顺位'
     GROUND_SUCCESSION = 22, '土地顺位'
-    CONSTRUCTION_SUCCESSION = 23, '在建顺位'
+    CONSTRUCTION_SUCCESSION = 23, '在建工程顺位'
     CHATTEL_SUCCESSION = 24, '动产顺位'
     # 质押
     RECEIVABLE_PLEDGE = 31, '应收质押'

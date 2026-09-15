@@ -1,4 +1,4 @@
-﻿"""项目模块模型：9 张表。
+"""项目模块模型：9 张表。
 
 设计决策（AGENTS.md 对齐）：
 - A2 FK ondelete 分层：子表→聚合根用 CASCADE；子表→字典/用户用 RESTRICT
@@ -158,7 +158,7 @@ class ArticleSure(Base):
         comment="项目（冗余，便于筛选）",
     )
     sure_type: Mapped[int] = mapped_column(SmallInteger, comment="反担保类型")
-    remark: Mapped[str | None] = mapped_column(Text)
+    remark: Mapped[str | None] = mapped_column(String(256), comment="备注")
 
     __table_args__ = (
         UniqueConstraint("order_id", "sure_type", name="uq_sure_order_type"),

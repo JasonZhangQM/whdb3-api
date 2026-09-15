@@ -1,4 +1,4 @@
-﻿"""反担保措施 service（ArticleSure + ArticleSureCustomer + ArticleSureWarrant）。
+"""反担保措施 service（ArticleSure + ArticleSureCustomer + ArticleSureWarrant）。
 
 旧系统对应 LendingSures + LendingCustoms + LendingWarrants：
 - ArticleSure          ← LendingSures（从 FK Articles 改 FK ArticleOrder）
@@ -43,8 +43,9 @@ def upsert_sure(
     article = db.get(Article, article_id)
     if article is None:
         raise BizError(4041, "项目不存在")
-    if article.article_state not in (10, 20, 30, 40, 61):
-        raise BizError(4031, "当前状态不允许设置反担保措施")
+    # 状态门槛：待反馈/待变更可设置反担保措施（与放款次序添加门槛一致）
+    if article.article_state not in (10, 61):
+        raise BizError(4031, "待反馈/待变更状态可设置反担保措施")
 
     # 校验放款次序归属
     order = _get_lending_or_404(db, article_id, body.order_id)

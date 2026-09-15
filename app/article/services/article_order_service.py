@@ -10,6 +10,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.article.enums import SureType
 from app.article.models import (
     Article,
     ArticleOrder,
@@ -22,30 +23,8 @@ from app.core.exceptions import BizError
 from app.customer.models import Customer
 from app.warrant.models import Warrant
 
-
-# 反担保类型字典（保证类 1/2，抵质押类 11-59；详情展示用）
-SURE_TYPE_MAP = {
-    1: '保证-法定代表人',
-    2: '保证-实际控制人',
-    11: '抵押-房产',
-    12: '抵押-土地',
-    13: '抵押-机器设备',
-    14: '抵押-车辆',
-    21: '质押-股权',
-    22: '质押-应收账款',
-    23: '质押-存货',
-    31: '留置',
-    41: '定金',
-    51: '保理',
-    52: '信用证',
-    53: '保函',
-    54: '保险',
-    55: '仓储监管',
-    56: '资产证券化',
-    57: '融资租赁',
-    58: '合作担保机构',
-    59: '其他担保',
-}
+# 反担保类型字典：直接由 SureType 枚举生成（保证类 1/2 选客户，其余选权证）
+SURE_TYPE_MAP = {t.value: t.label for t in SureType}
 
 
 def _get_article_or_404(db: Session, article_id: int) -> Article:
