@@ -254,6 +254,25 @@ def create_article(
     for cid in body.borrower_ids:
         db.add(ArticleBorrower(article_id=article.id, customer_id=cid))
 
+    # 批量创建放款次序（跳过 add_order 的 40/61 状态门禁——新立项项目 state=10 也允许初始化）
+    if body.orders:
+        from app.article.models import ArticleOrder
+
+        # 校验 seq 不重复
+        seqs = [o.seq for o in body.orders]
+        if len(seqs) != len(set(seqs)):
+            raise BizError(4001, "放款次序序号不能重复")
+
+        for o in body.orders:
+            db.add(ArticleOrder(
+                article_id=article.id,
+                seq=o.seq,
+                order_amount=o.order_amount,
+                remark=o.remark,
+                state=article.article_state,
+                created_by=user_id,
+            ))
+
     db.commit()
     return article.id, article_num
 

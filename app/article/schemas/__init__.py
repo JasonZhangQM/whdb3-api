@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class ArticleCreate(BaseModel):
-    """创建项目。"""
+    """创建项目（可携带放款次序一起提交）。"""
     customer_id: int
     product_id: int
     renewal: Decimal = Decimal("0")
@@ -18,6 +18,7 @@ class ArticleCreate(BaseModel):
     assistant_id: int | None = None
     control_id: int | None = None
     borrower_ids: list[int] = Field(default_factory=list)
+    orders: list["LendingOrderCreate"] = Field(default_factory=list, description="放款次序（可选）")
 
 
 class ArticleUpdate(BaseModel):
