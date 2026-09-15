@@ -113,6 +113,7 @@ def _to_item(
         "repayment_sum": float(article.repayment_sum or 0),
         "sign_date": str(approval.sign_date) if approval and approval.sign_date else None,
         "created_at": str(article.created_at) if article.created_at else None,
+        "updated_at": str(article.updated_at) if article.updated_at else None,
         "created_by_name": users.get(article.created_by),
     }
 
@@ -270,6 +271,25 @@ def create_article(
                 order_amount=o.order_amount,
                 remark=o.remark,
                 state=article.article_state,
+                created_by=user_id,
+            ))
+
+    # 批量创建单项额度（article + credit_model 唯一，重复则覆盖——允许前端先建后改）
+    if body.single_quotas:
+        from app.article.models import ArticleSingleQuota
+
+        # 校验 credit_model 不重复
+        models_seen: list[int] = []
+        for q in body.single_quotas:
+            if q.credit_model in models_seen:
+                raise BizError(4001, "单项额度授信类型不能重复")
+            models_seen.append(q.credit_model)
+            db.add(ArticleSingleQuota(
+                article_id=article.id,
+                credit_model=q.credit_model,
+                credit_amount=q.credit_amount,
+                flow_rate=q.flow_rate,
+                remark=q.remark,
                 created_by=user_id,
             ))
 

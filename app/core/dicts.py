@@ -68,6 +68,25 @@ def get_all_dicts() -> dict:
 
 @router.get("/dicts/{name}")
 def get_dict(name: str) -> dict:
-    """按 key 查单个字典（用于按需懒加载场景）。"""
-    data = _ALL_DICTS.get(name, [])
-    return ok(data)
+    """按 key 或模块前缀查字典。
+
+    - 精确 key 匹配（如 "article.credit_model"）→ 返回 [{value, label}, ...]
+    - 模块前缀（如 "article"）→ 返回聚合对象 {article_state: [...], credit_model: [...], ...}
+    - 都匹配不到 → 返回空数组/空对象
+    """
+    # 1. 精确 key 匹配优先
+    if name in _ALL_DICTS:
+        return ok(_ALL_DICTS[name])
+
+    # 2. 模块前缀聚合（支持 /dicts/article → {article_state: [...], credit_model: [...]}）
+    prefix = f"{name}."
+    grouped = {
+        k[len(prefix):]: v
+        for k, v in _ALL_DICTS.items()
+        if k.startswith(prefix)
+    }
+    if grouped:
+        return ok(grouped)
+
+    # 3. 什么都没找到
+    return ok([])

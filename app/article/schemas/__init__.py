@@ -19,6 +19,7 @@ class ArticleCreate(BaseModel):
     control_id: int | None = None
     borrower_ids: list[int] = Field(default_factory=list)
     orders: list["LendingOrderCreate"] = Field(default_factory=list, description="放款次序（可选）")
+    single_quotas: list["SingleQuotaCreate"] = Field(default_factory=list, description="单项额度（可选）")
 
 
 class ArticleUpdate(BaseModel):
@@ -60,6 +61,7 @@ class ArticleItem(BaseModel):
     repayment_sum: Decimal
     sign_date: date | None = None
     created_at: str | None = None
+    updated_at: str | None = None
     created_by_name: str | None = None
 
 
