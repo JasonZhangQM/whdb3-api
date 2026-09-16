@@ -43,6 +43,29 @@ from app.warrant.services import (
 router = APIRouter(prefix="/warrants", tags=["warrant"])
 
 
+# ===== 远程搜索（供反担保措施内联添加下拉用）=====
+@router.get("/search")
+def search_warrants(
+    keyword: str = Query(..., min_length=1),
+    warrant_type: int | None = None,
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("warrant:list")),
+):
+    """按权证编号模糊搜索，可按 warrant_type 过滤。"""
+    from app.warrant.models import Warrant
+    kw = f"%{keyword.strip()}%"
+    q = db.query(Warrant).filter(Warrant.warrant_num.like(kw))
+    if warrant_type is not None:
+        q = q.filter(Warrant.warrant_type == warrant_type)
+    rows = q.limit(limit).all()
+    return ok([
+        {'id': w.id, 'warrant_num': w.warrant_num, 'warrant_type': w.warrant_type,
+         'warrant_type_display': w.warrant_type_display}
+        for w in rows
+    ])
+
+
 # ===== 列表 / 统计（静态路径优先注册）=====
 
 @router.get("")

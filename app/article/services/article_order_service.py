@@ -20,8 +20,21 @@ from app.article.models import (
 )
 from app.article.schemas import LendingOrderCreate, LendingOrderUpdate
 from app.core.exceptions import BizError
-from app.customer.models import Customer
-from app.warrant.models import Warrant
+from app.customer.enums import Genre as CustomerGenre
+from app.customer.models import Customer, CustomerContact
+from app.warrant.models import (
+    Warrant,
+    WarrantOwnership,
+    WarrantHouse,
+    WarrantGround,
+    WarrantConstruction,
+    WarrantReceiveExtend,
+    WarrantStock,
+    WarrantDraftExtend,
+    WarrantVehicle,
+    WarrantChattel,
+    WarrantOther,
+)
 
 # 枚举 value → label 字典（替代旧 SureType）
 WARE_MAP = {w.value: w.label for w in WareCategory}
@@ -50,7 +63,12 @@ def _get_order_or_404(
 
 
 def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
-    """查某放款次序下的所有反担保措施 + 客户/权证名称，按 (ware_category, method_category) 排序返回 dict 列表。"""
+    """查某放款次序下的所有反担保措施，按 (ware_category, method_category) 排序。
+
+    返回结构保证前端可以"每个保证人一行 / 每个权证一行"展开展示：
+    - 保证类 (ware_category=1): guarantors = [{id, name, genre, genre_display, address, contact_name, contact_phone}]
+    - 抵质押类 (ware_category!=1): collaterals = [{id, warrant_num, address, area, owners, description}]
+    """
     sures = db.scalars(
         select(ArticleSure).where(ArticleSure.order_id == order_id)
     ).all()
@@ -58,8 +76,9 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
         return []
 
     sure_ids = [s.id for s in sures]
+    guarantor_ware = WareCategory.GUARANTOR.value  # 1
 
-    # 批量查 M2M
+    # ---- 1. 批量查 M2M 关系 ----
     cust_rows = db.execute(
         select(ArticleSureCustomer.sure_id, ArticleSureCustomer.customer_id).where(
             ArticleSureCustomer.sure_id.in_(sure_ids)
@@ -71,7 +90,6 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
         )
     ).all()
 
-    # 分组
     cust_map: dict[int, list[int]] = {}
     for sid, cid in cust_rows:
         cust_map.setdefault(sid, []).append(cid)
@@ -79,34 +97,159 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
     for sid, wid in warrant_rows:
         warrant_map.setdefault(sid, []).append(wid)
 
-    # 批量查名称
+    # ---- 2. 收集 customer_ids + owner_ids ----
     all_cids = {cid for cids in cust_map.values() for cid in cids}
+
+    # ---- 3. 批量查 Warrant + WarrantOwnership + 各扩展表 ----
     all_wids = {wid for wids in warrant_map.values() for wid in wids}
-    cust_names: dict[int, str] = {}
-    warrant_names: dict[int, str] = {}
-    if all_cids:
-        for c in db.scalars(select(Customer).where(Customer.id.in_(all_cids))).all():
-            cust_names[c.id] = c.name or c.license_num or ''
+    warrant_dict: dict[int, Warrant] = {}
     if all_wids:
         for w in db.scalars(select(Warrant).where(Warrant.id.in_(all_wids))).all():
-            warrant_names[w.id] = w.warrant_num or ''
+            warrant_dict[w.id] = w
 
-    # 组装
+    # WarrantOwnership: warrant_id → [(owner_id, ownership_num), ...]
+    ownership_map: dict[int, list[tuple[int, str]]] = {}
+    if all_wids:
+        own_rows = db.execute(
+            select(WarrantOwnership.warrant_id, WarrantOwnership.owner_id, WarrantOwnership.ownership_num).where(
+                WarrantOwnership.warrant_id.in_(all_wids)
+            )
+        ).all()
+        for wid, oid, onum in own_rows:
+            ownership_map.setdefault(wid, []).append((oid, onum))
+            all_cids.add(oid)  # owner_ids 合并进 all_cids
+
+    # ---- 3.5 批量查 Customer + CustomerContact（合并了保证人和所有权人）----
+    cust_dict: dict[int, Customer] = {}
+    if all_cids:
+        for c in db.scalars(select(Customer).where(Customer.id.in_(all_cids))).all():
+            cust_dict[c.id] = c
+
+    contact_dict: dict[int, CustomerContact] = {}
+    if all_cids:
+        all_contacts = db.scalars(
+            select(CustomerContact).where(CustomerContact.customer_id.in_(all_cids))
+        ).all()
+        from collections import defaultdict
+        contact_groups: dict[int, list[CustomerContact]] = defaultdict(list)
+        for ct in all_contacts:
+            contact_groups[ct.customer_id].append(ct)
+        for cid, contacts in contact_groups.items():
+            primary = next((c for c in contacts if c.is_primary), None)
+            contact_dict[cid] = primary or contacts[0]
+
+    # 各 Warrant 扩展表批量查（按 warrant_type 分流）
+    warrant_ext_info: dict[int, dict] = {}  # warrant_id → {address, area, detail}
+    if all_wids:
+        # 分 type 收集 warrant_ids
+        type_groups: dict[int, list[int]] = {}
+        for wid, w in warrant_dict.items():
+            type_groups.setdefault(w.warrant_type, []).append(wid)
+
+        # Helper: 批量查扩展表 + 统一输出 {address, area, detail, house_usage}
+        def _fill_ext(
+            wtype: int, ext_table,
+            addr_field: str | None, area_field: str | None, detail_field: str | None,
+            extra_fields: dict[str, str] | None = None,  # {'输出key': '表字段名', ...}
+        ):
+            wids = type_groups.get(wtype)
+            if not wids:
+                return
+            rows = db.scalars(select(ext_table).where(ext_table.warrant_id.in_(wids))).all()
+            for r in rows:
+                info = {}
+                if addr_field:
+                    info['address'] = getattr(r, addr_field, None)
+                if area_field:
+                    v = getattr(r, area_field, None)
+                    info['area'] = float(v) if v is not None else None
+                if detail_field:
+                    info['detail'] = getattr(r, detail_field, None)
+                if extra_fields:
+                    for out_key, attr in extra_fields.items():
+                        info[out_key] = getattr(r, attr, None)
+                warrant_ext_info[r.warrant_id] = info
+
+        _fill_ext(1, WarrantHouse, 'house_locate', 'house_area', 'house_name',
+                  extra_fields={'house_usage': 'house_usage'})
+        _fill_ext(5, WarrantGround, 'ground_locate', 'ground_area', 'ground_app')
+        _fill_ext(6, WarrantConstruction, 'construct_locate', 'construct_area', 'construct_app')
+        _fill_ext(11, WarrantReceiveExtend, None, None, 'receive_unit')
+        _fill_ext(21, WarrantStock, None, None, 'target')
+        _fill_ext(41, WarrantVehicle, None, None, 'plate_num')
+        _fill_ext(51, WarrantChattel, None, None, 'chattel_detail')
+        _fill_ext(55, WarrantOther, None, None, 'other_detail')
+        # 31 票据 / 99 他权 等暂无扩展表，留空即可
+
+    # ---- 4. 组装 ----
     result = []
     for s in sorted(sures, key=lambda x: (x.ware_category, x.method_category)):
-        cids = cust_map.get(s.id, [])
-        wids = warrant_map.get(s.id, [])
-        result.append({
+        entry = {
+            'sure_id': s.id,
             'ware_category': s.ware_category,
             'ware_category_display': WARE_MAP.get(s.ware_category, f'担保物{s.ware_category}'),
             'method_category': s.method_category,
             'method_category_display': METHOD_MAP.get(s.method_category, f'担保方式{s.method_category}'),
             'remark': s.remark,
-            'customer_ids': cids,
-            'customer_names': [cust_names[c] for c in cids],
-            'warrant_ids': wids,
-            'warrant_names': [warrant_names[w] for w in wids],
-        })
+        }
+
+        if s.ware_category == guarantor_ware:
+            # 保证类 → 每个保证人一行展开
+            guarantors = []
+            for cid in cust_map.get(s.id, []):
+                c = cust_dict.get(cid)
+                if not c:
+                    continue
+                contact = contact_dict.get(cid)
+                genre_label = CustomerGenre.COMPANY.label if c.genre == CustomerGenre.COMPANY.value \
+                    else CustomerGenre.PERSONAL.label if c.genre == CustomerGenre.PERSONAL.value \
+                    else ''
+                guarantors.append({
+                    'id': cid,
+                    'name': c.name or c.license_num or '',
+                    'genre': c.genre,
+                    'genre_display': genre_label,
+                    'address': (contact.addr if contact else None) or c.license_addr or '',
+                    'contact_name': contact.name if contact else '',
+                    'contact_phone': contact.phone if contact else '',
+                })
+            entry['guarantors'] = guarantors
+            entry['collaterals'] = []
+        else:
+            # 抵质押类 → 每个权证一行展开
+            house_usage_labels = {10: '自用', 20: '出租', 30: '空置'}
+            collaterals = []
+            for wid in warrant_map.get(s.id, []):
+                w = warrant_dict.get(wid)
+                if not w:
+                    continue
+                ext = warrant_ext_info.get(wid, {})
+                # 所有权人 + 产权证号
+                own_tuples = ownership_map.get(wid, [])  # [(owner_id, ownership_num), ...]
+                owner_names = []
+                ownership_num = ''
+                for oid, onum in own_tuples:
+                    oc = cust_dict.get(oid)
+                    if oc:
+                        owner_names.append(oc.name)
+                    if not ownership_num and onum:
+                        ownership_num = onum
+                house_usage = ext.get('house_usage')
+                collaterals.append({
+                    'id': wid,
+                    'warrant_type': w.warrant_type,
+                    'address': ext.get('address') or '',
+                    'area': ext.get('area'),
+                    'owners': '、'.join(owner_names),
+                    'ownership_num': ownership_num,
+                    'description': ext.get('detail') or '',
+                    'house_usage': house_usage,
+                    'house_usage_display': house_usage_labels.get(house_usage, '') if house_usage is not None else '',
+                })
+            entry['collaterals'] = collaterals
+            entry['guarantors'] = []
+
+        result.append(entry)
     return result
 
 

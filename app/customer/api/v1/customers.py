@@ -33,6 +33,32 @@ from app.customer.services import customer_service, group_service
 router = APIRouter(prefix="/customers", tags=["customer"])
 
 
+# ===== 远程搜索（供反担保措施内联添加下拉用）=====
+@router.get("/search")
+def search_customers(
+    keyword: str = Query(..., min_length=1),
+    limit: int = Query(20, ge=1, le=50),
+    genre: int | None = None,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(get_current_user),
+):
+    """按名称/证件号模糊搜索客户，返回轻量列表。"""
+    from sqlalchemy import or_
+    from app.customer.models import Customer
+    kw = f"%{keyword.strip()}%"
+    q = db.query(Customer).filter(or_(
+        Customer.name.like(kw),
+        Customer.license_num.like(kw),
+    ))
+    if genre is not None:
+        q = q.filter(Customer.genre == genre)
+    rows = q.limit(limit).all()
+    return ok([
+        {'id': c.id, 'name': c.name, 'genre': c.genre, 'genre_display': c.genre_display}
+        for c in rows
+    ])
+
+
 # ===== 列表 / 统计（静态路径优先注册）=====
 
 @router.get("")
