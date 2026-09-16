@@ -10,7 +10,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.article.enums import SureType
+from app.article.enums import WareCategory, MethodCategory
 from app.article.models import (
     Article,
     ArticleOrder,
@@ -23,8 +23,9 @@ from app.core.exceptions import BizError
 from app.customer.models import Customer
 from app.warrant.models import Warrant
 
-# 反担保类型字典：直接由 SureType 枚举生成（保证类 1/2 选客户，其余选权证）
-SURE_TYPE_MAP = {t.value: t.label for t in SureType}
+# 枚举 value → label 字典（替代旧 SureType）
+WARE_MAP = {w.value: w.label for w in WareCategory}
+METHOD_MAP = {m.value: m.label for m in MethodCategory}
 
 
 def _get_article_or_404(db: Session, article_id: int) -> Article:
@@ -49,7 +50,7 @@ def _get_order_or_404(
 
 
 def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
-    """查某放款次序下的所有反担保措施 + 客户/权证名称，按 sure_type 排序返回 dict 列表。"""
+    """查某放款次序下的所有反担保措施 + 客户/权证名称，按 (ware_category, method_category) 排序返回 dict 列表。"""
     sures = db.scalars(
         select(ArticleSure).where(ArticleSure.order_id == order_id)
     ).all()
@@ -92,12 +93,14 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
 
     # 组装
     result = []
-    for s in sorted(sures, key=lambda x: x.sure_type):
+    for s in sorted(sures, key=lambda x: (x.ware_category, x.method_category)):
         cids = cust_map.get(s.id, [])
         wids = warrant_map.get(s.id, [])
         result.append({
-            'sure_type': s.sure_type,
-            'sure_type_display': SURE_TYPE_MAP.get(s.sure_type, f'担保{s.sure_type}'),
+            'ware_category': s.ware_category,
+            'ware_category_display': WARE_MAP.get(s.ware_category, f'担保物{s.ware_category}'),
+            'method_category': s.method_category,
+            'method_category_display': METHOD_MAP.get(s.method_category, f'担保方式{s.method_category}'),
             'remark': s.remark,
             'customer_ids': cids,
             'customer_names': [cust_names[c] for c in cids],
@@ -112,22 +115,42 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
 def add_order(
     db: Session, article_id: int, body: LendingOrderCreate, user_id: int
 ) -> None:
-    """添加放款次序。"""
+    """添加放款次序。
+
+    序号由后端自动分配（当前项目最大 seq + 1，从 1 起），
+    同时校验新增后 Σ 放款金额 ≤ 项目 renewal + augment。
+    """
+    from decimal import Decimal
+
     article = _get_article_or_404(db, article_id)
     if article.article_state not in (10, 61):
         raise BizError(4031, "待反馈/待变更状态可添加放款次序")
 
-    if db.scalar(
-        select(ArticleOrder).where(
-            ArticleOrder.article_id == article_id,
-            ArticleOrder.seq == body.seq,
+    # 自动分配 seq：当前项目最大 seq + 1，没有任何次序时从 1 起
+    max_seq = db.scalar(
+        select(ArticleOrder.seq)
+        .where(ArticleOrder.article_id == article_id)
+        .order_by(ArticleOrder.seq.desc())
+        .limit(1)
+    )
+    next_seq = (max_seq or 0) + 1
+
+    # 校验 Σ 放款金额 ≤ renewal + augment
+    existing_orders = db.scalars(
+        select(ArticleOrder).where(ArticleOrder.article_id == article_id)
+    ).all()
+    total = sum((o.order_amount for o in existing_orders), Decimal('0'))
+    new_total = total + body.order_amount
+    limit = (article.renewal or Decimal('0')) + (article.augment or Decimal('0'))
+    if new_total > limit:
+        raise BizError(
+            4031,
+            f"放款次序累计金额 {new_total} 已超过项目授信额度 {limit}（续贷 {article.renewal or 0} + 新增 {article.augment or 0}）",
         )
-    ):
-        raise BizError(4091, f"次序 {body.seq} 已存在")
 
     db.add(ArticleOrder(
         article_id=article_id,
-        seq=body.seq,
+        seq=next_seq,
         order_amount=body.order_amount,
         remark=body.remark,
         state=article.article_state,
@@ -163,7 +186,9 @@ def update_order(
     db: Session, article_id: int, order_id: int, body: LendingOrderUpdate
 ) -> None:
     """更新放款次序（仅金额 + 备注，seq 不允许改；状态同文章状态同步）。"""
-    _get_article_or_404(db, article_id)
+    from decimal import Decimal
+
+    article = _get_article_or_404(db, article_id)
     order = _get_order_or_404(db, article_id, order_id)
 
     # 状态保护：只有非终态才允许修改
@@ -171,6 +196,21 @@ def update_order(
         raise BizError(4031, "放款已进行/已结清的次序不允许修改")
 
     if body.order_amount is not None:
+        # 校验：修改后 Σ 放款金额 ≤ renewal + augment
+        other_orders = db.scalars(
+            select(ArticleOrder).where(
+                ArticleOrder.article_id == article_id,
+                ArticleOrder.id != order_id,
+            )
+        ).all()
+        total_without_this = sum((o.order_amount for o in other_orders), Decimal('0'))
+        new_total = total_without_this + body.order_amount
+        limit = (article.renewal or Decimal('0')) + (article.augment or Decimal('0'))
+        if new_total > limit:
+            raise BizError(
+                4031,
+                f"放款次序累计金额 {new_total} 已超过项目授信额度 {limit}（续贷 {article.renewal or 0} + 新增 {article.augment or 0}）",
+            )
         order.order_amount = body.order_amount
     if body.remark is not None:
         order.remark = body.remark

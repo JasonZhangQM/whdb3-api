@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.article.enums import LABELS
+from app.article.enums import LABELS, WareCategory, MethodCategory
 from app.article.models import Article, ArticleProduct
 from app.core.deps import get_current_user
 from app.core.db import get_db

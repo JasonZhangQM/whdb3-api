@@ -138,11 +138,12 @@ class ArticleOrder(Base):
 
 
 class ArticleSure(Base):
-    """反担保措施（按放款次序组织）。
+    """反担保措施（按放款次序组织，二维建模：担保物 × 担保方式）。
 
-    旧系统对应 LendingSures：lending → LendingOrder。
-    新系统：order_id 是第一归属（唯一性约束落在它上面），
-    article_id 做冗余列（方便项目级筛选，无需 JOIN 放款次序表）。
+    旧系统对应 LendingSures；新系统取消单一 sure_type 枚举，
+    改为 ware_category（担保物）+ method_category（担保方式）双维度。
+    唯一约束落在 (order_id, ware_category, method_category)。
+
     保证类通过 ArticleSureCustomer（M2M customer），
     抵质押类通过 ArticleSureWarrant（M2M warrant）。
     """
@@ -157,11 +158,12 @@ class ArticleSure(Base):
         ForeignKey("articles.id", ondelete="CASCADE"),
         comment="项目（冗余，便于筛选）",
     )
-    sure_type: Mapped[int] = mapped_column(SmallInteger, comment="反担保类型")
+    ware_category: Mapped[int] = mapped_column(SmallInteger, comment="担保物类别（WareCategory）")
+    method_category: Mapped[int] = mapped_column(SmallInteger, comment="担保方式类别（MethodCategory）")
     remark: Mapped[str | None] = mapped_column(String(256), comment="备注")
 
     __table_args__ = (
-        UniqueConstraint("order_id", "sure_type", name="uq_sure_order_type"),
+        UniqueConstraint("order_id", "ware_category", "method_category", name="uq_sure_order_ware_method"),
     )
 
 

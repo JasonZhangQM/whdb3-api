@@ -75,15 +75,15 @@ def get_all_dicts(_: None = Depends(get_current_user)) -> dict:
 def get_dict(name: str, _: None = Depends(get_current_user)) -> dict:
     """按 key 或模块前缀查字典。
 
-    - 精确 key 匹配（如 "article.sure_type"）→ 返回 [{value, label}, ...]
-    - 模块前缀（如 "article"）→ 返回聚合对象 {article_state: [...], sure_type: [...], ...}
+    - 精确 key 匹配（如 "article.ware_category"）→ 返回 [{value, label}, ...]
+    - 模块前缀（如 "article"）→ 返回聚合对象 {article_state: [...], ware_category: [...], ...}
     - 都匹配不到 → 返回空数组/空对象
     """
     # 1. 精确 key 匹配优先
     if name in _ALL_DICTS:
         return ok(_ALL_DICTS[name])
 
-    # 2. 模块前缀聚合（支持 /dicts/article → {article_state: [...], sure_type: [...]}）
+    # 2. 模块前缀聚合（支持 /dicts/article → {article_state: [...], ware_category: [...]}）
     prefix = f"{name}."
     grouped = {
         k[len(prefix):]: v

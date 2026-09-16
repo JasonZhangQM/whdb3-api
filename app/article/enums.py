@@ -23,41 +23,33 @@ class Propose(LabeledIntEnum):
     TERMINATE = 30, '建议终止'
 
 
-class SureType(LabeledIntEnum):
-    """反担保类型。"""
-    # 保证类
-    CORP_GUARANTEE = 1, '企业保证'
-    PERSONAL_GUARANTEE = 2, '个人保证'
-    # 抵押类
-    HOUSE_MORTGAGE = 11, '房产抵押'
-    GROUND_MORTGAGE = 12, '土地抵押'
-    CHATTEL_MORTGAGE = 13, '动产抵押'
-    CONSTRUCTION_MORTGAGE = 14, '在建工程抵押'
-    VEHICLE_MORTGAGE = 15, '车辆抵押'
-    # 顺位
-    HOUSE_SUCCESSION = 21, '房产顺位'
-    GROUND_SUCCESSION = 22, '土地顺位'
-    CONSTRUCTION_SUCCESSION = 23, '在建工程顺位'
-    CHATTEL_SUCCESSION = 24, '动产顺位'
-    # 质押
-    RECEIVABLE_PLEDGE = 31, '应收质押'
-    STOCK_PLEDGE = 32, '股权质押'
-    DRAFT_PLEDGE = 33, '票据质押'
-    CHATTEL_PLEDGE = 34, '动产质押'
-    OTHER_PLEDGE = 39, '其他权利质押'
-    # 监管
-    HOUSE_SUPERVISE = 42, '房产监管'
-    GROUND_SUPERVISE = 43, '土地监管'
-    DRAFT_SUPERVISE = 44, '票据监管'
-    CHATTEL_SUPERVISE = 47, '动产监管'
-    OTHER_SUPERVISE = 49, '其他监管'
-    # 预售
-    STOCK_PRESALE = 51, '股权预售'
-    HOUSE_PRESALE = 52, '房产预售'
-    GROUND_PRESALE = 53, '土地预售'
-    # 其他
-    OTHER = 59, '其他'
-    MULTI_DRAW = 61, '分次提用协议'
+# ============== 反担保类型二维拆分 ==============
+# 第一维度：担保物 × 第二维度：担保方式 —— 共同确定一条反担保措施
+
+class WareCategory(LabeledIntEnum):
+    """担保物类别（9 + 保证）。"""
+    GUARANTOR = 1, '保证'          # 保证类专用
+    HOUSE = 11, '房产'
+    GROUND = 14, '土地'
+    CONSTRUCTION = 16, '在建工程'
+    RECEIVABLE = 21, '应收账款'
+    DRAFT = 31, '票据'
+    STOCK = 41, '股权'
+    VEHICLE = 51, '车辆'
+    CHATTEL = 61, '动产'
+    OTHER = 91, '其他'
+
+
+class MethodCategory(LabeledIntEnum):
+    """担保方式类别（6 + "企业"、"个人"）。"""
+    COMPANY = 1, '企业'            # 保证类专用
+    PERSONAL = 2, '个人'            # 保证类专用
+    MORTGAGE = 11, '抵押'
+    SUCCESSION = 15, '顺位抵押'
+    PLEDGE = 21, '质押'
+    SUPERVISE = 31, '监管'
+    PRESALE = 61, '预售'
+    OTHER = 91, '其他'
 
 
 class CreditTermUnit(LabeledIntEnum):
@@ -84,5 +76,6 @@ class ProductCategory(LabeledIntEnum):
 
 LABELS = make_labels(
     ArticleState, Propose,
-    SureType, CreditTermUnit, ChangeView, ProductCategory,
+    WareCategory, MethodCategory,
+    CreditTermUnit, ChangeView, ProductCategory,
 )

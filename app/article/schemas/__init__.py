@@ -106,18 +106,23 @@ class SureCreate(BaseModel):
     """反担保措施（按放款次序 upsert）。
 
     旧系统对应 LendingSures + LendingCustoms + LendingWarrants。
+    新系统二维建模：ware_category（担保物）× method_category（担保方式）。
     """
 
     order_id: int = Field(..., description="放款次序 ID（article_order.id）")
-    sure_type: int
+    ware_category: int = Field(..., description="担保物类别（WareCategory）")
+    method_category: int = Field(..., description="担保方式类别（MethodCategory）")
     remark: str | None = Field(None, max_length=256)
     customer_ids: list[int] = Field(default_factory=list)  # 保证类
     warrant_ids: list[int] = Field(default_factory=list)   # 抵质押类
 
 
 class LendingOrderCreate(BaseModel):
-    """放款次序。"""
-    seq: int = Field(..., ge=1, le=5)
+    """放款次序。
+
+    seq 由后端自动分配（按项目内最大 seq + 1，从 1 起），
+    调用方无需传入。
+    """
     order_amount: Decimal
     remark: str | None = Field(None, max_length=256)
 
@@ -132,8 +137,10 @@ class LendingOrderUpdate(BaseModel):
 
 class SureResponse(BaseModel):
     """反担保措施嵌套结构（含保证人 / 抵质押物名称，供详情 Tab 渲染）。"""
-    sure_type: int
-    sure_type_display: str
+    ware_category: int
+    ware_category_display: str
+    method_category: int
+    method_category_display: str
     remark: str | None = None
     # 保证类：客户 ID + 名称
     customer_ids: list[int] = []
