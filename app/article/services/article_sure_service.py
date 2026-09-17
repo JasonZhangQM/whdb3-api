@@ -38,19 +38,19 @@ def upsert_sure(
     """添加/更新反担保措施（upsert by order_id + ware_category + method_category）。
 
     保证类同时写入 ArticleSureCustomer；抵质押类同时写入 ArticleSureWarrant。
-    两者可同传（ware_category == GUARANTOR(1) 选客户，其余选权证）。
+    同一 ArticleSure 下可追加多个客户/权证（M2M 追加，不替换）。
     """
     from app.article.enums import WareCategory
 
     article = db.get(Article, article_id)
     if article is None:
         raise BizError(4041, "项目不存在")
-    # 状态门槛：待反馈/待变更可设置反担保措施（与放款次序添加门槛一致）
+    # 状态门槛：待反馈/待变更可设置反担保措施
     if article.article_state not in (10, 61):
         raise BizError(4031, "待反馈/待变更状态可设置反担保措施")
 
     # 校验放款次序归属
-    order = _get_lending_or_404(db, article_id, body.order_id)
+    _get_lending_or_404(db, article_id, body.order_id)
 
     # upsert sure（唯一键落在 order_id + ware_category + method_category）
     sure = db.scalar(
@@ -60,36 +60,42 @@ def upsert_sure(
             ArticleSure.method_category == body.method_category,
         )
     )
+    created = False
     if sure is None:
         sure = ArticleSure(
             order_id=body.order_id,
             article_id=article_id,
             ware_category=body.ware_category,
             method_category=body.method_category,
+            remark=body.remark,  # 仅新建时写 remark
         )
         db.add(sure)
+        created = True
 
-    sure.remark = body.remark
-    db.flush()
+    db.flush()  # 拿到 sure.id
 
-    # 保证类反担保人 M2M 全量替换（ware_category == GUARANTOR(1)）
+    # M2M 追加：不删旧的，只加不存在的（避免重复撞唯一约束）
     if body.ware_category == WareCategory.GUARANTOR.value:
-        db.execute(
-            ArticleSureCustomer.__table__.delete().where(
-                ArticleSureCustomer.sure_id == sure.id
-            )
+        existing_cids = set(
+            db.scalars(
+                select(ArticleSureCustomer.customer_id).where(
+                    ArticleSureCustomer.sure_id == sure.id,
+                )
+            ).all()
         )
         for cid in body.customer_ids:
-            db.add(ArticleSureCustomer(sure_id=sure.id, customer_id=cid))
-
-    # 抵质押类权证 M2M 全量替换（其余 ware_category）
+            if cid not in existing_cids:
+                db.add(ArticleSureCustomer(sure_id=sure.id, customer_id=cid))
     else:
-        db.execute(
-            ArticleSureWarrant.__table__.delete().where(
-                ArticleSureWarrant.sure_id == sure.id
-            )
+        existing_wids = set(
+            db.scalars(
+                select(ArticleSureWarrant.warrant_id).where(
+                    ArticleSureWarrant.sure_id == sure.id,
+                )
+            ).all()
         )
         for wid in body.warrant_ids:
-            db.add(ArticleSureWarrant(sure_id=sure.id, warrant_id=wid))
+            if wid not in existing_wids:
+                db.add(ArticleSureWarrant(sure_id=sure.id, warrant_id=wid))
 
     db.commit()

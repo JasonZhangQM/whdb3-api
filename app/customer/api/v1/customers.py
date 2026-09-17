@@ -28,6 +28,7 @@ from app.customer.schemas import (
     ShareholderCreate,
     SpouseBindReq,
 )
+from app.customer.models import Customer
 from app.customer.services import customer_service, group_service
 
 router = APIRouter(prefix="/customers", tags=["customer"])
@@ -44,7 +45,9 @@ def search_customers(
 ):
     """按名称/证件号模糊搜索客户，返回轻量列表。"""
     from sqlalchemy import or_
-    from app.customer.models import Customer
+
+    from app.customer.enums import Genre as CustomerGenre
+
     kw = f"%{keyword.strip()}%"
     q = db.query(Customer).filter(or_(
         Customer.name.like(kw),
@@ -54,7 +57,12 @@ def search_customers(
         q = q.filter(Customer.genre == genre)
     rows = q.limit(limit).all()
     return ok([
-        {'id': c.id, 'name': c.name, 'genre': c.genre, 'genre_display': c.genre_display}
+        {
+            'id': c.id,
+            'name': c.name,
+            'genre': c.genre,
+            'genre_display': CustomerGenre(c.genre).label if c.genre in CustomerGenre._value2member_map_ else '未知',
+        }
         for c in rows
     ])
 
