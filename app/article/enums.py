@@ -42,8 +42,8 @@ class WareCategory(LabeledIntEnum):
 
 class MethodCategory(LabeledIntEnum):
     """担保方式类别（6 + "企业"、"个人"）。"""
-    COMPANY = 1, '企业'            # 保证类专用
-    PERSONAL = 2, '个人'            # 保证类专用
+    COMPANY = 1, '企业保证'            # 保证类专用
+    PERSONAL = 2, '个人保证'            # 保证类专用
     MORTGAGE = 11, '抵押'
     SUCCESSION = 15, '顺位抵押'
     PLEDGE = 21, '质押'
