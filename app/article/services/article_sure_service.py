@@ -145,10 +145,10 @@ def delete_sure_row(
     # 若 Sure 已无任何关联，级联删 Sure
     remaining_cust = db.scalar(
         select(ArticleSureCustomer).where(ArticleSureCustomer.sure_id == sure_id)
-    ).first()
+    )
     remaining_warrant = db.scalar(
         select(ArticleSureWarrant).where(ArticleSureWarrant.sure_id == sure_id)
-    ).first()
+    )
     if remaining_cust is None and remaining_warrant is None:
         db.delete(sure)
 
