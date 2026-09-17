@@ -1,4 +1,4 @@
-2026-09-16 17:37:03,253 ERROR [2fc13dcc8217] app.main: unhandled error: 'Customer' object has no attribute 'genre_display'
+2026-09-17 08:10:18,251 ERROR [f5efa3079829] app.main: unhandled error: 'Customer' object has no attribute 'genre_display'
 Traceback (most recent call last):
   File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\errors.py", line 164, in __call__
     await self.app(scope, receive, _send)
