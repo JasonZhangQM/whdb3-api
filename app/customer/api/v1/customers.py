@@ -40,10 +40,15 @@ def search_customers(
     keyword: str = Query(..., min_length=1),
     limit: int = Query(20, ge=1, le=50),
     genre: int | None = None,
+    exclude_order_id: int | None = Query(
+        None, description="若传入则排除已关联到该放款次序的客户"
+    ),
     db: Session = Depends(get_db),
     _: AuthContext = Depends(get_current_user),
 ):
-    """按名称/证件号模糊搜索客户，返回轻量列表。"""
+    """按名称/证件号模糊搜索客户，返回轻量列表。
+    传入 exclude_order_id 时排除已关联到该放款次序的客户（跨 Sure 去重）。
+    """
     from sqlalchemy import or_
 
     from app.customer.enums import Genre as CustomerGenre
@@ -56,6 +61,17 @@ def search_customers(
     ))
     if genre is not None:
         q = q.filter(Customer.genre == genre)
+    if exclude_order_id is not None:
+        from app.article.models import ArticleSure, ArticleSureCustomer
+        already_customer_ids = {
+            cid
+            for (cid,) in db.query(ArticleSureCustomer.customer_id)
+            .join(ArticleSure, ArticleSure.id == ArticleSureCustomer.sure_id)
+            .filter(ArticleSure.order_id == exclude_order_id)
+            .all()
+        }
+        if already_customer_ids:
+            q = q.filter(Customer.id.notin_(already_customer_ids))
     rows = q.limit(limit).all()
     return ok([
         {

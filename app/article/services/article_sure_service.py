@@ -76,7 +76,16 @@ def upsert_sure(
 
     # M2M 追加：不删旧的，只加不存在的（避免重复撞唯一约束）
     if body.ware_category == WareCategory.GUARANTOR.value:
-        existing_cids = set(
+        # 保证类：先收集同放款次序下所有 SureCustomer，防止同一客户在同一次序里重复
+        all_order_cids: set[int] = set()
+        all_order_cids.update(
+            db.scalars(
+                select(ArticleSureCustomer.customer_id)
+                .join(ArticleSure, ArticleSure.id == ArticleSureCustomer.sure_id)
+                .where(ArticleSure.order_id == body.order_id)
+            ).all()
+        )
+        existing_cids: set[int] = set(
             db.scalars(
                 select(ArticleSureCustomer.customer_id).where(
                     ArticleSureCustomer.sure_id == sure.id,
@@ -84,10 +93,26 @@ def upsert_sure(
             ).all()
         )
         for cid in body.customer_ids:
-            if cid not in existing_cids:
-                db.add(ArticleSureCustomer(sure_id=sure.id, customer_id=cid))
+            if cid in existing_cids:
+                continue
+            if cid in all_order_cids:
+                raise BizError(
+                    4001,
+                    "同一放款次序下同一客户不能重复作为反担保人，"
+                    "请在对应的反担保措施里删除后再添加",
+                )
+            db.add(ArticleSureCustomer(sure_id=sure.id, customer_id=cid))
     else:
-        existing_wids = set(
+        # 抵质押类：先收集同放款次序下所有 SureWarrant，防止同一权证在同一次序里重复
+        all_order_wids: set[int] = set()
+        all_order_wids.update(
+            db.scalars(
+                select(ArticleSureWarrant.warrant_id)
+                .join(ArticleSure, ArticleSure.id == ArticleSureWarrant.sure_id)
+                .where(ArticleSure.order_id == body.order_id)
+            ).all()
+        )
+        existing_wids: set[int] = set(
             db.scalars(
                 select(ArticleSureWarrant.warrant_id).where(
                     ArticleSureWarrant.sure_id == sure.id,
@@ -95,8 +120,15 @@ def upsert_sure(
             ).all()
         )
         for wid in body.warrant_ids:
-            if wid not in existing_wids:
-                db.add(ArticleSureWarrant(sure_id=sure.id, warrant_id=wid))
+            if wid in existing_wids:
+                continue
+            if wid in all_order_wids:
+                raise BizError(
+                    4001,
+                    "同一放款次序下同一权证不能重复作为反担保物，"
+                    "请在对应的反担保措施里删除后再添加",
+                )
+            db.add(ArticleSureWarrant(sure_id=sure.id, warrant_id=wid))
 
     db.commit()
 

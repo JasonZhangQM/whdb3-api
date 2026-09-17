@@ -48,16 +48,32 @@ router = APIRouter(prefix="/warrants", tags=["warrant"])
 def search_warrants(
     keyword: str = Query(..., min_length=1),
     warrant_type: int | None = None,
+    exclude_order_id: int | None = Query(
+        None, description="若传入则排除已关联到该放款次序的权证"
+    ),
     limit: int = Query(20, ge=1, le=50),
     db: Session = Depends(get_db),
     _: AuthContext = Depends(require_perm("warrant:list")),
 ):
-    """按权证编号模糊搜索，可按 warrant_type 过滤。"""
+    """按权证编号模糊搜索，可按 warrant_type 过滤。
+    传入 exclude_order_id 时排除已关联到该放款次序的权证（跨 Sure 去重）。
+    """
     from app.warrant.models import Warrant
     kw = f"%{keyword.strip()}%"
     q = db.query(Warrant).filter(Warrant.warrant_num.like(kw))
     if warrant_type is not None:
         q = q.filter(Warrant.warrant_type == warrant_type)
+    if exclude_order_id is not None:
+        from app.article.models import ArticleSure, ArticleSureWarrant
+        already_warrant_ids = {
+            wid
+            for (wid,) in db.query(ArticleSureWarrant.warrant_id)
+            .join(ArticleSure, ArticleSure.id == ArticleSureWarrant.sure_id)
+            .filter(ArticleSure.order_id == exclude_order_id)
+            .all()
+        }
+        if already_warrant_ids:
+            q = q.filter(Warrant.id.notin_(already_warrant_ids))
     rows = q.limit(limit).all()
     return ok([
         {'id': w.id, 'warrant_num': w.warrant_num, 'warrant_type': w.warrant_type}
