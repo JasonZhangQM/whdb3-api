@@ -60,8 +60,7 @@ def search_warrants(
         q = q.filter(Warrant.warrant_type == warrant_type)
     rows = q.limit(limit).all()
     return ok([
-        {'id': w.id, 'warrant_num': w.warrant_num, 'warrant_type': w.warrant_type,
-         'warrant_type_display': w.warrant_type_display}
+        {'id': w.id, 'warrant_num': w.warrant_num, 'warrant_type': w.warrant_type}
         for w in rows
     ])
 

@@ -1,4 +1,4 @@
-﻿"""项目主 service（聚合根编排层）。
+"""项目主 service（聚合根编排层）。
 
 按 AGENTS.md §2.2 拆分：跨表 CRUD 已移到独立 service 文件，
 这里只保留主表函数 + 审批业务编排 + re-export。
@@ -41,7 +41,7 @@ from .article_order_service import (  # noqa: E402
     update_order,
 )
 from .article_supply_service import list_article_supplies  # noqa: E402
-from .article_sure_service import upsert_sure  # noqa: E402
+from .article_sure_service import delete_sure_row, upsert_sure  # noqa: E402
 
 
 # ============ 主表辅助函数 ============

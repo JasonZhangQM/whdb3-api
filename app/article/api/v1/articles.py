@@ -1,4 +1,4 @@
-﻿"""项目主管理路由。
+"""项目主管理路由。
 
 路由层职责（§3.1）：只做 参数接收 → 鉴权依赖注入 → 调 service → 返回 R。零业务逻辑。
 """
@@ -156,6 +156,19 @@ def upsert_sure(
 ):
     article_service.upsert_sure(db, article_id, body, user.user_id)
     return ok(message="反担保措施已保存")
+
+
+@router.delete("/{article_id}/sures/{sure_id}/rows")
+def delete_sure_row(
+    article_id: int,
+    sure_id: int,
+    row_type: str = Query(..., description="customer / warrant"),
+    row_id: int = Query(...),
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("article:sure")),
+):
+    article_service.delete_sure_row(db, article_id, sure_id, row_type, row_id)
+    return ok(message="反担保关联已删除")
 
 
 # ============ 审批发起 ============

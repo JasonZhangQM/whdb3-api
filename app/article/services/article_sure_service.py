@@ -99,3 +99,57 @@ def upsert_sure(
                 db.add(ArticleSureWarrant(sure_id=sure.id, warrant_id=wid))
 
     db.commit()
+
+
+def delete_sure_row(
+    db: Session, article_id: int, sure_id: int, row_type: str, row_id: int
+) -> None:
+    """从 M2M 中间表删除一条反担保关联（单行删除）。
+
+    - row_type='customer' → ArticleSureCustomer
+    - row_type='warrant'  → ArticleSureWarrant
+    删完后若该 Sure 无任何关联（两边中间表都空），则级联删除 ArticleSure 本身。
+    """
+    from app.core.exceptions import BizError
+
+    # 校验 sure 归属
+    sure = db.get(ArticleSure, sure_id)
+    if sure is None:
+        raise BizError(4041, "反担保措施不存在")
+    if sure.article_id != article_id:
+        raise BizError(4031, "反担保措施不属于该项目")
+
+    article = db.get(Article, article_id)
+    if article is None:
+        raise BizError(4041, "项目不存在")
+    if article.article_state not in (10, 61):
+        raise BizError(4031, "待反馈/待变更状态可删除反担保措施")
+
+    if row_type == 'customer':
+        db.execute(
+            ArticleSureCustomer.__table__.delete().where(
+                ArticleSureCustomer.sure_id == sure_id,
+                ArticleSureCustomer.customer_id == row_id,
+            )
+        )
+    elif row_type == 'warrant':
+        db.execute(
+            ArticleSureWarrant.__table__.delete().where(
+                ArticleSureWarrant.sure_id == sure_id,
+                ArticleSureWarrant.warrant_id == row_id,
+            )
+        )
+    else:
+        raise BizError(4001, "row_type 必须是 customer 或 warrant")
+
+    # 若 Sure 已无任何关联，级联删 Sure
+    remaining_cust = db.scalar(
+        select(ArticleSureCustomer).where(ArticleSureCustomer.sure_id == sure_id)
+    ).first()
+    remaining_warrant = db.scalar(
+        select(ArticleSureWarrant).where(ArticleSureWarrant.sure_id == sure_id)
+    ).first()
+    if remaining_cust is None and remaining_warrant is None:
+        db.delete(sure)
+
+    db.commit()

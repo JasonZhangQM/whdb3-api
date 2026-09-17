@@ -34,6 +34,7 @@ from app.warrant.models import (
     WarrantVehicle,
     WarrantChattel,
     WarrantOther,
+    WarrantHouseApp,
 )
 
 # 枚举 value → label 字典（替代旧 SureType）
@@ -171,7 +172,7 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
                 warrant_ext_info[r.warrant_id] = info
 
         _fill_ext(1, WarrantHouse, 'house_locate', 'house_area', 'house_name',
-                  extra_fields={'house_usage': 'house_usage'})
+                  extra_fields={'house_usage': 'house_usage', 'house_app': 'house_app'})
         _fill_ext(5, WarrantGround, 'ground_locate', 'ground_area', 'ground_app')
         _fill_ext(6, WarrantConstruction, 'construct_locate', 'construct_area', 'construct_app')
         _fill_ext(11, WarrantReceiveExtend, None, None, 'receive_unit')
@@ -180,6 +181,15 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
         _fill_ext(51, WarrantChattel, None, None, 'chattel_detail')
         _fill_ext(55, WarrantOther, None, None, 'other_detail')
         # 31 票据 / 99 他权 等暂无扩展表，留空即可
+
+    # 批量查房产用途字典（WarrantHouseApp 是字典表，id→name）
+    house_app_map: dict[int, str] = {}
+    if all_wids:
+        house_rows = db.scalars(
+            select(WarrantHouseApp).where(WarrantHouseApp.status == 10)
+        ).all()
+        for h in house_rows:
+            house_app_map[h.id] = h.name
 
     # ---- 4. 组装 ----
     result = []
@@ -205,6 +215,7 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
                     else CustomerGenre.PERSONAL.label if c.genre == CustomerGenre.PERSONAL.value \
                     else ''
                 guarantors.append({
+                    'sure_id': s.id,
                     'id': cid,
                     'name': c.name or c.license_num or '',
                     'genre': c.genre,
@@ -224,25 +235,31 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
                 if not w:
                     continue
                 ext = warrant_ext_info.get(wid, {})
-                # 所有权人 + 产权证号
+                # 所有权人 + 产权证号（都 join 所有）
                 own_tuples = ownership_map.get(wid, [])  # [(owner_id, ownership_num), ...]
                 owner_names = []
-                ownership_num = ''
+                ownership_nums = []
                 for oid, onum in own_tuples:
                     oc = cust_dict.get(oid)
                     if oc:
                         owner_names.append(oc.name)
-                    if not ownership_num and onum:
-                        ownership_num = onum
+                    if onum:
+                        ownership_nums.append(onum)
                 house_usage = ext.get('house_usage')
+                house_app = ext.get('house_app')
                 collaterals.append({
+                    'sure_id': s.id,
                     'id': wid,
                     'warrant_type': w.warrant_type,
+                    'method_category': s.method_category,
+                    'method_category_display': METHOD_MAP.get(s.method_category, f'担保方式{s.method_category}'),
                     'address': ext.get('address') or '',
                     'area': ext.get('area'),
                     'owners': '、'.join(owner_names),
-                    'ownership_num': ownership_num,
+                    'ownership_num': '、'.join(ownership_nums),
                     'description': ext.get('detail') or '',
+                    'house_app': house_app,
+                    'house_app_display': house_app_map.get(house_app, '') if house_app is not None else '',
                     'house_usage': house_usage,
                     'house_usage_display': house_usage_labels.get(house_usage, '') if house_usage is not None else '',
                 })
