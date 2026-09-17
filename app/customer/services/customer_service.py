@@ -1118,7 +1118,11 @@ def customer_dict(
     if q:
         like = f"%{q.strip()}%"
         stmt = stmt.where(
-            or_(Customer.name.like(like), Customer.short_name.like(like))
+            or_(
+                Customer.name.like(like),
+                Customer.short_name.like(like),
+                Customer.license_num.like(like),
+            )
         )
 
     # 先 count 再分页

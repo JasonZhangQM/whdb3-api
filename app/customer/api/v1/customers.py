@@ -51,6 +51,7 @@ def search_customers(
     kw = f"%{keyword.strip()}%"
     q = db.query(Customer).filter(or_(
         Customer.name.like(kw),
+        Customer.short_name.like(kw),
         Customer.license_num.like(kw),
     ))
     if genre is not None:
