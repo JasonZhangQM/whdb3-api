@@ -171,15 +171,15 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
                         info[out_key] = getattr(r, attr, None)
                 warrant_ext_info[r.warrant_id] = info
 
-        _fill_ext(1, WarrantHouse, 'house_locate', 'house_area', 'house_name',
+        _fill_ext(11, WarrantHouse, 'house_locate', 'house_area', 'house_name',
                   extra_fields={'house_usage': 'house_usage', 'house_app': 'house_app'})
-        _fill_ext(5, WarrantGround, 'ground_locate', 'ground_area', 'ground_app')
-        _fill_ext(6, WarrantConstruction, 'construct_locate', 'construct_area', 'construct_app')
-        _fill_ext(11, WarrantReceiveExtend, None, None, 'receive_unit')
-        _fill_ext(21, WarrantStock, None, None, 'target')
-        _fill_ext(41, WarrantVehicle, None, None, 'plate_num')
-        _fill_ext(51, WarrantChattel, None, None, 'chattel_detail')
-        _fill_ext(55, WarrantOther, None, None, 'other_detail')
+        _fill_ext(14, WarrantGround, 'ground_locate', 'ground_area', 'ground_app')
+        _fill_ext(16, WarrantConstruction, 'construct_locate', 'construct_area', 'construct_app')
+        _fill_ext(21, WarrantReceiveExtend, None, None, 'receive_unit')
+        _fill_ext(41, WarrantStock, None, None, 'target')
+        _fill_ext(51, WarrantVehicle, None, None, 'plate_num')
+        _fill_ext(61, WarrantChattel, None, None, 'chattel_detail')
+        _fill_ext(91, WarrantOther, None, None, 'other_detail')
         # 31 票据 / 99 他权 等暂无扩展表，留空即可
 
     # 批量查房产用途字典（WarrantHouseApp 是字典表，id→name）

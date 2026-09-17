@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-WarrantTypeLiteral = Literal[1, 5, 6, 11, 21, 31, 41, 51, 55]
+WarrantTypeLiteral = Literal[11, 14, 16, 21, 31, 41, 51, 61, 91, 99]
 
 
 # ===== 类型扩展 =====

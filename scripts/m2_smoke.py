@@ -467,7 +467,7 @@ def main() -> None:
     _, data = api(client, "GET", "/warrants?q=" + W1_NUM, token)
     if data["total"] == 0:
         code, data = api(client, "POST", "/warrants", pm_token, json={
-            "warrant_num": W1_NUM, "warrant_type": 1,
+            "warrant_num": W1_NUM, "warrant_type": 11,
             "houses": [
                 {"house_locate": "拱墅区测试路1号", "house_app": 10, "house_area": 120.5,
                  "house_name": "1幢101", "house_build_year": 2015, "house_usage": 10},
@@ -537,7 +537,7 @@ def main() -> None:
           and data["items"][0]["core_name"] == C3_NAME)
 
     code, _ = api(client, "POST", "/warrants", pm_token, json={
-        "warrant_num": W1_NUM, "warrant_type": 1,
+        "warrant_num": W1_NUM, "warrant_type": 11,
         "houses": [{"house_locate": "x", "house_app": 10, "house_area": 1}]})
     check("权证编号重复被拒（4091）", code == 4091)
 

@@ -98,7 +98,7 @@ def main():
         check("筛选 auction_state（本轮新增）", code == 0)
         code, _ = api(client, "GET", "/warrants?evaluate_method=20", token)
         check("筛选 evaluate_method（本轮新增）", code == 0)
-        code, data = api(client, "GET", "/warrants?warrant_type=1&warrant_state=10", token)
+        code, data = api(client, "GET", "/warrants?warrant_type=11&warrant_state=10", token)
         check("筛选 type+state 组合", code == 0)
         code, _ = api(client, "GET", "/warrants?q=WTST", token)
         check("关键词 q 筛选", code == 0)
@@ -121,7 +121,7 @@ def main():
             return data["id"] if code == 0 else None
 
         wid_house = create({
-            "warrant_num": f"{PREFIX}-H-0001", "warrant_type": 1,
+            "warrant_num": f"{PREFIX}-H-0001", "warrant_type": 11,
             "houses": [
                 {"house_locate": f"{PREFIX}花园1栋101", "house_app": 101, "house_area": 88.5,
                  "house_name": "1栋101", "house_build_year": 2018, "house_usage": 10},
@@ -132,13 +132,13 @@ def main():
         }, "房产（1:N 两套）")
 
         wid_ground = create({
-            "warrant_num": f"{PREFIX}-G-0001", "warrant_type": 5,
+            "warrant_num": f"{PREFIX}-G-0001", "warrant_type": 14,
             "ground": {"ground_locate": f"{PREFIX}宗地A", "ground_app": "WTST-2018-001", "ground_area": 666.6},
             "owners": [{"ownership_num": f"{PREFIX}产权002", "owner_id": ids["owner"]}],
         }, "土地")
 
         wid_stock = create({
-            "warrant_num": f"{PREFIX}-S-0001", "warrant_type": 21,
+            "warrant_num": f"{PREFIX}-S-0001", "warrant_type": 41,
             "stock": {"stock_type": 10, "target": f"{PREFIX}标的公司", "ratio": 51.0,
                       "registered_capital": 1000, "paid_capital": 500},
             "owners": [{"ownership_num": f"{PREFIX}产权003", "owner_id": ids["owner"]}],
@@ -151,27 +151,27 @@ def main():
         }, "票据")
 
         wid_vehicle = create({
-            "warrant_num": f"{PREFIX}-V-0001", "warrant_type": 41,
+            "warrant_num": f"{PREFIX}-V-0001", "warrant_type": 51,
             "vehicle": {"frame_num": f"{PREFIX}FRAME001", "plate_num": "测A00001",
                         "vehicle_brand": "测试牌"},
             "owners": [{"ownership_num": f"{PREFIX}产权005", "owner_id": ids["owner"]}],
         }, "车辆")
 
         wid_chattel = create({
-            "warrant_num": f"{PREFIX}-C-0001", "warrant_type": 51,
+            "warrant_num": f"{PREFIX}-C-0001", "warrant_type": 61,
             "chattel": {"chattel_type": 20, "chattel_detail": f"{PREFIX}生产线设备"},
             "owners": [{"ownership_num": f"{PREFIX}产权006", "owner_id": ids["owner"]}],
         }, "动产")
 
         wid_other = create({
-            "warrant_num": f"{PREFIX}-O-0001", "warrant_type": 55,
+            "warrant_num": f"{PREFIX}-O-0001", "warrant_type": 91,
             "other": {"other_type": 501, "cost": 30000, "other_detail": f"{PREFIX}管理系统",
                       "software": {"software_name": f"{PREFIX}软著V1.0", "reg_num": f"{PREFIX}SR001"}},
             "owners": [{"ownership_num": f"{PREFIX}产权007", "owner_id": ids["owner"]}],
         }, "其他+软著")
 
         wid_recv = create({
-            "warrant_num": f"{PREFIX}-R-0001", "warrant_type": 11,
+            "warrant_num": f"{PREFIX}-R-0001", "warrant_type": 21,
             "receivable": {"receivable_detail": f"{PREFIX}应收账款", "receive_units": [f"{PREFIX}应收单位1", f"{PREFIX}应收单位2"]},
             "owners": [{"ownership_num": f"{PREFIX}产权008", "owner_id": ids["owner"]}],
         }, "应收（含明细）")
@@ -323,7 +323,7 @@ def main():
                     api(client, "DELETE", f"/warrants/{it['id']}", token)
             # pm 创建一个
             code, d = api(client, "POST", "/warrants", pm_token, json={
-                "warrant_num": f"{PREFIX}-PM-0001", "warrant_type": 5,
+                "warrant_num": f"{PREFIX}-PM-0001", "warrant_type": 14,
                 "ground": {"ground_locate": f"{PREFIX}pm宗地", "ground_app": "WTST-PM", "ground_area": 100},
                 "owners": [{"ownership_num": f"{PREFIX}产权PM", "owner_id": ids["owner"]}],
             })

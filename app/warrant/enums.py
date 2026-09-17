@@ -4,15 +4,16 @@ from app.core.enums import LabeledIntEnum, make_labels
 
 
 class WarrantType(LabeledIntEnum):
-    HOUSE = 1, '房产'
-    GROUND = 5, '土地'
-    CONSTRUCTION = 6, '在建工程'
-    RECEIVABLE = 11, '应收账款'
-    STOCK = 21, '股权'
+    """权证类型（数值对齐 WareCategory，便于跨模块映射）。"""
+    HOUSE = 11, '房产'
+    GROUND = 14, '土地'
+    CONSTRUCTION = 16, '在建工程'
+    RECEIVABLE = 21, '应收账款'
     DRAFT = 31, '票据'
-    VEHICLE = 41, '车辆'
-    CHATTEL = 51, '动产'
-    OTHER = 55, '其他'
+    STOCK = 41, '股权'
+    VEHICLE = 51, '车辆'
+    CHATTEL = 61, '动产'
+    OTHER = 91, '其他'
     HYPOTHEC = 99, '他权'
 
 

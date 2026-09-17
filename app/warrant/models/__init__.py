@@ -34,7 +34,7 @@ class Warrant(Base):
     __tablename__ = "warrants"
 
     warrant_num: Mapped[str] = mapped_column(String(128), unique=True, comment="权证编号")
-    warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="1房产5土地6在建11应收21股权31票据41车辆51动产55其他99他权")
+    warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="11房产14土地16在建21应收31票据41股权51车辆61动产91其他99他权")
     remark: Mapped[str | None] = mapped_column(String(128), comment="备注")
 
     warrant_state: Mapped[int] = mapped_column(
@@ -60,7 +60,7 @@ class WarrantOwnership(Base):
 
 
 class WarrantHouse(Base):
-    """房产（type=1，1:N 多套房产包模式）。"""
+    """房产（type=11，1:N 多套房产包模式）。"""
 
     __tablename__ = "warrant_houses"
 
@@ -76,7 +76,7 @@ class WarrantHouse(Base):
 
 
 class WarrantGround(Base):
-    """土地（type=5）。"""
+    """土地（type=14）。"""
 
     __tablename__ = "warrant_grounds"
 
@@ -89,7 +89,7 @@ class WarrantGround(Base):
 
 
 class WarrantConstruction(Base):
-    """在建工程（type=6）。"""
+    """在建工程（type=16）。"""
 
     __tablename__ = "warrant_constructions"
 
@@ -117,7 +117,7 @@ class WarrantReceiveExtend(Base):
 
 
 class WarrantStock(Base):
-    """股权（type=21）。"""
+    """股权（type=41）。"""
 
     __tablename__ = "warrant_stocks"
 
@@ -161,7 +161,7 @@ class WarrantDraftExtend(Base):
 
 
 class WarrantVehicle(Base):
-    """车辆（type=41）。"""
+    """车辆（type=51）。"""
 
     __tablename__ = "warrant_vehicles"
 
@@ -175,7 +175,7 @@ class WarrantVehicle(Base):
 
 
 class WarrantChattel(Base):
-    """动产（type=51）。"""
+    """动产（type=61）。"""
 
     __tablename__ = "warrant_chattels"
 
@@ -187,7 +187,7 @@ class WarrantChattel(Base):
 
 
 class WarrantOther(Base):
-    """其他（type=55）。"""
+    """其他（type=91）。"""
 
     __tablename__ = "warrant_others"
 
