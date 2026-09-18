@@ -10,8 +10,8 @@ from app.user.models import User
 def list_article_supplies(db: Session, article_id: int) -> list[dict]:
     """项目的补调记录列表。"""
     stmt = (
-        select(AppraisalSupply, User.name.label("supplyor_name"))
-        .outerjoin(User, User.id == AppraisalSupply.supplyor_id)
+        select(AppraisalSupply, User.name.label("supplier_name"))
+        .outerjoin(User, User.id == AppraisalSupply.supplier_id)
         .where(AppraisalSupply.article_id == article_id)
         .order_by(AppraisalSupply.id.desc())
     )
@@ -22,9 +22,9 @@ def list_article_supplies(db: Session, article_id: int) -> list[dict]:
             "supply_detail": s.supply_detail,
             "is_resolved": s.is_resolved,
             "resolve_reply": s.resolve_reply,
-            "supplyor_name": supplyor_name or f"#{s.supplyor_id}",
+            "supplier_name": supplier_name or f"#{s.supplier_id}",
             "created_at": str(s.created_at) if s.created_at else None,
             "resolved_at": None,
         }
-        for s, supplyor_name in rows
+        for s, supplier_name in rows
     ]

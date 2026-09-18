@@ -1,19 +1,22 @@
-﻿"""评审会主路由。"""
+"""评审会主路由。"""
 
 from fastapi import APIRouter, Depends, Query
 
 from app.appraisal.services import appraisal_service, expert_service
+from app.article.services import article_supply_service
 from app.appraisal.schemas import (
     AppraisalArrange,
     AppraisalCreate,
     AppraisalFinish,
     CommentBatchCreate,
+    ExpertSortBatch,
     ReviewExpertCreate,
     SupplyCreate,
     SupplyResolve,
+    SupplyUpdate,
     SummaryUpdate,
 )
-from app.core.deps import AuthContext, get_current_user, require_perm
+from app.core.deps import AuthContext, require_perm
 from app.core.db import get_db
 from app.core.response import ok, page as page_result
 
@@ -25,8 +28,7 @@ router = APIRouter(tags=["评审管理"])
 @router.get("/appraisals")
 def list_appraisals(
     db=Depends(get_db),
-    ctx: AuthContext = Depends(get_current_user),
-    _=Depends(require_perm("appraisal:list")),
+    ctx: AuthContext = Depends(require_perm("appraisal:list")),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     year: int | None = None,
@@ -34,7 +36,7 @@ def list_appraisals(
     meeting_state: int | None = None,
 ):
     items, total = appraisal_service.list_appraisals(
-        db, page=page, page_size=page_size,
+        db, ctx, page=page, page_size=page_size,
         year=year, review_model=review_model, meeting_state=meeting_state,
     )
     return page_result(items, total, page, page_size)
@@ -48,6 +50,15 @@ def create_appraisal(
 ):
     aid = appraisal_service.create_appraisal(db, body, user.user_id)
     return ok({"id": aid}, message="评审会已创建")
+
+
+@router.get("/appraisals/pending-projects")
+def list_pending_projects(
+    db=Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("appraisal:list")),
+):
+    data = appraisal_service.list_pending_projects(db, ctx)
+    return ok(data)
 
 
 
@@ -92,6 +103,26 @@ def finish_appraisal(
     return ok(message="会议已完成")
 
 
+@router.get("/appraisals/{appraisal_id}")
+def get_appraisal(
+    appraisal_id: int,
+    db=Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("appraisal:read")),
+):
+    data = appraisal_service.get_appraisal(db, ctx, appraisal_id)
+    return ok(data)
+
+
+@router.get("/appraisals/{appraisal_id}/comments")
+def get_appraisal_comment_matrix(
+    appraisal_id: int,
+    db=Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("appraisal:read")),
+):
+    data = appraisal_service.list_appraisal_comment_matrix(db, ctx, appraisal_id)
+    return ok(data)
+
+
 @router.delete("/appraisals/{appraisal_id}")
 def delete_appraisal(
     appraisal_id: int,
@@ -104,18 +135,38 @@ def delete_appraisal(
 
 # ============ 评委意见 ============
 
+@router.get("/articles/{article_id}/comments")
+def list_article_comments(
+    article_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("appraisal:list")),
+):
+    data = appraisal_service.list_article_comments(db, article_id)
+    return ok(data)
+
+
 @router.post("/articles/{article_id}/comments")
 def batch_upsert_comments(
     article_id: int,
     body: CommentBatchCreate,
     db=Depends(get_db),
-    user: AuthContext = Depends(get_current_user),
+    user: AuthContext = Depends(require_perm("appraisal:comment")),
 ):
     count = appraisal_service.batch_upsert_comments(db, article_id, body, user.user_id)
     return ok({"count": count}, message="意见已保存")
 
 
 # ============ 补调问题 ============
+
+@router.get("/articles/{article_id}/supplies")
+def list_article_supplies(
+    article_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("appraisal:list")),
+):
+    data = article_supply_service.list_article_supplies(db, article_id)
+    return ok(data)
+
 
 @router.post("/articles/{article_id}/supplies")
 def add_supply(
@@ -133,10 +184,39 @@ def resolve_supply(
     supply_id: int,
     body: SupplyResolve,
     db=Depends(get_db),
-    user: AuthContext = Depends(get_current_user),
+    user: AuthContext = Depends(require_perm("appraisal:supply_resolve")),
 ):
     appraisal_service.resolve_supply(db, supply_id, body, user.user_id)
     return ok(message="补调已登记解决")
+
+
+@router.patch("/supplies/{supply_id}")
+def update_supply(
+    supply_id: int,
+    body: SupplyUpdate,
+    db=Depends(get_db),
+    user: AuthContext = Depends(require_perm("appraisal:update")),
+):
+    if body.supply_detail is None and body.reopen is None:
+        return ok(message="无变更")
+    appraisal_service.update_supply(
+        db, supply_id,
+        supply_detail=body.supply_detail,
+        reopen=body.reopen,
+        user_id=user.user_id,
+        ctx=user,  # reopen 需要校验角色（dept_manager+）
+    )
+    return ok(message="补调已更新")
+
+
+@router.delete("/supplies/{supply_id}")
+def delete_supply(
+    supply_id: int,
+    db=Depends(get_db),
+    user: AuthContext = Depends(require_perm("appraisal:update")),
+):
+    appraisal_service.delete_supply(db, supply_id, user.user_id)
+    return ok(message="补调已删除")
 
 
 # ============ 纪要 ============
@@ -152,19 +232,43 @@ def update_summary(
     return ok(message="纪要已更新")
 
 
+@router.get("/articles/{article_id}/appraisal-report")
+def get_article_appraisal_report(
+    article_id: int,
+    db=Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("appraisal:read")),
+):
+    """单项目评审材料包（#30）。"""
+    return ok(appraisal_service.get_article_appraisal_report(db, ctx, article_id))
+
+
+@router.get("/appraisals/{appraisal_id}/material-report")
+def get_appraisal_material_report(
+    appraisal_id: int,
+    db=Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("appraisal:read")),
+):
+    """会议评审材料包（#9）。"""
+    return ok(appraisal_service.get_appraisal_material_report(db, ctx, appraisal_id))
+
+
 # ============ 评审专家 ============
 
 @router.get("/review-experts")
 def list_experts(
     db=Depends(get_db),
-    ctx: AuthContext = Depends(get_current_user),
+    ctx: AuthContext = Depends(require_perm("appraisal:expert_list")),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     expert_type: int | None = None,
     category_id: int | None = None,
     status: int | None = None,
 ):
-    return ok(expert_service.list_experts(
-        db, expert_type=expert_type, category_id=category_id, status=status
-    ))
+    items, total = expert_service.list_experts(
+        db, ctx, page=page, page_size=page_size,
+        expert_type=expert_type, category_id=category_id, status=status,
+    )
+    return page_result(items, total, page, page_size)
 
 
 @router.post("/review-experts")
@@ -177,13 +281,17 @@ def create_expert(
     return ok({"id": eid}, message="专家已添加")
 
 
-@router.put("/review-experts/{expert_id}")
+@router.patch("/review-experts/{expert_id}")
 def update_expert(
     expert_id: int,
     body: ReviewExpertCreate,
     db=Depends(get_db),
     user: AuthContext = Depends(require_perm("appraisal:expert_update")),
 ):
+    """PATCH 语义：exclude_unset 保留未传字段（AGENTS.md §3.7.6）。
+
+    service 层已实现 setattr 循环，需确认 body.model_dump(exclude_unset=True) 生效。
+    """
     expert_service.update_expert(db, expert_id, body, user.user_id)
     return ok(message="专家已更新")
 
@@ -196,3 +304,55 @@ def delete_expert(
 ):
     expert_service.delete_expert(db, expert_id, user.user_id)
     return ok(message="专家已删除")
+
+
+@router.put("/review-experts/sort")
+def sort_experts(
+    body: ExpertSortBatch,
+    db=Depends(get_db),
+    user: AuthContext = Depends(require_perm("appraisal:expert_update")),
+):
+    """专家拖拽排序（#17 PUT）。"""
+    expert_service.sort_experts(db, [item.model_dump() for item in body.items], user.user_id)
+    return ok(message="排序已更新")
+
+
+@router.get("/review-experts/{expert_id}/history")
+def get_expert_history(
+    expert_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("appraisal:read")),
+):
+    """专家评审历史（#18）：参评会议 + 意见明细。"""
+    return ok(expert_service.get_expert_history(db, expert_id))
+
+
+@router.get("/review-experts/{expert_id}/stats")
+def get_expert_stats(
+    expert_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("appraisal:read")),
+):
+    """专家出席统计（#19）：会议数/项目数/意见分布/最近 5 次。"""
+    return ok(expert_service.get_expert_stats(db, expert_id))
+
+
+# ============ 统计看板 ============
+
+@router.get("/appraisals/stats")
+def get_appraisal_stats(
+    year: int | None = None,
+    db=Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("appraisal:read")),
+):
+    """评审统计（#32）：会议数/类型分布/通过率/意见分布/平均上会周期。"""
+    return ok(appraisal_service.get_appraisal_stats(db, ctx, year))
+
+
+@router.get("/supplies/stats")
+def get_supplies_stats(
+    db=Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("appraisal:read")),
+):
+    """补调统计（#33）：未解决清单(含超7天)/平均解决时长/按创建人分布。"""
+    return ok(appraisal_service.get_supplies_stats(db, ctx))

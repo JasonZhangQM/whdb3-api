@@ -1,18 +1,26 @@
 """评审模块权限与菜单声明（seed 聚合消费）。
 
-M3a 新增：6 个操作权限码 + 菜单树。
+权限码规范：资源:操作（AGENTS.md §5.2）。
+- appraisal:list / appraisal:expert_list 已在 seed.py 内置角色权限表声明
+- 补调完成(resolve)、纪要编辑(summary)、意见录入(comment)复用已建码
 """
 
 ACTION_PERMISSIONS: list[tuple[str, str]] = [
-    # 评审会管理
+    # 评审会（7 个）
+    ("appraisal:list", "评审会列表"),
+    ("appraisal:read", "评审会详情查看"),
     ("appraisal:create", "评审会新建"),
-    ("appraisal:update", "评审会修改"),
+    ("appraisal:update", "评审会修改（排会/移出/纪要编辑）"),
     ("appraisal:delete", "评审会删除"),
     ("appraisal:finish", "评审会完成（含状态联动）"),
-    # 专家库管理
+    ("appraisal:comment", "评委意见录入"),
+    # 补调（1 个）
+    ("appraisal:supply_resolve", "补调完成登记"),
+    # 专家库（4 个）
+    ("appraisal:expert_list", "专家库列表"),
     ("appraisal:expert_create", "专家新增"),
     ("appraisal:expert_update", "专家修改"),
-    ("appraisal:expert_delete", "专家删除"),
+    ("appraisal:expert_delete", "专家删除（含软删停用）"),
 ]
 
 MENUS: list[dict] = [

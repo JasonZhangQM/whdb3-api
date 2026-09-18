@@ -1,4 +1,4 @@
-﻿"""端到端 seed：项目 + 子资源 + 审批实例（幂等）。
+"""端到端 seed：项目 + 子资源 + 审批实例（幂等）。
 
 运行前确保已执行过 scripts/seed.py（创建流程定义、用户、产品、客户）。
 幂等：重复执行时会先清理旧的 article 审批实例、子资源、评审数据。
@@ -101,7 +101,7 @@ def ensure_experts_and_categories(db):
     return experts
 
 
-def ensure_comments_and_supplies(db, articles, experts, supplyor_id):
+def ensure_comments_and_supplies(db, articles, experts, supplier_id):
     """为每个 article 造评审意见 + 补调记录。"""
     for art in articles:
         # 每条专家一个评审意见（AppraisalComment 无 score 字段，前端 service 层自定义）
@@ -116,14 +116,14 @@ def ensure_comments_and_supplies(db, articles, experts, supplyor_id):
         db.add(AppraisalSupply(
             article_id=art.id, supply_detail=f"请补充{art.article_num}抵押物评估报告原件",
             is_resolved=True, resolve_reply="已上传扫描件",
-            supplyor_id=supplyor_id,
+            supplier_id=supplier_id,
         ))
         db.add(AppraisalSupply(
             article_id=art.id,
             supply_detail=f"请核实{art.article_num}保证人征信最新报告",
             is_resolved=is_art3,
             resolve_reply="征信已更新" if is_art3 else None,
-            supplyor_id=supplyor_id,
+            supplier_id=supplier_id,
         ))
     db.commit()
     print(f"  评审意见 {len(articles) * len(experts)} / 补调记录 {len(articles) * 2}")
@@ -212,7 +212,7 @@ def main() -> None:
 
         # 4) 评审专家 + 评审意见 + 补调记录
         experts = ensure_experts_and_categories(db)
-        ensure_comments_and_supplies(db, articles, experts, supplyor_id=users[2].id)
+        ensure_comments_and_supplies(db, articles, experts, supplier_id=users[2].id)
 
         # 5) 审批实例（仅给已通过/已驳回造）
         ensure_approvals(db, articles, users)

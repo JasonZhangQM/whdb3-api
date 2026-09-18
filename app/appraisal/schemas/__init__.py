@@ -56,7 +56,29 @@ class SupplyResolve(BaseModel):
     resolve_reply: str = Field(min_length=1)
 
 
+class SupplyUpdate(BaseModel):
+    """补调修改（#26 PATCH）。
+
+    - supply_detail: 改问题描述（可选）
+    - reopen: 补调重开（可选，设为 true 时 is_resolved→false）
+    两者至少传一个。
+    """
+    supply_detail: str | None = Field(default=None, min_length=1)
+    reopen: bool | None = None
+
+
 class SummaryUpdate(BaseModel):
     """纪要编辑。"""
     summary: str | None = None
     opinion: str | None = None
+
+
+class ExpertSortItem(BaseModel):
+    """拖拽排序单项。"""
+    id: int
+    sort: int
+
+
+class ExpertSortBatch(BaseModel):
+    """批量排序请求体（#17 PUT）。"""
+    items: list[ExpertSortItem]
