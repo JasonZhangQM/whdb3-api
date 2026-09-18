@@ -9,8 +9,6 @@ class ReviewModel(LabeledIntEnum):
     INTERNAL_NON_MEETING = 11, '内审(非会议)'
     EXTERNAL = 20, '外审'
     SIGN = 50, '签批'
-    XD_REVIEW = 60, '小贷-评审'
-    XD_SIGN = 65, '小贷-签批'
 
 
 class MeetingState(LabeledIntEnum):
