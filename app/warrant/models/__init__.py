@@ -63,12 +63,13 @@ class WarrantHouse(Base):
     __tablename__ = "warrant_houses"
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
-    region_id: Mapped[int] = mapped_column(ForeignKey("user_regions.id", ondelete="RESTRICT"),comment="行政区域（必填，方便按区域统计）")
-    house_locate: Mapped[str] = mapped_column(String(255), comment="详细地址（换证后同坐落可能出现多套证，不唯一）")
-    house_app: Mapped[int] = mapped_column(BigInteger, comment="房产用途（字典）")
-    house_area: Mapped[float] = mapped_column(Numeric(12, 2), comment="面积")
-    house_build_year: Mapped[int | None] = mapped_column(SmallInteger)
-    house_usage: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10自用20出租30空置")
+    region_id: Mapped[int] = mapped_column(ForeignKey("user_regions.id", ondelete="RESTRICT"),comment="行政区域") #必填，方便按区域统计
+    house_locate: Mapped[str] = mapped_column(String(255), comment="详细地址") #换证后同坐落可能出现多套证，不唯一
+    house_app: Mapped[str | None] = mapped_column(String(128), nullable=True, comment="产权用途")
+    app_category: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment="房产类型:HouseAppCategory")
+    house_area: Mapped[float] = mapped_column(Numeric(12, 2), comment="面积(m²)")
+    house_build_year: Mapped[int | None] = mapped_column(SmallInteger, comment="建筑年份")
+    house_usage: Mapped[int] = mapped_column(SmallInteger, default=10, comment="使用现状:HouseUsage")
 
 
 
@@ -274,15 +275,3 @@ class WarrantEvaluateCompany(Base):
 
     name: Mapped[str] = mapped_column(String(128), unique=True)
 
-
-
-class WarrantHouseApp(Base):
-    """房产用途字典（扁平列表，按 category 分组，替代旧系统硬编码枚举）。"""
-
-    __tablename__ = "warrant_house_apps"
-
-
-    name: Mapped[str] = mapped_column(String(64))
-    category: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment="分类(11住宅21办公31商业41厂房91其他)")
-    ordery: Mapped[int] = mapped_column(BigInteger, default=0, comment="排序（避开 order 关键字）")
-    status: Mapped[int] = mapped_column(SmallInteger, default=10)

@@ -78,12 +78,12 @@ class HouseUsage(LabeledIntEnum):
 
 
 class HouseAppCategory(LabeledIntEnum):
-    """房产用途分类（WarrantHouseApp.category，用于字典项分组）。"""
+    """房产类型（WarrantHouse.app_category）。"""
     RESIDENTIAL = 11, '住宅'
     OFFICE = 21, '办公'
     COMMERCIAL = 31, '商业'
     FACTORY = 41, '厂房'
-    OTHER = 91, '其他'
+    OTHER = 91, '其他房产'
 
 
 class StockType(LabeledIntEnum):

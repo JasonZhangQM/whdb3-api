@@ -34,7 +34,6 @@ from app.warrant.models import (
     WarrantVehicle,
     WarrantChattel,
     WarrantOther,
-    WarrantHouseApp,
 )
 
 # 枚举 value → label 字典（替代旧 SureType）
@@ -182,15 +181,6 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
         _fill_ext(91, WarrantOther, None, None, 'other_detail')
         # 31 票据 / 99 他权 等暂无扩展表，留空即可
 
-    # 批量查房产用途字典（WarrantHouseApp 是字典表，id→name）
-    house_app_map: dict[int, str] = {}
-    if all_wids:
-        house_rows = db.scalars(
-            select(WarrantHouseApp).where(WarrantHouseApp.status == 10)
-        ).all()
-        for h in house_rows:
-            house_app_map[h.id] = h.name
-
     # ---- 4. 组装 ----
     result = []
     for s in sorted(sures, key=lambda x: (x.ware_category, x.method_category)):
@@ -259,7 +249,7 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
                     'ownership_num': '、'.join(ownership_nums),
                     'description': ext.get('detail') or '',
                     'house_app': house_app,
-                    'house_app_display': house_app_map.get(house_app, '') if house_app is not None else '',
+                    'house_app_display': house_app or '',
                     'house_usage': house_usage,
                     'house_usage_display': house_usage_labels.get(house_usage, '') if house_usage is not None else '',
                 })

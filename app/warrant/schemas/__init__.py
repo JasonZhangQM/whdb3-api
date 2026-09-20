@@ -12,7 +12,8 @@ WarrantTypeLiteral = Literal[11, 14, 16, 21, 31, 41, 51, 61, 91, 99]
 class HouseItem(BaseModel):
     region_id: int
     house_locate: str = Field(..., max_length=255)
-    house_app: int
+    house_app: str | None = None
+    app_category: int | None = None
     house_area: float = Field(..., gt=0)
     house_build_year: int | None = None
     house_usage: Literal[10, 20, 30] = 10

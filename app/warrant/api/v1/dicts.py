@@ -1,14 +1,12 @@
-"""权证字典路由（接口 1-9）：枚举字典 + 房产用途 + 评估公司管理。"""
+"""权证字典路由（接口 1-9）：枚举字典 + 评估公司管理。"""
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext, get_current_user, require_perm
 from app.core.db import get_db
 from app.core.response import ok
 from app.warrant.enums import LABELS
-from app.warrant.models import WarrantHouseApp
 from app.warrant.schemas import EvaluateCompanyCreate
 from app.warrant.services import warrant_service
 
@@ -72,25 +70,6 @@ def evaluate_methods(_: AuthContext = Depends(get_current_user)):
 def auction_states(_: AuthContext = Depends(get_current_user)):
     """拍卖状态字典。"""
     return ok({"auction_state": _enum("auction_state")})
-
-
-@router.get("/house-apps")
-def house_apps(db: Session = Depends(get_db), _: AuthContext = Depends(get_current_user)):
-    """房产用途字典（扁平列表，按 category 分组，替代旧系统硬编码枚举）。"""
-    rows = db.scalars(
-        select(WarrantHouseApp).where(WarrantHouseApp.status == 10).order_by(WarrantHouseApp.category.is_(None), WarrantHouseApp.category, WarrantHouseApp.ordery, WarrantHouseApp.id)
-    ).all()
-    cat_labels = LABELS.get("house_app_category", {})
-    items = [
-        {
-            "id": r.id,
-            "name": r.name,
-            "category": r.category,
-            "category_label": cat_labels.get(r.category, None) if r.category is not None else None,
-        }
-        for r in rows
-    ]
-    return ok(items)
 
 
 @router.get("/evaluate-companies")
