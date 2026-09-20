@@ -33,23 +33,23 @@ class Article(Base):
 
     # === 业务字段 ===
     article_num: Mapped[str] = mapped_column(String(32), unique=True, comment="项目编号")
-    article_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="项目状态机")
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"), comment="客户")
     product_id: Mapped[int] = mapped_column(ForeignKey("article_products.id", ondelete="RESTRICT"), comment="产品类型")
     renewal: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="续贷金额(元)")
     augment: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="新增金额(元)")
     # amount = renewal + augment — 后端计算，不落库
     credit_term: Mapped[int] = mapped_column(SmallInteger, default=1, comment="授信期限")
-    credit_term_unit: Mapped[int] = mapped_column(SmallInteger, default=10, comment="期限单位 10年 20月 30天")
+    credit_term_unit: Mapped[int] = mapped_column(SmallInteger, default=10, comment="期限单位:CreditTermUnit")
     director_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="项目经理")
     assistant_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="项目助理")
     control_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="风控专员")
+    article_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="项目状态")
 
     # === 列表缓存（分层混合：详情页实时统计覆盖） ===
-    notify_sum: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="通知金额(缓存)")
-    provide_sum: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="放款金额(缓存)")
-    repayment_sum: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="还款金额(缓存)")
-    balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="在保余额(缓存)")
+    notify_sum: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="通知金额:缓存")
+    provide_sum: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="放款金额:缓存")
+    repayment_sum: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="还款金额:缓存")
+    balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=0, comment="在保余额:缓存")
 
     # === 业务索引（仅业务筛选字段显式建；FK 索引 MySQL 自动隐式创建） ===
     __table_args__ = (
@@ -63,7 +63,7 @@ class ArticleProduct(Base):
     __tablename__ = "article_products"
 
     name: Mapped[str] = mapped_column(String(64), unique=True, comment="产品名称")
-    category: Mapped[int] = mapped_column(SmallInteger, default=10, comment="产品类别")
+    category: Mapped[int] = mapped_column(SmallInteger, default=10, comment="产品类别:ProductCategory")
     sort: Mapped[int] = mapped_column(default=1)
 
 

@@ -36,12 +36,15 @@ def list_articles(
     customer_id: int | None = None,
     product_id: int | None = None,
     director_id: int | None = None,
+    assistant_id: int | None = None,
+    control_id: int | None = None,
     keyword: str | None = None,
 ):
     items, total = article_service.list_articles(
         db, ctx, page=page, page_size=page_size,
         article_state=article_state, customer_id=customer_id,
-        product_id=product_id, director_id=director_id, keyword=keyword,
+        product_id=product_id, director_id=director_id,
+        assistant_id=assistant_id, control_id=control_id, keyword=keyword,
     )
     return page_result(items, total, page, page_size)
 

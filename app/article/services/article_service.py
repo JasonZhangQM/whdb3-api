@@ -100,6 +100,7 @@ def _to_item(
         "credit_term": article.credit_term,
         "credit_term_unit": article.credit_term_unit,
         "credit_term_unit_display": _disp(ARTICLE_LABELS.get("credit_term_unit"), article.credit_term_unit),
+        "credit_term_display": f"{article.credit_term}{_disp(ARTICLE_LABELS.get('credit_term_unit'), article.credit_term_unit)}",
         "director_id": article.director_id,
         "director_name": users.get(article.director_id),
         "assistant_id": article.assistant_id,
@@ -129,6 +130,8 @@ def list_articles(
     customer_id: int | None = None,
     product_id: int | None = None,
     director_id: int | None = None,
+    assistant_id: int | None = None,
+    control_id: int | None = None,
     keyword: str | None = None,
 ) -> tuple[list[dict], int]:
     """项目列表。
@@ -157,9 +160,20 @@ def list_articles(
         stmt = stmt.where(Article.product_id == product_id)
     if director_id is not None:
         stmt = stmt.where(Article.director_id == director_id)
+    if assistant_id is not None:
+        stmt = stmt.where(Article.assistant_id == assistant_id)
+    if control_id is not None:
+        stmt = stmt.where(Article.control_id == control_id)
     if keyword:
         like = f"%{keyword}%"
-        stmt = stmt.where(Article.article_num.like(like))
+        # 搜索客户名称或简称（EXISTS 子查询，不影响主 select 结构）
+        stmt = stmt.where(
+            Article.customer_id.in_(
+                select(Customer.id).where(
+                    or_(Customer.name.like(like), Customer.short_name.like(like))
+                )
+            )
+        )
 
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     items = db.scalars(
