@@ -77,6 +77,15 @@ class HouseUsage(LabeledIntEnum):
     VACANT = 30, '空置'
 
 
+class HouseAppCategory(LabeledIntEnum):
+    """房产用途分类（WarrantHouseApp.category，用于字典项分组）。"""
+    RESIDENTIAL = 11, '住宅'
+    OFFICE = 21, '办公'
+    COMMERCIAL = 31, '商业'
+    FACTORY = 41, '厂房'
+    OTHER = 91, '其他'
+
+
 class StockType(LabeledIntEnum):
     LTD = 10, '有限公司股权'
     JOINT_STOCK = 20, '股份公司股份'
@@ -116,6 +125,6 @@ class CommonStatus(LabeledIntEnum):
 LABELS = make_labels(
     WarrantType, WarrantState, AuctionState, StorageType,
     DraftType, DraftState,
-    HouseUsage, StockType, ChattelType, OtherType, EvaluateMethod,
+    HouseUsage, HouseAppCategory, StockType, ChattelType, OtherType, EvaluateMethod,
     CommonStatus,
 )

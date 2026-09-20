@@ -37,9 +37,7 @@ class Warrant(Base):
     warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="11房产14土地16在建21应收31票据41股权51车辆61动产91其他99他权")
     remark: Mapped[str | None] = mapped_column(String(128), comment="备注")
 
-    warrant_state: Mapped[int] = mapped_column(
-        SmallInteger, default=10, index=True, comment="10未入库20已入库30已加保60无需入库110续抵出库210已借出310解保出库410已移交990已注销"
-    )
+    warrant_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="10未入库20已入库30已加保60无需入库110续抵出库210已借出310解保出库410已移交990已注销" )
 
 
 class WarrantOwnership(Base):
@@ -279,11 +277,12 @@ class WarrantEvaluateCompany(Base):
 
 
 class WarrantHouseApp(Base):
-    """房产用途字典（树形分类，替代旧系统 100+ 硬编码枚举）。"""
+    """房产用途字典（扁平列表，按 category 分组，替代旧系统硬编码枚举）。"""
 
     __tablename__ = "warrant_house_apps"
 
 
     name: Mapped[str] = mapped_column(String(64))
-    parent_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, default=None, index=True)
+    category: Mapped[int | None] = mapped_column(SmallInteger, nullable=True, comment="分类(11住宅21办公31商业41厂房91其他)")
+    ordery: Mapped[int] = mapped_column(BigInteger, default=0, comment="排序（避开 order 关键字）")
     status: Mapped[int] = mapped_column(SmallInteger, default=10)

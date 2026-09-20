@@ -1,4 +1,4 @@
-"""权证字典路由（接口 1-9）：枚举字典 + 房产用途树 + 评估公司管理。"""
+"""权证字典路由（接口 1-9）：枚举字典 + 房产用途 + 评估公司管理。"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.core.deps import AuthContext, get_current_user, require_perm
 from app.core.db import get_db
 from app.core.response import ok
-from app.core.tree import build_tree
 from app.warrant.enums import LABELS
 from app.warrant.models import WarrantHouseApp
 from app.warrant.schemas import EvaluateCompanyCreate
@@ -77,18 +76,21 @@ def auction_states(_: AuthContext = Depends(get_current_user)):
 
 @router.get("/house-apps")
 def house_apps(db: Session = Depends(get_db), _: AuthContext = Depends(get_current_user)):
-    """房产用途字典（树形分类，替代旧系统硬编码枚举）。"""
+    """房产用途字典（扁平列表，按 category 分组，替代旧系统硬编码枚举）。"""
     rows = db.scalars(
-        select(WarrantHouseApp).where(WarrantHouseApp.status == 10).order_by(WarrantHouseApp.id)
+        select(WarrantHouseApp).where(WarrantHouseApp.status == 10).order_by(WarrantHouseApp.category.is_(None), WarrantHouseApp.category, WarrantHouseApp.ordery, WarrantHouseApp.id)
     ).all()
-    return ok(
-        build_tree(
-            rows,
-            parent_getter=lambda r: r.parent_id,
-            node_mapper=lambda r: {"id": r.id, "name": r.name},
-            parent_id_null=None,  # WarrantHouseApp.parent_id 用 NULL 表示根
-        )
-    )
+    cat_labels = LABELS.get("house_app_category", {})
+    items = [
+        {
+            "id": r.id,
+            "name": r.name,
+            "category": r.category,
+            "category_label": cat_labels.get(r.category, None) if r.category is not None else None,
+        }
+        for r in rows
+    ]
+    return ok(items)
 
 
 @router.get("/evaluate-companies")
