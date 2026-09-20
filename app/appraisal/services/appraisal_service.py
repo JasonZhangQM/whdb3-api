@@ -1153,14 +1153,13 @@ def _load_sures(db: Session, article_id: int) -> list[dict]:
         # 房产
         for wh in db.execute(
             select(WarrantHouse.warrant_id, WarrantHouse.house_locate,
-                   WarrantHouse.house_area, WarrantHouse.house_name)
+                   WarrantHouse.house_area)
             .where(WarrantHouse.warrant_id.in_(warrant_ids))
         ).all():
             if wh.warrant_id in warrants:
                 warrants[wh.warrant_id]["houses"].append({
                     "house_locate": wh.house_locate,
                     "house_area": float(wh.house_area),
-                    "house_name": wh.house_name,
                 })
         # 土地
         for g in db.execute(

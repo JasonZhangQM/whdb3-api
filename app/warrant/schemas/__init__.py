@@ -14,7 +14,6 @@ class HouseItem(BaseModel):
     house_locate: str = Field(..., max_length=255)
     house_app: int
     house_area: float = Field(..., gt=0)
-    house_name: str | None = None
     house_build_year: int | None = None
     house_usage: Literal[10, 20, 30] = 10
 

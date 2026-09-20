@@ -127,7 +127,6 @@ def get_type_detail(db: Session, warrant_id: int, ctx: AuthContext) -> dict:
                 "house_locate": h.house_locate,
                 "house_app": h.house_app,
                 "house_area": float(h.house_area),
-                "house_name": h.house_name,
                 "house_build_year": h.house_build_year,
                 "house_usage": h.house_usage,
                 "house_usage_display": _disp("house_usage", h.house_usage),

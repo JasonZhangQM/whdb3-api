@@ -33,6 +33,17 @@ def delete_house(db: Session, warrant_id: int, house_id: int, ctx: AuthContext) 
     db.delete(row)
 
 
+def update_house(db: Session, warrant_id: int, house_id: int, body, ctx: AuthContext) -> None:
+    """修改房产记录（整体替换式，参照产权人 update_owner 实现）。"""
+    _get_warrant(db, warrant_id, ctx)
+    row = db.get(WarrantHouse, house_id)
+    if row is None or row.warrant_id != warrant_id:
+        raise BizError(4041, "房产记录不存在")
+    data = body.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(row, k, v)
+
+
 def add_ground(db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext) -> int:
     w = _get_warrant(db, warrant_id, ctx)
     if w.warrant_type != WarrantType.GROUND:

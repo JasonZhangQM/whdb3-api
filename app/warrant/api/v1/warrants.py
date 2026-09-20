@@ -312,6 +312,20 @@ def delete_house(
     return ok(message="删除成功")
 
 
+@router.put("/{warrant_id}/houses/{house_id}")
+def update_house(
+    warrant_id: int,
+    house_id: int,
+    body: HouseItem,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """修改一套房产。"""
+    warrant_real_estate_service.update_house(db, warrant_id, house_id, body, ctx)
+    db.commit()
+    return ok(message="修改成功")
+
+
 @router.post("/{warrant_id}/grounds")
 def add_ground(
     warrant_id: int,
