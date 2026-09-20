@@ -104,6 +104,23 @@ def submit_feedback(
     return ok(message="风控反馈已提交")
 
 
+# ============ 专项字段权限 ============
+
+@router.post("/{article_id}/control-assign")
+def assign_control(
+    article_id: int,
+    body: dict,
+    db=Depends(get_db),
+    user: AuthContext = Depends(require_perm("article:control_assign")),
+):
+    control_id = body.get("control_id")
+    if not isinstance(control_id, int) or control_id <= 0:
+        from app.core.exceptions import BizError
+        raise BizError(4001, "风控经理用户 ID 无效")
+    article_service.assign_control(db, article_id, control_id)
+    return ok(message="风控经理已分配")
+
+
 # ============ 子资源 ============
 
 @router.post("/{article_id}/orders")

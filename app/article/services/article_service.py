@@ -331,6 +331,17 @@ def create_article(
     return article.id, article_num
 
 
+def assign_control(db: Session, article_id: int, control_id: int) -> None:
+    """分配风控经理（独立端点，绕过通用 article:update 权限）。"""
+    article = _get_or_404(db, article_id)
+    # 校验目标用户存在
+    user = db.get(User, control_id)
+    if user is None:
+        raise BizError(4001, "目标用户不存在")
+    article.control_id = control_id
+    db.commit()
+
+
 def update_article(
     db: Session, article_id: int, body: ArticleUpdate, user_id: int
 ) -> None:

@@ -43,6 +43,12 @@ ADMIN_INIT_PASSWORD = "Admin@whdb3"
 
 ORDINAL_STEP = 100  # 菜单/权限排序步长，便于后续插入
 
+# 内置角色默认权限分配（极简：只填最核心的 1-2 条，其余通过界面手动授权）
+# key 是 Role.code，value 是 Permission.code 列表
+BUILTIN_ROLE_DEFAULT_PERMS: dict[str, list[str]] = {
+    "control_assign": ["article:control_assign"],  # 风控经理主管 → 分配风控经理
+}
+
 # 废弃菜单路径前缀（菜单结构调整时在此登记，seed 自动清理残留旧菜单）
 LEGACY_MENU_PREFIXES: tuple[str, ...] = ("/basic",)  # M2：基础数据目录拆为模块一级目录
 
@@ -239,6 +245,21 @@ def seed_roles(db: Session, perm_ids: dict[str, int]) -> None:
             for pid in perm_ids.values():
                 if pid not in existing:
                     db.add(RolePermission(role_id=role.id, permission_id=pid))
+        else:
+            # 非超管：按 BUILTIN_ROLE_DEFAULT_PERMS 极简分配（幂等 upsert，不覆盖已手动勾的权限）
+            default_codes = BUILTIN_ROLE_DEFAULT_PERMS.get(spec["code"], [])
+            if default_codes:
+                existing = set(
+                    db.scalars(
+                        select(RolePermission.permission_id).where(
+                            RolePermission.role_id == role.id
+                        )
+                    )
+                )
+                for code in default_codes:
+                    pid = perm_ids.get(code)
+                    if pid and pid not in existing:
+                        db.add(RolePermission(role_id=role.id, permission_id=pid))
 
 
 def seed_approval_flows(db: Session) -> None:

@@ -9,6 +9,7 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
     ("article:update", "项目修改"),
     ("article:delete", "项目删除"),
     ("article:detail", "项目详情"),
+    ("article:control_assign", "分配风控经理"),
     # 子资源管理（状态流转 / 业务操作）
     ("article:feedback", "风控反馈提交"),
     ("article:order", "放款次序管理"),
