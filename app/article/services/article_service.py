@@ -289,17 +289,24 @@ def create_article(
 
     # 批量创建放款次序（跳过 add_order 的 40/61 状态门禁——新立项项目 state=10 也允许初始化）
     if body.orders:
+        from decimal import Decimal
+
         from app.article.models import ArticleOrder
 
-        # 校验 seq 不重复
-        seqs = [o.seq for o in body.orders]
-        if len(seqs) != len(set(seqs)):
-            raise BizError(4001, "放款次序序号不能重复")
+        # 校验 Σ 放款金额 ≤ 项目授信额度（renewal + augment）
+        total_order = sum((o.order_amount for o in body.orders), Decimal('0'))
+        limit = (article.renewal or Decimal('0')) + (article.augment or Decimal('0'))
+        if total_order > limit:
+            raise BizError(
+                4001,
+                f"放款次序累计金额 {total_order} 已超过项目授信额度 {limit}",
+            )
 
-        for o in body.orders:
+        # seq 后端自动分配：按前端传入顺序从 1 起递增（新项目尚无从属 order）
+        for idx, o in enumerate(body.orders, start=1):
             db.add(ArticleOrder(
                 article_id=article.id,
-                seq=o.seq,
+                seq=idx,
                 order_amount=o.order_amount,
                 remark=o.remark,
                 state=article.article_state,
