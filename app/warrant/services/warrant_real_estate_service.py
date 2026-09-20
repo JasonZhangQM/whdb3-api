@@ -62,6 +62,17 @@ def delete_ground(db: Session, warrant_id: int, ground_id: int, ctx: AuthContext
     db.delete(row)
 
 
+def update_ground(db: Session, warrant_id: int, ground_id: int, body, ctx: AuthContext) -> None:
+    """修改土地记录。"""
+    _get_warrant(db, warrant_id, ctx)
+    row = db.get(WarrantGround, ground_id)
+    if row is None or row.warrant_id != warrant_id:
+        raise BizError(4041, "土地记录不存在")
+    data = body.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(row, k, v)
+
+
 def add_construction(db: Session, warrant_id: int, body, user_id: int, ctx: AuthContext) -> int:
     w = _get_warrant(db, warrant_id, ctx)
     if w.warrant_type != WarrantType.CONSTRUCTION:

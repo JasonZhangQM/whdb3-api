@@ -24,6 +24,7 @@ from app.warrant.schemas import (
     OwnershipCreate,
     OwnershipUpdate,
     ReceiveExtendCreate,
+    ReceiveExtendUpdate,
     RecheckCreate,
     ReleaseOutRequestCreate,
     StorageCreate,
@@ -352,6 +353,20 @@ def delete_ground(
     return ok(message="删除成功")
 
 
+@router.put("/{warrant_id}/grounds/{ground_id}")
+def update_ground(
+    warrant_id: int,
+    ground_id: int,
+    body: GroundItem,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """修改一宗土地。"""
+    warrant_real_estate_service.update_ground(db, warrant_id, ground_id, body, ctx)
+    db.commit()
+    return ok(message="修改成功")
+
+
 @router.post("/{warrant_id}/constructions")
 def add_construction(
     warrant_id: int,
@@ -585,3 +600,17 @@ def delete_receive_extend(
     warrant_receive_extend_service.delete_receive_extend(db, warrant_id, extend_id, ctx)
     db.commit()
     return ok(message="删除成功")
+
+
+@router.put("/{warrant_id}/receive-extends/{extend_id}")
+def update_receive_extend(
+    warrant_id: int,
+    extend_id: int,
+    body: ReceiveExtendUpdate,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """修改应收单位名称。"""
+    warrant_receive_extend_service.update_receive_extend(db, warrant_id, extend_id, body, ctx)
+    db.commit()
+    return ok(message="修改成功")

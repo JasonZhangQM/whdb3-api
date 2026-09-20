@@ -102,6 +102,10 @@ class ReceiveExtendCreate(BaseModel):
     receive_unit: str = Field(..., max_length=128)
 
 
+class ReceiveExtendUpdate(BaseModel):
+    receive_unit: str = Field(..., max_length=128)
+
+
 class _ExtBase(BaseModel):
     """9 种权证类型的扩展信息字段集合——WarrantCreate 继承 + 主表元数据，
     TypeDetailUpdate 直接使用做整体替换。子类新增字段加在此处即可。"""
@@ -162,8 +166,12 @@ class RecheckCreate(BaseModel):
 
 # ===== 票据 / 应收明细 =====
 class DraftExtendUpdate(BaseModel):
-    draft_state: int | None = None
-    draft_amount: float | None = None
+    draft_type: int | None = None
+    draft_num: str | None = Field(None, max_length=128)
+    acceptor_id: int | None = None
+    core_id: int | None = None
+    draft_amount: float | None = Field(None, gt=0)
+    issue_date: date | None = None
     due_date: date | None = None
 
 

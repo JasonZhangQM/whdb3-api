@@ -94,6 +94,29 @@ def update_draft_extend(
     _get_warrant(db, warrant_id, ctx)
     e = _get_draft_extend(db, warrant_id, extend_id)
     data = body.model_dump(exclude_unset=True)
+    # 校验：若更新 acceptor/core，确保客户存在
+    if 'acceptor_id' in data and data['acceptor_id'] is not None:
+        if db.get(Customer, data['acceptor_id']) is None:
+            raise BizError(4041, "承兑人客户不存在")
+    if 'core_id' in data and data['core_id'] is not None:
+        if db.get(Customer, data['core_id']) is None:
+            raise BizError(4041, "核心企业客户不存在")
+    # 票据号唯一性（排除自身）
+    if 'draft_num' in data and data['draft_num']:
+        dup = db.scalar(
+            select(WarrantDraftExtend.id).where(
+                WarrantDraftExtend.draft_num == data['draft_num'],
+                WarrantDraftExtend.id != extend_id,
+            )
+        )
+        if dup is not None:
+            raise BizError(4091, "票据编号已存在")
+    # 到期日 >= 出票日
+    if 'issue_date' in data or 'due_date' in data:
+        issue = data.get('issue_date', e.issue_date)
+        due = data.get('due_date', e.due_date)
+        if issue and due and due < issue:
+            raise BizError(4001, "到期日不能早于出票日")
     for k, v in data.items():
         setattr(e, k, v)
     e.updated_by = user_id

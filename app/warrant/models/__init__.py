@@ -137,21 +137,14 @@ class WarrantDraftExtend(Base):
 
 
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
-    draft_type: Mapped[int] = mapped_column(SmallInteger, comment="10电银承20银承11电商承12商承21支票")
+    draft_type: Mapped[int] = mapped_column(SmallInteger, comment="票据类型:DraftType")
     draft_num: Mapped[str] = mapped_column(String(128), comment="票据编号")
-    acceptor_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id"), comment="承兑人"
-    )
-    core_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id"), comment="核心企业"
-    )
-    draft_amount: Mapped[float] = mapped_column(Numeric(18, 2))
+    acceptor_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), comment="承兑人")
+    core_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), comment="核心企业")
+    draft_amount: Mapped[float] = mapped_column(Numeric(18, 2), comment="票据金额")
     issue_date: Mapped[date]
     due_date: Mapped[date]
-    draft_state: Mapped[int] = mapped_column(
-        SmallInteger, default=10, index=True,
-        comment="10未入库20已入库30已加保120已归还210置换出库310解保出库410托收出库990已注销",
-    )
+    draft_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True,comment="状态:DraftState")
 
     updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
