@@ -1288,6 +1288,61 @@ def update_contact(
         _clear_other_primaries(db, customer_id, exclude_contact_id=contact_id)
 
 
+def delete_customer(db: Session, customer_id: int) -> None:
+    """删除客户：先校验无项目/权证/集团关联，再清理自引用，最后级联删除子表。"""
+    c = _get_or_404(db, customer_id)
+
+    # --- 1) 拦截性校验（RESTRICT 外键，需先给出明确提示） ---
+    from app.article.models import Article, ArticleBorrower, ArticleSureCustomer
+    from app.customer.models import Group
+    from app.warrant.models import WarrantDraftExtend, WarrantOwnership
+
+    refs: list[str] = []
+    if db.scalar(select(Article.id).where(Article.customer_id == customer_id).limit(1)):
+        refs.append("项目")
+    if db.scalar(
+        select(ArticleBorrower.id).where(ArticleBorrower.customer_id == customer_id).limit(1)
+    ):
+        refs.append("项目借款人")
+    if db.scalar(
+        select(ArticleSureCustomer.id).where(
+            ArticleSureCustomer.customer_id == customer_id
+        ).limit(1)
+    ):
+        refs.append("项目反担保人")
+    if db.scalar(
+        select(WarrantOwnership.id).where(WarrantOwnership.owner_id == customer_id).limit(1)
+    ):
+        refs.append("权证所有人")
+    if db.scalar(
+        select(WarrantDraftExtend.id).where(
+            WarrantDraftExtend.acceptor_id == customer_id
+        ).limit(1)
+    ):
+        refs.append("票据承兑人")
+    if db.scalar(
+        select(WarrantDraftExtend.id).where(WarrantDraftExtend.core_id == customer_id).limit(1)
+    ):
+        refs.append("票据核心企业")
+    if db.scalar(
+        select(Group.id).where(Group.parent_customer_id == customer_id).limit(1)
+    ):
+        refs.append("集团母公司")
+
+    if refs:
+        raise BizError(4091, f"客户存在{'、'.join(refs)}关联，无法删除")
+
+    # --- 2) 清理自引用（配偶双向绑定，置空对方 spouse_id） ---
+    db.execute(
+        update(PersonalProfile)
+        .where(PersonalProfile.spouse_id == customer_id)
+        .values(spouse_id=None)
+    )
+
+    # --- 3) 级联删除（自有子表多为 CASCADE，db.delete 自动清理） ---
+    db.delete(c)
+
+
 def delete_contact(db: Session, customer_id: int, contact_id: int) -> None:
     c = _get_contact(db, customer_id, contact_id)
     db.delete(c)

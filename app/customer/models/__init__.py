@@ -151,9 +151,7 @@ class CustomerContact(Base):
 
     __tablename__ = "customer_contacts"
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id", ondelete="CASCADE")
-    )
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(32), comment="联系人姓名")
     phone: Mapped[str] = mapped_column(String(16), comment="联系电话")
     email: Mapped[str | None] = mapped_column(String(128))
@@ -168,7 +166,7 @@ class CompanyProfile(Base):
     __tablename__ = "customer_company_profiles"
 
 
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), unique=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), unique=True)
     decisionor: Mapped[int | None] = mapped_column(SmallInteger, comment="决策机构")
     custom_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="企业性质")
     industry_c: Mapped[int | None] = mapped_column(BigInteger, comment="工信部划分行业")
@@ -184,16 +182,10 @@ class PersonalProfile(Base):
     __tablename__ = "customer_personal_profiles"
 
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id"), unique=True
-    )
-    marital_status: Mapped[int | None] = mapped_column(
-        SmallInteger, server_default=text("90"), comment="婚姻状态"
-    )
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), unique=True)
+    marital_status: Mapped[int | None] = mapped_column(SmallInteger, server_default=text("90"), comment="婚姻状态")
     household_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="户籍性质")
-    spouse_id: Mapped[int | None] = mapped_column(
-        ForeignKey("customers.id"), comment="配偶（双向指向另一条个人客户）"
-    )
+    spouse_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), comment="配偶（双向指向另一条个人客户）")
 
 
 class Shareholder(Base):
@@ -202,9 +194,7 @@ class Shareholder(Base):
     __tablename__ = "customer_shareholders"
 
 
-    company_id: Mapped[int] = mapped_column(
-        ForeignKey("customer_company_profiles.id")
-    )
+    company_id: Mapped[int] = mapped_column(ForeignKey("customer_company_profiles.id"))
     shareholder_name: Mapped[str] = mapped_column(String(128))
     invested_amount: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="投资额")
     shareholding_ratio: Mapped[float] = mapped_column(Numeric(8, 4), comment="持股比例%")
@@ -220,9 +210,7 @@ class Director(Base):
     __tablename__ = "customer_directors"
 
 
-    company_id: Mapped[int] = mapped_column(
-        ForeignKey("customer_company_profiles.id")
-    )
+    company_id: Mapped[int] = mapped_column(ForeignKey("customer_company_profiles.id"))
     director_name: Mapped[str] = mapped_column(String(128))
     ordery: Mapped[int] = mapped_column(BigInteger, default=0)
 
@@ -237,7 +225,7 @@ class CustomerExtend(Base):
     __tablename__ = "customer_extends"
 
 
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"))
     sales_revenue: Mapped[float] = mapped_column(Numeric(18, 2), comment="销售收入")
     total_assets: Mapped[float] = mapped_column(Numeric(18, 2), comment="总资产")
     people_engaged: Mapped[float] = mapped_column(Numeric(12, 2), comment="从业人数")
@@ -255,7 +243,7 @@ class CoreLimit(Base):
     __tablename__ = "customer_core_limits"
 
 
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"))
     credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), comment="授信总额")
     valid_begin_date: Mapped[date]
     valid_end_date: Mapped[date]
@@ -275,6 +263,6 @@ class CoreHistory(Base):
     __tablename__ = "customer_core_histories"
 
 
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"))
     change_content: Mapped[dict] = mapped_column(JSON)
     changed_by: Mapped[int] = mapped_column(ForeignKey("users.id"))

@@ -156,3 +156,7 @@ FROM warrant_houses LEFT OUTER JOIN user_regions ON user_regions.id = warrant_ho
 WHERE warrant_houses.warrant_id = %(warrant_id_1)s ORDER BY warrant_houses.id]
 [parameters: {'warrant_id_1': 81}]
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-09-20 13:56:34,593 WARNING [e616cc5748c5] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`customer_company_profiles`, CONSTRAINT `customer_company_profiles_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`))')
+2026-09-20 13:57:17,360 WARNING [30d4962bfaaf] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`customer_company_profiles`, CONSTRAINT `customer_company_profiles_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`))')
+2026-09-20 13:59:14,052 WARNING [a4ba9b0a8e56] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`customer_company_profiles`, CONSTRAINT `customer_company_profiles_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`))')
+2026-09-20 14:07:44,952 WARNING [ca09a8c05b36] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`customer_company_profiles`, CONSTRAINT `customer_company_profiles_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`))')

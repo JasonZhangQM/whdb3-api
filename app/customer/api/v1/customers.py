@@ -198,6 +198,18 @@ def update_customer(
     return ok(message="修改成功")
 
 
+@router.delete("/{customer_id}")
+def delete_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _: AuthContext = Depends(require_perm("customer:delete")),
+):
+    """删除客户（有关联项目/权证时拒绝）。"""
+    customer_service.delete_customer(db, customer_id)
+    db.commit()
+    return ok(message="删除成功")
+
+
 @router.patch("/{customer_id}/controler")
 def change_controler(
     customer_id: int,
