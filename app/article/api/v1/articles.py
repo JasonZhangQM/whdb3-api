@@ -50,9 +50,9 @@ def list_articles(
 def get_article(
     article_id: int,
     db=Depends(get_db),
-    _: AuthContext = Depends(require_perm("article:detail")),
+    ctx: AuthContext = Depends(require_perm("article:detail")),
 ):
-    return ok(article_service.get_article(db, article_id))
+    return ok(article_service.get_article(db, article_id, ctx))
 
 
 # ============ 创建/修改/删除 ============

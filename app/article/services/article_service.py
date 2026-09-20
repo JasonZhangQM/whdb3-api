@@ -7,7 +7,7 @@
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.approval.services.engine_service import submit as approval_submit
@@ -131,8 +131,24 @@ def list_articles(
     director_id: int | None = None,
     keyword: str | None = None,
 ) -> tuple[list[dict], int]:
-    """项目列表。"""
+    """项目列表。
+
+    数据级权限（业务特化规则，不走通用 apply_data_scope_filter）：
+    - 超管 / data_scope=40 → 全部项目
+    - 其他用户 → 仅自己担任 项目经理 / 项目助理 / 风控专员 的项目
+    """
     stmt = select(Article).order_by(Article.created_at.desc())
+
+    # ---- 数据级权限（项目经理/助理/风控专员 可见自己参与的项目）----
+    if not ctx.is_super_admin and ctx.data_scope != 40:
+        stmt = stmt.where(
+            or_(
+                Article.director_id == ctx.user_id,
+                Article.assistant_id == ctx.user_id,
+                Article.control_id == ctx.user_id,
+            )
+        )
+
     if article_state is not None:
         stmt = stmt.where(Article.article_state == article_state)
     if customer_id is not None:
@@ -165,9 +181,26 @@ def list_articles(
     return [_to_item(a, dicts, approval_map.get(a.id)) for a in items], total
 
 
-def get_article(db: Session, article_id: int) -> dict:
-    """项目详情聚合（含关联名称填充 + approval + feedback 聚合）。"""
-    article = _get_or_404(db, article_id)
+def _get_article_with_scope(db: Session, article_id: int, ctx: AuthContext) -> Article:
+    """查项目 + 数据级权限校验（无权限伪装 404，避免 id 枚举）。"""
+    article = db.get(Article, article_id)
+    if article is None:
+        raise BizError(4041, "项目不存在")
+    if ctx.is_super_admin or ctx.data_scope == 40:
+        return article
+    # 非超管：仅项目经理 / 助理 / 风控专员 本人可见
+    if ctx.user_id not in (article.director_id, article.assistant_id, article.control_id):
+        raise BizError(4041, "项目不存在")
+    return article
+
+
+def get_article(db: Session, article_id: int, ctx: AuthContext | None = None) -> dict:
+    """项目详情聚合（含关联名称填充 + approval + feedback 聚合）。
+
+    ctx 为 None 时不做数据级权限校验（供内部编排使用）；
+    API 入口必须传 ctx。
+    """
+    article = _get_article_with_scope(db, article_id, ctx) if ctx else _get_or_404(db, article_id)
     dicts = _build_name_dicts(db, [article])
 
     # 取一对一表 ArticleApproval（评审/签批字段）
