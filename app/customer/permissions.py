@@ -6,6 +6,7 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
     ("customer:delete", "客户删除"),
     ("customer:transfer", "批量管护移交（发起移交审批）"),
     ("customer:detail", "客户详情"),
+    ("customer:group_edit", "集团维护"),
 ]
 
 MENUS: list[dict] = [

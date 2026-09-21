@@ -26,7 +26,7 @@ def list_groups(
 def create_group(
     body: GroupCreate,
     db: Session = Depends(get_db),
-    user: AuthContext = Depends(require_perm("customer:group_list")),
+    user: AuthContext = Depends(require_perm("customer:group_edit")),
 ):
     """新建集团（母公司自动加入成员）。"""
     group_id = group_service.create(
@@ -53,7 +53,7 @@ def update_group(
     group_id: int,
     body: GroupUpdate,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:group_list")),
+    _: AuthContext = Depends(require_perm("customer:group_edit")),
 ):
     group_service.update(
         db, group_id, body.name, body.parent_id,
@@ -68,7 +68,7 @@ def update_group(
 def delete_group(
     group_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:group_list")),
+    _: AuthContext = Depends(require_perm("customer:group_edit")),
 ):
     """删除集团（拦截：仍有成员/子集团）。"""
     group_service.delete(db, group_id)
@@ -93,7 +93,7 @@ def add_group_members(
     group_id: int,
     body: GroupMemberAddReq,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:group_list")),
+    _: AuthContext = Depends(require_perm("customer:group_edit")),
 ):
     """批量加入成员企业（拦截：非企业客户/已属其他集团）。"""
     added = group_service.add_members(db, group_id, body.customer_ids)
@@ -106,7 +106,7 @@ def remove_group_member(
     group_id: int,
     customer_id: int,
     db: Session = Depends(get_db),
-    _: AuthContext = Depends(require_perm("customer:group_list")),
+    _: AuthContext = Depends(require_perm("customer:group_edit")),
 ):
     """移除成员企业（母公司不可移除）。"""
     group_service.remove_member(db, group_id, customer_id)

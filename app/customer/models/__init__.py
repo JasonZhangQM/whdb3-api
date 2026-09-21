@@ -92,9 +92,9 @@ class Group(Base):
         index=True,
         comment="母公司",
     )
-    credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="集团总授信额度")
-    description: Mapped[str | None] = mapped_column(String(255))
-    status: Mapped[int] = mapped_column(SmallInteger, default=10, comment="10启用20停用")
+    credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="集信额度")
+    description: Mapped[str | None] = mapped_column(String(255), comment="备注")
+    status: Mapped[int] = mapped_column(SmallInteger, default=10, comment="状态:CommonStatus")
 
 
 class Customer(Base):
