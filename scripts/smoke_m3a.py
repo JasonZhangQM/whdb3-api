@@ -79,7 +79,7 @@ check("评审管理 /appraisal 存在", appraisal_menu is not None)
 if appraisal_menu:
     children = [c["path"] for c in appraisal_menu.get("children", [])]
     check("评审会列表 /appraisal/list 子菜单", "/appraisal/list" in children, str(children))
-    check("专家库 /appraisal/experts 子菜单", "/appraisal/experts" in children, str(children))
+    check("评委库 /appraisal/experts 子菜单", "/appraisal/experts" in children, str(children))
 
 # 验证 component 字段（前端 glob 匹配关键）
 if article_menu:
@@ -264,7 +264,7 @@ else:
 
 
 # ============================================================
-# 6. 专家库 CRUD
+# 6. 评委库 CRUD
 # ============================================================
 print("\n=== 6. 专家 CRUD ===")
 r = httpx.get(f"{BASE}/review-experts", headers=headers, timeout=5)

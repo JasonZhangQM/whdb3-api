@@ -271,6 +271,15 @@ def list_experts(
     return page_result(items, total, page, page_size)
 
 
+@router.get("/review-experts/{expert_id}")
+def get_expert(
+    expert_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("appraisal:expert_list")),
+):
+    return ok(expert_service.get_expert(db, expert_id))
+
+
 @router.post("/review-experts")
 def create_expert(
     body: ReviewExpertCreate,

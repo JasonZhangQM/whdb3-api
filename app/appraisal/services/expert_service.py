@@ -1,7 +1,7 @@
-"""评审专家 Service（P5：独立文件，专家库管理相对独立）。
+"""评审专家 Service（P5：独立文件，评委库管理相对独立）。
 
 v1.2：list_experts 补 created_by_name（AGENTS.md §6.4 列表页硬约束）；
-      service 签名加 ctx 铺路——但专家库是共享资源库（类似 regions/industries），
+      service 签名加 ctx 铺路——但评委库是共享资源库（类似 regions/industries），
       不加 apply_data_scope_filter，pm 需要看到全量专家组建评委组。
 v1.5：新建评委评审历史/统计接口（#18/#19）——三跳 JOIN：
       AppraisalComment → AppraisalArticle → Appraisal。
@@ -59,7 +59,7 @@ def list_experts(
     """专家列表（§3.7.1 标准分页 + §6.4 created_by_name）。
 
     v1.9：category_id FK 删除 + deleted_at 字段删除（status=0 即停用）。
-    data_scope 豁免：专家库是全局共享资源，不加 apply_data_scope_filter。
+    data_scope 豁免：评委库是全局共享资源，不加 apply_data_scope_filter。
     """
     stmt = select(ReviewExpert)
     if expert_type is not None:
@@ -111,6 +111,38 @@ def list_experts(
         }
         for e in items
     ], total
+
+
+def get_expert(db: Session, expert_id: int) -> dict:
+    """专家详情（单条）。"""
+    e = _get_or_404(db, expert_id)
+    creator_names: dict[int, str] = {}
+    if e.created_by:
+        row = db.execute(
+            select(User.name).where(User.id == e.created_by)
+        ).first()
+        if row:
+            creator_names[e.created_by] = row[0]
+    return {
+        "id": e.id,
+        "name": e.name,
+        "title": e.title,
+        "org_name": e.org_name,
+        "expert_type": e.expert_type,
+        "expert_type_display": _disp(
+            APPRAISAL_LABELS.get("expert_type"), e.expert_type
+        ),
+        "contact_numb": e.contact_numb,
+        "email": e.email,
+        "sort": e.sort,
+        "status": e.status,
+        "status_display": {1: "启用", 0: "停用"}.get(e.status, str(e.status)),
+        "remark": e.remark,
+        "created_by": e.created_by,
+        "created_by_name": creator_names.get(e.created_by),
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+        "updated_at": e.updated_at.isoformat() if e.updated_at else None,
+    }
 
 
 def create_expert(

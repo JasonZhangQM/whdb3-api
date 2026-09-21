@@ -88,7 +88,7 @@ MENU_PERM_NAMES: dict[str, str] = {
     "warrant:list": "权证列表",
     "article:list": "项目列表",
     "appraisal:list": "评审会列表",
-    "appraisal:expert_list": "专家库",
+    "appraisal:expert_list": "评委库",
 }
 
 # 审批流定义（总体方案 §5.3：流程定义走代码版本管理）

@@ -16,11 +16,11 @@ ACTION_PERMISSIONS: list[tuple[str, str]] = [
     ("appraisal:comment", "评委意见录入"),
     # 补调（1 个）
     ("appraisal:supply_resolve", "补调完成登记"),
-    # 专家库（4 个）
-    ("appraisal:expert_list", "专家库列表"),
-    ("appraisal:expert_create", "专家新增"),
-    ("appraisal:expert_update", "专家修改"),
-    ("appraisal:expert_delete", "专家删除（含软删停用）"),
+    # 评委库（4 个）
+    ("appraisal:expert_list", "评委库列表"),
+    ("appraisal:expert_create", "评委新增"),
+    ("appraisal:expert_update", "评委修改"),
+    ("appraisal:expert_delete", "评委删除（含软删停用）"),
 ]
 
 MENUS: list[dict] = [
@@ -38,7 +38,7 @@ MENUS: list[dict] = [
                 "permission_code": "appraisal:list",
             },
             {
-                "caption": "专家库",
+                "caption": "评委库",
                 "path": "/appraisal/experts",
                 "component": "appraisal/experts",
                 "type": 20,
