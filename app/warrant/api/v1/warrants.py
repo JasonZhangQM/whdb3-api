@@ -393,6 +393,20 @@ def delete_construction(
     return ok(message="删除成功")
 
 
+@router.put("/{warrant_id}/constructions/{construction_id}")
+def update_construction(
+    warrant_id: int,
+    construction_id: int,
+    body: ConstructionItem,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_perm("warrant:update")),
+):
+    """修改一项在建工程。"""
+    warrant_real_estate_service.update_construction(db, warrant_id, construction_id, body, ctx)
+    db.commit()
+    return ok(message="修改成功")
+
+
 # ===== 出入库 / 评估 =====
 
 @router.get("/{warrant_id}/storages")

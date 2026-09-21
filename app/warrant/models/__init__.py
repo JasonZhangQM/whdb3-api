@@ -34,10 +34,9 @@ class Warrant(Base):
     __tablename__ = "warrants"
 
     warrant_num: Mapped[str] = mapped_column(String(128), unique=True, comment="权证编号")
-    warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="11房产14土地16在建21应收31票据41股权51车辆61动产91其他99他权")
+    warrant_type: Mapped[int] = mapped_column(SmallInteger, index=True, comment="类型:WarrantType")
     remark: Mapped[str | None] = mapped_column(String(128), comment="备注")
-
-    warrant_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="10未入库20已入库30已加保60无需入库110续抵出库210已借出310解保出库410已移交990已注销" )
+    warrant_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="状态:WarrantState" )
 
 
 class WarrantOwnership(Base):
@@ -160,8 +159,8 @@ class WarrantVehicle(Base):
     warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"), unique=True)
     frame_num: Mapped[str] = mapped_column(String(64), unique=True, comment="车架号")
     plate_num: Mapped[str] = mapped_column(String(32), unique=True, comment="车牌号")
-    vehicle_brand: Mapped[str] = mapped_column(String(64))
-    remark: Mapped[str | None] = mapped_column(String(255))
+    vehicle_brand: Mapped[str] = mapped_column(String(64), comment="品牌型号")
+    remark: Mapped[str | None] = mapped_column(String(128), comment="备注")
 
 
 

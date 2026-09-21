@@ -89,6 +89,20 @@ def delete_construction(db: Session, warrant_id: int, construction_id: int, ctx:
     if row is None or row.warrant_id != warrant_id:
         raise BizError(4041, "在建工程记录不存在")
     db.delete(row)
+
+
+def update_construction(
+    db: Session, warrant_id: int, construction_id: int, body, ctx: AuthContext
+) -> None:
+    """修改在建工程。"""
+    _get_warrant(db, warrant_id, ctx)
+    row = db.get(WarrantConstruction, construction_id)
+    if row is None or row.warrant_id != warrant_id:
+        raise BizError(4041, "在建工程记录不存在")
+    for k, v in body.model_dump().items():
+        setattr(row, k, v)
+
+
 def _ground_dict(g: WarrantGround, region_name: str | None = None) -> dict:
     return {
         "region_id": g.region_id,

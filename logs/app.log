@@ -209,3 +209,7 @@ Traceback (most recent call last):
   File "C:\mysite\whdb3\whdb3-api\app\customer\services\customer_service.py", line 777, in _bind_spouse_in_create
     from app.customer.models import Genre
 ImportError: cannot import name 'Genre' from 'app.customer.models' (C:\mysite\whdb3\whdb3-api\app\customer\models\__init__.py)
+2026-09-21 11:38:13,420 WARNING [726d03fd1a1c] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`warrant_ownerships`, CONSTRAINT `warrant_ownerships_ibfk_3` FOREIGN KEY (`warrant_id`) REFERENCES `warrants` (`id`))')
+2026-09-21 11:38:28,415 WARNING [3cec4ee011bd] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`warrant_ownerships`, CONSTRAINT `warrant_ownerships_ibfk_3` FOREIGN KEY (`warrant_id`) REFERENCES `warrants` (`id`))')
+2026-09-21 11:38:40,617 WARNING [000e7524e49f] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`warrant_ownerships`, CONSTRAINT `warrant_ownerships_ibfk_3` FOREIGN KEY (`warrant_id`) REFERENCES `warrants` (`id`))')
+2026-09-21 11:43:25,137 WARNING [feb848d773d0] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`warrant_ownerships`, CONSTRAINT `warrant_ownerships_ibfk_3` FOREIGN KEY (`warrant_id`) REFERENCES `warrants` (`id`))')
