@@ -58,6 +58,7 @@ def list_experts(
     expert_type: int | None = None,
     category_id: int | None = None,
     status: int | None = None,
+    keyword: str | None = None,
 ) -> tuple[list[dict], int]:
     """专家列表（§3.7.1 标准分页 + §6.4 created_by_name）。
 
@@ -65,6 +66,7 @@ def list_experts(
     data_scope 豁免：专家库是全局共享资源（类似 regions/industries），
     pm 需要在排会时看到全量专家组建评委组，不加 apply_data_scope_filter。
     权限码 appraisal:expert_list 控制管理页可见性即可。
+    v1.8 变更：加 keyword 参数——按 name / org_name 模糊匹配。
     """
     stmt = select(ReviewExpert).where(ReviewExpert.deleted_at.is_(None))
     if expert_type is not None:
@@ -73,6 +75,12 @@ def list_experts(
         stmt = stmt.where(ReviewExpert.category_id == category_id)
     if status is not None:
         stmt = stmt.where(ReviewExpert.status == status)
+    if keyword and keyword.strip():
+        like = f"%{keyword.strip()}%"
+        stmt = stmt.where(sa.or_(
+            ReviewExpert.name.like(like),
+            ReviewExpert.org_name.like(like),
+        ))
 
     total = db.scalar(select(sa.func.count()).select_from(stmt.subquery())) or 0
     items = db.scalars(

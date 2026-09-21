@@ -263,10 +263,12 @@ def list_experts(
     expert_type: int | None = None,
     category_id: int | None = None,
     status: int | None = None,
+    keyword: str | None = Query(None, description="姓名/单位模糊搜索"),
 ):
     items, total = expert_service.list_experts(
         db, ctx, page=page, page_size=page_size,
-        expert_type=expert_type, category_id=category_id, status=status,
+        expert_type=expert_type, category_id=category_id,
+        status=status, keyword=keyword,
     )
     return page_result(items, total, page, page_size)
 
