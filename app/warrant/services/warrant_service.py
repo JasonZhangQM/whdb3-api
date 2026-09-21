@@ -307,6 +307,16 @@ def _add_owners(db: Session, warrant_id: int, owners, user_id: int) -> None:
 def update(db: Session, warrant_id: int, body: WarrantUpdate, ctx: AuthContext) -> None:
     w = _get_warrant_with_scope(db, warrant_id, ctx)
     data = body.model_dump(exclude_unset=True)
+    # 权证号唯一性校验
+    if 'warrant_num' in data and data['warrant_num']:
+        dup = db.scalar(
+            select(Warrant.id).where(
+                Warrant.warrant_num == data['warrant_num'],
+                Warrant.id != warrant_id,
+            )
+        )
+        if dup is not None:
+            raise BizError(4091, "权证号已存在")
     for k, v in data.items():
         setattr(w, k, v)
 

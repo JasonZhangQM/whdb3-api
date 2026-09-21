@@ -487,7 +487,9 @@ def create_customer(db: Session, body: CustomerCreate, user_id: int) -> int:
     elif customer.genre == Genre.PERSONAL:
         # spouse_id 从 personal dict 中取出单独处理（双向绑定）
         spouse_id = (personal or {}).pop("spouse_id", None)
-        db.add(PersonalProfile(customer_id=customer.id, **(personal or {})))
+        pp = PersonalProfile(customer_id=customer.id, **(personal or {}))
+        db.add(pp)
+        db.flush()  # 必须 flush，_bind_spouse_in_create 里会 SELECT 这条 PersonalProfile
         if spouse_id:
             _bind_spouse_in_create(db, customer.id, spouse_id)
 
@@ -774,7 +776,7 @@ def _bind_spouse_in_create(db: Session, new_customer_id: int, spouse_id: int) ->
     与 bind_spouse 的区别：new_customer_id 对应的 PersonalProfile 已 flush 存在，
     不需要 _get_or_404 查 Customer（已在 create_customer 内创建）。
     """
-    from app.customer.models import Genre
+    from app.customer.enums import Genre
 
     if new_customer_id == spouse_id:
         raise BizError(4001, "不能与自己绑定配偶")

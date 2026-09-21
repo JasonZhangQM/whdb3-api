@@ -134,6 +134,7 @@ class WarrantCreate(_ExtBase):
 class WarrantUpdate(BaseModel):
     """修改主表基本信息（不含 warrant_state：状态变更只走出入库子表接口）。"""
 
+    warrant_num: str | None = Field(None, max_length=128)
     remark: str | None = Field(None, max_length=128)
 
 
