@@ -84,7 +84,10 @@ class Group(Base):
     __tablename__ = "customer_groups"
 
     name: Mapped[str] = mapped_column(String(128), unique=True)
-    parent_id: Mapped[int | None] = mapped_column(BigInteger, default=None, index=True, comment="上级集团，NULL=顶级")
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("customer_groups.id", ondelete="SET NULL"),
+        default=None, index=True, comment="上级集团，NULL=顶级（删除上级集团自动置空）",
+    )
     parent_customer_id: Mapped[int | None] = mapped_column(
         # use_alter：customers.group_id ↔ customer_groups.parent_customer_id 循环依赖，
         # 该约束改为建表后 ALTER 添加（MySQL 不允许引用未建表）
@@ -111,7 +114,7 @@ class Customer(Base):
     license_addr: Mapped[str | None] = mapped_column(String(255), comment="注册地址(企业) / 身份证地址(个人)")
     credit_region_id: Mapped[int | None] = mapped_column(ForeignKey("customer_credit_regions.id"), comment="授信区域")
     industry_id: Mapped[int | None] = mapped_column(ForeignKey("customer_industries.id"), comment="所属行业")
-    group_id: Mapped[int | None] = mapped_column(ForeignKey("customer_groups.id"), comment="所属集团")
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("customer_groups.id", ondelete="SET NULL"), comment="所属集团")
     is_core: Mapped[bool] = mapped_column(Boolean, server_default=text("0"), comment="核心企业")
     is_acceptor: Mapped[bool] = mapped_column(Boolean, server_default=text("0"), comment="承兑人")
 

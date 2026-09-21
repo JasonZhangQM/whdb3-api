@@ -252,16 +252,10 @@ def update(db: Session, group_id: int, name: str, parent_id: int | None,
 
 
 def delete(db: Session, group_id: int) -> None:
+    """删除集团。关联成员客户(Customer.group_id)和子集团(Group.parent_id)
+    均由数据库 SET NULL 自动置空；若集团仍有 parent_customer_id（母公司），
+    该外键隐式 RESTRICT，需先将母公司从集团中移除（update 时置空）。"""
     g = get_or_404(db, group_id)
-    # 拦截：集团下任一成员（母公司也是成员，且不可单独移除）或子集团存在时不可删
-    member = db.scalar(
-        select(Customer.id).where(Customer.group_id == group_id).limit(1)
-    )
-    if member is not None:
-        raise BizError(4091, "集团仍有成员企业（含母公司），请先移除全部成员后再删除")
-    child = db.scalar(select(Group.id).where(Group.parent_id == group_id).limit(1))
-    if child is not None:
-        raise BizError(4091, "集团存在子集团，不可删除")
     db.delete(g)
 
 
