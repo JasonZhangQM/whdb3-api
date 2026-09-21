@@ -170,7 +170,7 @@ def _build_sures_for_order(db: Session, order_id: int) -> list[dict]:
                         info[out_key] = getattr(r, attr, None)
                 warrant_ext_info[r.warrant_id] = info
 
-        _fill_ext(11, WarrantHouse, 'house_locate', 'house_area',
+        _fill_ext(11, WarrantHouse, 'house_locate', 'house_area', None,
                   extra_fields={'house_usage': 'house_usage', 'house_app': 'house_app'})
         _fill_ext(14, WarrantGround, 'ground_locate', 'ground_area', 'ground_app')
         _fill_ext(16, WarrantConstruction, 'construct_locate', 'construct_area', 'construct_app')
