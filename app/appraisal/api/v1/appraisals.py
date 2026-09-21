@@ -261,14 +261,12 @@ def list_experts(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     expert_type: int | None = None,
-    category_id: int | None = None,
     status: int | None = None,
     keyword: str | None = Query(None, description="姓名/单位模糊搜索"),
 ):
     items, total = expert_service.list_experts(
         db, ctx, page=page, page_size=page_size,
-        expert_type=expert_type, category_id=category_id,
-        status=status, keyword=keyword,
+        expert_type=expert_type, status=status, keyword=keyword,
     )
     return page_result(items, total, page, page_size)
 
@@ -283,16 +281,17 @@ def create_expert(
     return ok({"id": eid}, message="专家已添加")
 
 
-@router.patch("/review-experts/{expert_id}")
+@router.put("/review-experts/{expert_id}")
 def update_expert(
     expert_id: int,
     body: ReviewExpertCreate,
     db=Depends(get_db),
     user: AuthContext = Depends(require_perm("appraisal:expert_update")),
 ):
-    """PATCH 语义：exclude_unset 保留未传字段（AGENTS.md §3.7.6）。
+    """修改专家。前端用 PUT（vben requestClient 只提供 get/post/put/delete，无 patch）。
 
-    service 层已实现 setattr 循环，需确认 body.model_dump(exclude_unset=True) 生效。
+    service 层用 body.model_dump(exclude_unset=True) + setattr 循环，
+    未传字段保持原值——PUT 方法 + PATCH 语义。
     """
     expert_service.update_expert(db, expert_id, body, user.user_id)
     return ok(message="专家已更新")

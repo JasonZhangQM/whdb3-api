@@ -1,8 +1,9 @@
-"""评审模块模型：6 张表。
+"""评审模块模型：5 张表。
 
 设计决策：
 - P2 FK CASCADE/RESTRICT 分层；FK 列不显式建索引
-- P4 专家类别降为只读字典（appraisal_expert_categories 保留表，接口只读）
+- P4 专家类别（ExpertCategory）2026-09-21 删除——专家类型改走枚举 expert_type
+  （10内部/20外部），不再维护独立字典表，迁移 e5f7a9b1c3d4 drop FK + drop table
 - 评审模块写项目状态（appraisal_articles/finish）是合理的——评审是评审流程 owner
 
 AGENTS.md §4.1 对齐：
@@ -80,16 +81,14 @@ class ReviewExpert(Base):
     __tablename__ = "appraisal_review_experts"
 
     name: Mapped[str] = mapped_column(String(64), comment="姓名")
+    org_name: Mapped[str | None] = mapped_column(String(128), comment="单位")
     title: Mapped[str | None] = mapped_column(String(64), comment="职务")
-    org_name: Mapped[str | None] = mapped_column(String(128), comment="挂靠单位（文本快照）")
-    expert_type: Mapped[int] = mapped_column(SmallInteger, comment="10内部/20外部")
-    category_id: Mapped[int | None] = mapped_column(ForeignKey("appraisal_expert_categories.id", ondelete="RESTRICT"), comment="专家类别")
+    expert_type: Mapped[int] = mapped_column(SmallInteger, comment="类别:ExpertType")
     contact_numb: Mapped[str | None] = mapped_column(String(16), comment="联系电话")
     email: Mapped[str | None] = mapped_column(String(64), comment="邮箱")
-    sort: Mapped[int] = mapped_column(default=1)
-    status: Mapped[int] = mapped_column(SmallInteger, default=1, comment="1启用/0停用(软删)")
-    remark: Mapped[str | None] = mapped_column(String(255))
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, comment="软删时间（有引用时停用）")
+    sort: Mapped[int] = mapped_column(default=1, comment="排序")
+    remark: Mapped[str | None] = mapped_column(String(255), comment="备注")
+    status: Mapped[int] = mapped_column(SmallInteger, default=1, comment="状态")
 
 
 class AppraisalSupply(Base):
@@ -106,13 +105,3 @@ class AppraisalSupply(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, comment="完成登记时间")
     resolved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="解决登记人")
     supplier_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="补调创建人")
-
-
-class ExpertCategory(Base):
-    """专家类别（P4：降为只读字典，seed 数据）。"""
-
-    __tablename__ = "appraisal_expert_categories"
-
-    name: Mapped[str] = mapped_column(String(32), unique=True, comment="类别名称")
-    sort: Mapped[int] = mapped_column(default=1)
-    status: Mapped[int] = mapped_column(SmallInteger, default=1)

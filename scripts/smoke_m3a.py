@@ -106,7 +106,6 @@ for name, path, key in [
     ("项目字典", "/dicts/article", "article_state"),
     ("评审字典", "/dicts/appraisal", "meeting_state"),
     ("评审字典 review_model", "/dicts/appraisal", "review_model"),
-    ("专家类别字典", "/dicts/expert-categories", None),
 ]:
     r = httpx.get(f"{BASE}{path}", headers=headers, timeout=5)
     check(f"{name} 200", r.status_code == 200, str(r.status_code))
@@ -271,23 +270,14 @@ print("\n=== 6. 专家 CRUD ===")
 r = httpx.get(f"{BASE}/review-experts", headers=headers, timeout=5)
 check("GET /review-experts 200", r.status_code == 200, str(r.status_code))
 
-# 6b. 拿一个 category_id
-cat_id: int | None = None
-rc = httpx.get(f"{BASE}/dicts/expert-categories", headers=headers, timeout=5)
-if rc.status_code == 200:
-    data = rc.json().get("data") or []
-    if isinstance(data, list) and data:
-        cat_id = data[0]["id"]
-
-# 6c. 创建专家
+# 6b. 创建专家
 r = httpx.post(
     f"{BASE}/review-experts",
     json={
         "name": "冒烟测试专家", "expert_type": 20,
-        "category_id": cat_id,
-        "unit": "测试单位",
+        "org_name": "测试单位",
         "title": "高级工程师",
-        "phone": "13800138000",
+        "contact_numb": "13800138000",
     },
     headers=headers,
     timeout=5,

@@ -1,29 +1,10 @@
-"""评审模块字典接口（无 data_scope，登录即可）。
+"""评审模块字典接口。
 
-纯枚举聚合已统一走 core 的 /dicts/{name} 通配（/dicts/appraisal），
-本文件仅保留 DB 数据字典接口。
+2026-09-21：ExpertCategory 表已删除（迁移 a1b2c3d4e5f6）。
+专家类型统一走枚举 expert_type（10 内部 / 20 外部），不需要 DB 字典。
+本文件保留空 router 以便后续扩展其他 DB 字典。
 """
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from app.appraisal.models import ExpertCategory
-from app.core.deps import get_current_user
-from app.core.db import get_db
-from app.core.response import ok
+from fastapi import APIRouter
 
 router = APIRouter(prefix="/dicts", tags=["appraisal-dict"])
-
-
-@router.get("/expert-categories")
-def expert_categories(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    """专家类别（种子数据，只读）。"""
-    rows = db.scalars(
-        select(ExpertCategory).where(ExpertCategory.status == 1).order_by(ExpertCategory.sort)
-    ).all()
-    return ok([{
-        "id": r.id,
-        "name": r.name,
-        "sort": r.sort,
-    } for r in rows])

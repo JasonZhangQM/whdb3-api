@@ -3,11 +3,9 @@
 v1.2：list_experts 补 created_by_name（AGENTS.md §6.4 列表页硬约束）；
       service 签名加 ctx 铺路——但专家库是共享资源库（类似 regions/industries），
       不加 apply_data_scope_filter，pm 需要看到全量专家组建评委组。
-v1.5：新增专家评审历史/统计接口（#18/#19）——三跳 JOIN：
+v1.5：新建专家评审历史/统计接口（#18/#19）——三跳 JOIN：
       AppraisalComment → AppraisalArticle → Appraisal。
 """
-
-from datetime import datetime
 
 import sqlalchemy as sa
 from sqlalchemy import delete, func, select
@@ -18,7 +16,6 @@ from app.appraisal.models import (
     Appraisal,
     AppraisalArticle,
     AppraisalComment,
-    ExpertCategory,
     ReviewExpert,
 )
 from app.appraisal.schemas import ReviewExpertCreate
@@ -56,23 +53,17 @@ def list_experts(
     page: int = 1,
     page_size: int = 20,
     expert_type: int | None = None,
-    category_id: int | None = None,
     status: int | None = None,
     keyword: str | None = None,
 ) -> tuple[list[dict], int]:
     """专家列表（§3.7.1 标准分页 + §6.4 created_by_name）。
 
-    v1.3 变更：补 page/page_size 参数（AGENTS.md §3.7.1 主资源列表标准模式）。
-    data_scope 豁免：专家库是全局共享资源（类似 regions/industries），
-    pm 需要在排会时看到全量专家组建评委组，不加 apply_data_scope_filter。
-    权限码 appraisal:expert_list 控制管理页可见性即可。
-    v1.8 变更：加 keyword 参数——按 name / org_name 模糊匹配。
+    v1.9：category_id FK 删除 + deleted_at 字段删除（status=0 即停用）。
+    data_scope 豁免：专家库是全局共享资源，不加 apply_data_scope_filter。
     """
-    stmt = select(ReviewExpert).where(ReviewExpert.deleted_at.is_(None))
+    stmt = select(ReviewExpert)
     if expert_type is not None:
         stmt = stmt.where(ReviewExpert.expert_type == expert_type)
-    if category_id is not None:
-        stmt = stmt.where(ReviewExpert.category_id == category_id)
     if status is not None:
         stmt = stmt.where(ReviewExpert.status == status)
     if keyword and keyword.strip():
@@ -89,19 +80,7 @@ def list_experts(
         .limit(page_size)
     ).all()
 
-    # §3.7.3 N+1 消除：批量取 category 名称 + created_by 名称
-    cat_ids = {e.category_id for e in items if e.category_id}
-    cat_names: dict[int, str] = {}
-    if cat_ids:
-        cat_names = dict(
-            db.execute(
-                select(ExpertCategory.id, ExpertCategory.name).where(
-                    ExpertCategory.id.in_(cat_ids)
-                )
-            ).all()
-        )
-
-    # 批量取创建人名称（AGENTS.md §6.4）
+    # §3.7.3 N+1 消除：批量取 created_by 名称（AGENTS.md §6.4）
     created_ids = {e.created_by for e in items if e.created_by}
     creator_names: dict[int, str] = {}
     if created_ids:
@@ -121,12 +100,12 @@ def list_experts(
             "expert_type_display": _disp(
                 APPRAISAL_LABELS.get("expert_type"), e.expert_type
             ),
-            "category_id": e.category_id,
-            "category_name": cat_names.get(e.category_id),
             "contact_numb": e.contact_numb,
             "email": e.email,
             "sort": e.sort,
             "status": e.status,
+            "status_display": {1: "启用", 0: "停用"}.get(e.status, str(e.status)),
+            "remark": e.remark,
             "created_by": e.created_by,
             "created_by_name": creator_names.get(e.created_by),
         }
@@ -137,7 +116,7 @@ def list_experts(
 def create_expert(
     db: Session, body: ReviewExpertCreate, user_id: int
 ) -> int:
-    """新增专家（唯一性：姓名 + 单位）。"""
+    """新建专家（唯一性：姓名 + 单位）。"""
     exists = db.scalar(
         select(ReviewExpert).where(
             ReviewExpert.name == body.name,
@@ -152,9 +131,9 @@ def create_expert(
         title=body.title,
         org_name=body.org_name,
         expert_type=body.expert_type,
-        category_id=body.category_id,
         contact_numb=body.contact_numb,
         email=body.email,
+        remark=body.remark,
     )
     db.add(expert)
     db.commit()
@@ -173,16 +152,15 @@ def update_expert(
 
 
 def delete_expert(db: Session, expert_id: int, user_id: int) -> None:
-    """删除专家（有意见引用时软删停用，AGENTS.md §4.1 时间约定）。"""
+    """删除专家（有意见引用时软删停用 status=0，无引用则硬删）。"""
     expert = _get_or_404(db, expert_id)
 
     has_ref = db.scalar(
         select(AppraisalComment).where(AppraisalComment.expert_id == expert_id)
     )
     if has_ref is not None:
-        # 软删：停用 + 记录 deleted_at（DateTime 类型）
+        # 软删：停用
         expert.status = 0
-        expert.deleted_at = datetime.now()
     else:
         db.execute(
             delete(ReviewExpert).where(ReviewExpert.id == expert_id)

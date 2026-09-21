@@ -35,12 +35,11 @@ class CommentItem(BaseModel):
 
 
 class ReviewExpertCreate(BaseModel):
-    """新增评审专家。"""
+    """新增评审专家。v1.9：category_id 已删除。"""
     name: str = Field(max_length=64)
     org_name: str | None = Field(default=None, max_length=128)
     title: str | None = None
     expert_type: int
-    category_id: int | None = None
     contact_numb: str | None = None
     email: str | None = None
     remark: str | None = None

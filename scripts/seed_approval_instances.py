@@ -22,7 +22,7 @@ from app.article.models import (
 )
 from app.article.enums import ArticleState
 from app.approval.models import ApprovalFlowDef, ApprovalFlowNode, ApprovalInstance, ApprovalTask
-from app.appraisal.models import AppraisalComment, AppraisalSupply, ReviewExpert, ExpertCategory
+from app.appraisal.models import AppraisalComment, AppraisalSupply, ReviewExpert
 from app.core.db import SessionLocal
 from app.customer.models import Customer
 from app.user.models import User
@@ -80,12 +80,7 @@ def ensure_orders(db, articles):
 
 
 def ensure_experts_and_categories(db):
-    """确保评审专家 + 专家类别存在（幂等：名字匹配即复用）。"""
-    cat = db.scalar(select(ExpertCategory).where(ExpertCategory.name == "通用评委"))
-    if cat is None:
-        cat = ExpertCategory(name="通用评委", sort=1, status=1)
-        db.add(cat); db.flush()
-
+    """确保评审专家存在（幂等：名字匹配即复用）。v1.9.1：expert_type 改枚举，不再有类别 FK。"""
     expert_names = ["张评审", "李风控", "王业务"]
     experts = []
     for name in expert_names:
@@ -93,7 +88,7 @@ def ensure_experts_and_categories(db):
         if e is None:
             e = ReviewExpert(
                 name=name, title="高级评审", org_name="外部评审机构",
-                expert_type=20, category_id=cat.id, status=1, sort=1,
+                expert_type=20, status=1, sort=1,
             )
             db.add(e); db.flush()
         experts.append(e)
