@@ -74,12 +74,8 @@ class CustomerTagRelation(Base):
     )
 
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id", ondelete="CASCADE")
-    )
-    tag_id: Mapped[int] = mapped_column(
-        ForeignKey("customer_extra_tags.id", ondelete="CASCADE")
-    )
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"))
+    tag_id: Mapped[int] = mapped_column(ForeignKey("customer_extra_tags.id", ondelete="CASCADE"))
 
 
 class Group(Base):
@@ -88,15 +84,13 @@ class Group(Base):
     __tablename__ = "customer_groups"
 
     name: Mapped[str] = mapped_column(String(128), unique=True)
-    parent_id: Mapped[int | None] = mapped_column(
-        BigInteger, default=None, index=True, comment="上级集团，NULL=顶级"
-    )
+    parent_id: Mapped[int | None] = mapped_column(BigInteger, default=None, index=True, comment="上级集团，NULL=顶级")
     parent_customer_id: Mapped[int | None] = mapped_column(
         # use_alter：customers.group_id ↔ customer_groups.parent_customer_id 循环依赖，
         # 该约束改为建表后 ALTER 添加（MySQL 不允许引用未建表）
         ForeignKey("customers.id", name="fk_group_parent_customer", use_alter=True),
         index=True,
-        comment="母公司客户",
+        comment="母公司",
     )
     credit_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0, comment="集团总授信额度")
     description: Mapped[str | None] = mapped_column(String(255))
@@ -109,17 +103,17 @@ class Customer(Base):
     __tablename__ = "customers"
 
     # 客户基本信息
-    genre: Mapped[int] = mapped_column(SmallInteger, comment="1企业2个人")
-    name: Mapped[str] = mapped_column(String(128), index=True)
-    short_name: Mapped[str] = mapped_column(String(32), unique=True)
-    license_num: Mapped[str | None] = mapped_column(String(32), unique=True, comment="统一信用代码(企业) / 身份证号(个人)")
+    genre: Mapped[int] = mapped_column(SmallInteger, comment="客户类型:Genre")
+    name: Mapped[str] = mapped_column(String(128), index=True, comment="客户名称")
+    short_name: Mapped[str] = mapped_column(String(32), unique=True, comment="客户简称")
+    license_num: Mapped[str | None] = mapped_column(String(32), unique=True, comment="统一信用代码/身份证号")
     region_id: Mapped[int | None] = mapped_column(ForeignKey("user_regions.id"), comment="注册地行政区域")
     license_addr: Mapped[str | None] = mapped_column(String(255), comment="注册地址(企业) / 身份证地址(个人)")
     credit_region_id: Mapped[int | None] = mapped_column(ForeignKey("customer_credit_regions.id"), comment="授信区域")
-    industry_id: Mapped[int | None] = mapped_column(ForeignKey("customer_industries.id"), comment="国民经济行业")
+    industry_id: Mapped[int | None] = mapped_column(ForeignKey("customer_industries.id"), comment="所属行业")
     group_id: Mapped[int | None] = mapped_column(ForeignKey("customer_groups.id"), comment="所属集团")
-    is_core: Mapped[bool] = mapped_column(Boolean, server_default=text("0"), comment="是否核心企业")
-    is_acceptor: Mapped[bool] = mapped_column(Boolean, server_default=text("0"), comment="是否承兑人")
+    is_core: Mapped[bool] = mapped_column(Boolean, server_default=text("0"), comment="核心企业")
+    is_acceptor: Mapped[bool] = mapped_column(Boolean, server_default=text("0"), comment="承兑人")
 
     managementor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), comment="管护经理")
     controler_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), comment="风控专员")
@@ -152,12 +146,12 @@ class CustomerContact(Base):
     __tablename__ = "customer_contacts"
 
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"))
-    name: Mapped[str] = mapped_column(String(32), comment="联系人姓名")
+    name: Mapped[str] = mapped_column(String(32), comment="联系人")
     phone: Mapped[str] = mapped_column(String(16), comment="联系电话")
-    email: Mapped[str | None] = mapped_column(String(128))
+    email: Mapped[str | None] = mapped_column(String(128), comment="电子邮箱")
     addr: Mapped[str | None] = mapped_column(String(255), comment="联系地址")
-    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, comment="首选联系人")
-    remark: Mapped[str | None] = mapped_column(String(255))
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, comment="首选")
+    remark: Mapped[str | None] = mapped_column(String(255), comment="备注")
 
 
 class CompanyProfile(Base):
@@ -169,7 +163,7 @@ class CompanyProfile(Base):
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), unique=True)
     decisionor: Mapped[int | None] = mapped_column(SmallInteger, comment="决策机构")
     custom_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="企业性质")
-    industry_c: Mapped[int | None] = mapped_column(BigInteger, comment="工信部划分行业")
+    industry_c: Mapped[int | None] = mapped_column(BigInteger, comment="工信部行业")
     typing: Mapped[int] = mapped_column(SmallInteger, default=90, comment="企业划型")
     capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="注册资本(万元)")
     paid_capital: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="实收资本(万元)")
@@ -183,9 +177,9 @@ class PersonalProfile(Base):
 
 
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), unique=True)
-    marital_status: Mapped[int | None] = mapped_column(SmallInteger, server_default=text("90"), comment="婚姻状态")
-    household_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="户籍性质")
-    spouse_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), comment="配偶（双向指向另一条个人客户）")
+    marital_status: Mapped[int | None] = mapped_column(SmallInteger, server_default=text("90"), comment="婚姻状态:MaritalStatus")
+    household_nature: Mapped[int | None] = mapped_column(SmallInteger, comment="户籍性质:HouseholdNature")
+    spouse_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), comment="配偶") #双向指向另一条个人客户
 
 
 class Shareholder(Base):
@@ -195,9 +189,9 @@ class Shareholder(Base):
 
 
     company_id: Mapped[int] = mapped_column(ForeignKey("customer_company_profiles.id"))
-    shareholder_name: Mapped[str] = mapped_column(String(128))
+    shareholder_name: Mapped[str] = mapped_column(String(128), comment="股东名称")
     invested_amount: Mapped[float | None] = mapped_column(Numeric(18, 2), comment="投资额")
-    shareholding_ratio: Mapped[float] = mapped_column(Numeric(8, 4), comment="持股比例%")
+    shareholding_ratio: Mapped[float] = mapped_column(Numeric(8, 4), comment="持股比例(%)")
 
     __table_args__ = (
         UniqueConstraint("company_id", "shareholder_name", name="uq_shareholder"),
@@ -211,8 +205,8 @@ class Director(Base):
 
 
     company_id: Mapped[int] = mapped_column(ForeignKey("customer_company_profiles.id"))
-    director_name: Mapped[str] = mapped_column(String(128))
-    ordery: Mapped[int] = mapped_column(BigInteger, default=0)
+    director_name: Mapped[str] = mapped_column(String(128), comment="董事姓名")
+    ordery: Mapped[int] = mapped_column(BigInteger, default=0, comment="排序")
 
     __table_args__ = (
         UniqueConstraint("company_id", "director_name", name="uq_director"),
@@ -229,8 +223,8 @@ class CustomerExtend(Base):
     sales_revenue: Mapped[float] = mapped_column(Numeric(18, 2), comment="销售收入")
     total_assets: Mapped[float] = mapped_column(Numeric(18, 2), comment="总资产")
     people_engaged: Mapped[float] = mapped_column(Numeric(12, 2), comment="从业人数")
-    data_date: Mapped[date] = mapped_column(comment="快照基准日")
-    typing: Mapped[int] = mapped_column(SmallInteger, default=90, comment="划型结果")
+    data_date: Mapped[date] = mapped_column(comment="基准日")
+    typing: Mapped[int] = mapped_column(SmallInteger, default=90, comment="划型")
 
     __table_args__ = (
         UniqueConstraint("customer_id", "data_date", name="uq_extend_date"),

@@ -128,7 +128,7 @@ def list_warrants(
     page_size: int,
     warrant_type: int | None = None,
     warrant_state: int | None = None,
-    owner_id: int | None = None,
+    owner_name: str | None = None,
     q: str | None = None,
 ) -> tuple[list[dict], int]:
     stmt = select(Warrant).order_by(Warrant.id.desc())
@@ -141,9 +141,18 @@ def list_warrants(
         stmt = stmt.where(Warrant.warrant_state == warrant_state)
     if q:
         stmt = stmt.where(Warrant.warrant_num.like(f"%{q}%"))
-    if owner_id is not None:
-        stmt = stmt.join(WarrantOwnership, WarrantOwnership.warrant_id == Warrant.id).where(
-            WarrantOwnership.owner_id == owner_id
+    if owner_name:
+        # 产权人姓名模糊匹配：EXISTS 子查询避免多产权人导致重复行
+        like = f"%{owner_name}%"
+        stmt = stmt.where(
+            select(1)
+            .select_from(WarrantOwnership)
+            .join(Customer, Customer.id == WarrantOwnership.owner_id)
+            .where(
+                WarrantOwnership.warrant_id == Warrant.id,
+                Customer.name.like(like),
+            )
+            .exists()
         )
 
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0

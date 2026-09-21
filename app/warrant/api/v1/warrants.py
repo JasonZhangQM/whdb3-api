@@ -90,14 +90,14 @@ def list_warrants(
     page_size: int = Query(20, ge=1, le=100),
     warrant_type: int | None = None,
     warrant_state: int | None = None,
-    owner_id: int | None = None,
+    owner_name: str | None = None,
     q: str | None = None,
     db: Session = Depends(get_db),
     ctx: AuthContext = Depends(require_perm("warrant:list")),
 ):
     """权证列表（数据级权限按 created_by 过滤，含所有权人/最近出入库聚合）。"""
     items, total = warrant_service.list_warrants(
-        db, ctx, page, page_size, warrant_type, warrant_state, owner_id, q,
+        db, ctx, page, page_size, warrant_type, warrant_state, owner_name, q,
     )
     return page_result(items, total, page, page_size)
 
