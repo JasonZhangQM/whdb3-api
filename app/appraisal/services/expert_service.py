@@ -3,7 +3,7 @@
 v1.2：list_experts 补 created_by_name（AGENTS.md §6.4 列表页硬约束）；
       service 签名加 ctx 铺路——但专家库是共享资源库（类似 regions/industries），
       不加 apply_data_scope_filter，pm 需要看到全量专家组建评委组。
-v1.5：新建专家评审历史/统计接口（#18/#19）——三跳 JOIN：
+v1.5：新建评委评审历史/统计接口（#18/#19）——三跳 JOIN：
       AppraisalComment → AppraisalArticle → Appraisal。
 """
 
@@ -116,7 +116,7 @@ def list_experts(
 def create_expert(
     db: Session, body: ReviewExpertCreate, user_id: int
 ) -> int:
-    """新建专家（唯一性：姓名 + 单位）。"""
+    """新建评委（唯一性：姓名 + 单位）。"""
     exists = db.scalar(
         select(ReviewExpert).where(
             ReviewExpert.name == body.name,

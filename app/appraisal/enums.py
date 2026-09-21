@@ -28,7 +28,7 @@ class CommentType(LabeledIntEnum):
 class ExpertType(LabeledIntEnum):
     """专家类型。"""
     INTERNAL = 10, '内部评委'
-    EXTERNAL = 20, '外部专家'
+    EXTERNAL = 20, '外部评委'
 
 
 class SupplyStatus(LabeledIntEnum):
