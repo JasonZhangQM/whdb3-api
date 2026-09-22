@@ -29,6 +29,7 @@ class ExpertType(LabeledIntEnum):
     """评委类型。"""
     INTERNAL = 10, '内部评委'
     EXTERNAL = 20, '外部评委'
+    LEGAL_COUNSEL = 30, '法律顾问'
 
 
 class SupplyStatus(LabeledIntEnum):

@@ -76,7 +76,7 @@ def list_experts(
 
     total = db.scalar(select(sa.func.count()).select_from(stmt.subquery())) or 0
     items = db.scalars(
-        stmt.order_by(ReviewExpert.sort, ReviewExpert.id)
+        stmt.order_by(ReviewExpert.created_at.desc(), ReviewExpert.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
