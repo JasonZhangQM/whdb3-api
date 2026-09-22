@@ -261,7 +261,7 @@ def list_experts(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     expert_type: int | None = None,
-    status: int | None = None,
+    status: bool | None = None,
     keyword: str | None = Query(None, description="姓名/单位模糊搜索"),
 ):
     items, total = expert_service.list_experts(
@@ -304,6 +304,17 @@ def update_expert(
     """
     expert_service.update_expert(db, expert_id, body, user.user_id)
     return ok(message="专家已更新")
+
+
+@router.post("/review-experts/{expert_id}/toggle-status")
+def toggle_expert_status(
+    expert_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("appraisal:expert_update")),
+):
+    """切换专家启用/停用状态（1↔0），返回新状态。"""
+    new_status = expert_service.toggle_expert_status(db, expert_id)
+    return ok({"status": new_status}, message="状态已变更")
 
 
 @router.delete("/review-experts/{expert_id}")

@@ -534,8 +534,8 @@ def list_article_comments(db: Session, article_id: int) -> list[dict]:
         select(
             AppraisalComment.id,
             AppraisalComment.expert_id,
-            AppraisalComment.comment_type,
-            AppraisalComment.concrete,
+            AppraisalComment.comment,
+            AppraisalComment.detail,
             AppraisalComment.created_at,
             ReviewExpert.name.label("expert_name"),
         ).outerjoin(
@@ -550,9 +550,9 @@ def list_article_comments(db: Session, article_id: int) -> list[dict]:
             "id": r.id,
             "expert_id": r.expert_id,
             "expert_name": r.expert_name or f"#{r.expert_id}",
-            "comment_type": r.comment_type,
-            "comment_type_display": _disp(APPRAISAL_LABELS.get("comment_type"), r.comment_type),
-            "concrete": r.concrete,
+            "comment": r.comment,
+            "comment_display": _disp(APPRAISAL_LABELS.get("comment_type"), r.comment),
+            "detail": r.detail,
             "created_at": str(r.created_at) if r.created_at else None,
         }
         for r in rows
@@ -589,8 +589,8 @@ def batch_upsert_comments(
             )
             db.add(comment)
 
-        comment.comment_type = item.comment_type
-        comment.concrete = item.concrete
+        comment.comment = item.comment
+        comment.detail = item.detail
         count += 1
 
     db.commit()
@@ -757,8 +757,8 @@ def list_appraisal_comment_matrix(
         select(
             AppraisalComment.article_id,
             AppraisalComment.expert_id,
-            AppraisalComment.comment_type,
-            AppraisalComment.concrete,
+            AppraisalComment.comment,
+            AppraisalComment.detail,
             ReviewExpert.name.label("expert_name"),
         ).outerjoin(
             ReviewExpert, ReviewExpert.id == AppraisalComment.expert_id
@@ -783,11 +783,11 @@ def list_appraisal_comment_matrix(
     for row in comment_rows:
         opinions_by_article.setdefault(row.article_id, {})[row.expert_id] = {
             "expert_id": row.expert_id,
-            "comment_type": row.comment_type,
-            "comment_type_display": _disp(
-                APPRAISAL_LABELS.get("comment_type"), row.comment_type
+            "comment": row.comment,
+            "comment_display": _disp(
+                APPRAISAL_LABELS.get("comment_type"), row.comment
             ),
-            "concrete": row.concrete,
+            "detail": row.detail,
         }
 
     # 5) 构建矩阵：每个 article 一行，opinions 与 experts 对齐
@@ -797,16 +797,16 @@ def list_appraisal_comment_matrix(
         opinions_cell = [
             row_opinions.get(
                 e["id"],
-                {"expert_id": e["id"], "comment_type": None, "concrete": None},
+                {"expert_id": e["id"], "comment": None, "detail": None},
             )
             for e in experts
         ]
-        # summary_opinion：按 comment_type 统计
+        # summary_opinion：按 comment 统计
         ctype_counts: dict[int, int] = {}
         has_opinion = 0
         for op in row_opinions.values():
             has_opinion += 1
-            ct = op.get("comment_type")
+            ct = op.get("comment")
             if ct is not None:
                 ctype_counts[ct] = ctype_counts.get(ct, 0) + 1
         total_experts = len(experts)
@@ -1415,12 +1415,12 @@ def get_appraisal_stats(
     # 意见分布（排除 comment_type=0 未发表）
     opinion_rows = db.execute(
         select(
-            AppraisalComment.comment_type,
+            AppraisalComment.comment,
             func.count().label("cnt"),
         ).where(
             AppraisalComment.article_id.in_(select(art_ids_subq.c.article_id)),
-            AppraisalComment.comment_type != 0,
-        ).group_by(AppraisalComment.comment_type)
+            AppraisalComment.comment != 0,
+        ).group_by(AppraisalComment.comment)
     ).all()
     opinion_distribution = {}
     for ct, cnt in opinion_rows:

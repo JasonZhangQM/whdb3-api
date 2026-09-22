@@ -103,8 +103,8 @@ def ensure_comments_and_supplies(db, articles, experts, supplier_id):
         for idx, exp in enumerate(experts):
             db.add(AppraisalComment(
                 article_id=art.id, expert_id=exp.id,
-                comment_type=10 if idx == 0 else 20,
-                concrete=f"项目{art.article_num}整体质量较好，建议重点关注{'风控指标' if idx == 0 else '还款来源'}。",
+                comment=10 if idx == 0 else 20,
+                detail=f"项目{art.article_num}整体质量较好，建议重点关注{'风控指标' if idx == 0 else '还款来源'}。",
             ))
         # 2 条补调记录（1 已解决 + 1 待解决，最后一条 article 全部已解决）
         is_art3 = (art.article_num == "AR2026-003")

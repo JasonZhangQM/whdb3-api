@@ -131,7 +131,7 @@ def list_warrants(
     owner_name: str | None = None,
     q: str | None = None,
 ) -> tuple[list[dict], int]:
-    stmt = select(Warrant).order_by(Warrant.id.desc())
+    stmt = select(Warrant).order_by(Warrant.created_at.desc())
     # 数据级权限：按创建者过滤（设计 §4：本人在 created_by / 部门 / 全部）
     stmt = apply_data_scope_filter(db, stmt, ctx, owner_field="created_by")
 

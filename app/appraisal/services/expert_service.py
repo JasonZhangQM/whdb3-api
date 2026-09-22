@@ -53,13 +53,14 @@ def list_experts(
     page: int = 1,
     page_size: int = 20,
     expert_type: int | None = None,
-    status: int | None = None,
+    status: bool | None = None,
     keyword: str | None = None,
 ) -> tuple[list[dict], int]:
     """专家列表（§3.7.1 标准分页 + §6.4 created_by_name）。
 
     v1.9：category_id FK 删除 + deleted_at 字段删除（status=0 即停用）。
     data_scope 豁免：评委库是全局共享资源，不加 apply_data_scope_filter。
+    v1.9.2：status 升级为 Boolean（True=启用/False=停用）。
     """
     stmt = select(ReviewExpert)
     if expert_type is not None:
@@ -104,7 +105,7 @@ def list_experts(
             "email": e.email,
             "sort": e.sort,
             "status": e.status,
-            "status_display": {1: "启用", 0: "停用"}.get(e.status, str(e.status)),
+            "status_display": {True: "启用", False: "停用"}.get(e.status, str(e.status)),
             "remark": e.remark,
             "created_by": e.created_by,
             "created_by_name": creator_names.get(e.created_by),
@@ -136,7 +137,7 @@ def get_expert(db: Session, expert_id: int) -> dict:
         "email": e.email,
         "sort": e.sort,
         "status": e.status,
-        "status_display": {1: "启用", 0: "停用"}.get(e.status, str(e.status)),
+        "status_display": {True: "启用", False: "停用"}.get(e.status, str(e.status)),
         "remark": e.remark,
         "created_by": e.created_by,
         "created_by_name": creator_names.get(e.created_by),
@@ -183,8 +184,16 @@ def update_expert(
     db.commit()
 
 
+def toggle_expert_status(db: Session, expert_id: int) -> bool:
+    """切换专家状态（True 启用 ↔ False 停用），返回新状态。"""
+    expert = _get_or_404(db, expert_id)
+    expert.status = not expert.status
+    db.commit()
+    return expert.status
+
+
 def delete_expert(db: Session, expert_id: int, user_id: int) -> None:
-    """删除专家（有意见引用时软删停用 status=0，无引用则硬删）。"""
+    """删除专家（有意见引用时软删停用 status=False，无引用则硬删）。"""
     expert = _get_or_404(db, expert_id)
 
     has_ref = db.scalar(
@@ -192,7 +201,7 @@ def delete_expert(db: Session, expert_id: int, user_id: int) -> None:
     )
     if has_ref is not None:
         # 软删：停用
-        expert.status = 0
+        expert.status = False
     else:
         db.execute(
             delete(ReviewExpert).where(ReviewExpert.id == expert_id)
@@ -257,8 +266,8 @@ def get_expert_history(db: Session, expert_id: int) -> dict:
     comment_rows = db.execute(
         select(
             AppraisalComment.id,
-            AppraisalComment.comment_type,
-            AppraisalComment.concrete,
+            AppraisalComment.comment,
+            AppraisalComment.detail,
             AppraisalComment.created_at,
             Article.article_num,
             Article.customer_id,
@@ -286,9 +295,9 @@ def get_expert_history(db: Session, expert_id: int) -> dict:
             "comment_id": cid,
             "article_num": anum,
             "customer_name": customers.get(cid_customer),
-            "comment_type": ctype,
-            "comment_type_display": _disp(APPRAISAL_LABELS.get("comment_type"), ctype),
-            "concrete": concrete,
+            "comment": ctype,
+            "comment_display": _disp(APPRAISAL_LABELS.get("comment_type"), ctype),
+            "detail": concrete,
             "created_at": str(created_at) if created_at else None,
         })
 
@@ -334,11 +343,11 @@ def get_expert_stats(db: Session, expert_id: int) -> dict:
     # ---- opinion_distribution ----
     type_rows = db.execute(
         select(
-            AppraisalComment.comment_type,
+            AppraisalComment.comment,
             func.count().label("cnt"),
         ).where(
             AppraisalComment.expert_id == expert_id
-        ).group_by(AppraisalComment.comment_type)
+        ).group_by(AppraisalComment.comment)
     ).all()
     opinion_distribution = {
         str(ctype): int(cnt) for ctype, cnt in type_rows if ctype is not None

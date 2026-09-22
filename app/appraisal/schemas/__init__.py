@@ -30,8 +30,8 @@ class CommentBatchCreate(BaseModel):
 
 class CommentItem(BaseModel):
     expert_id: int
-    comment_type: int = Field(..., ge=0, le=30)
-    concrete: str | None = None
+    comment: int = Field(..., ge=0, le=30)
+    detail: str | None = None
 
 
 class ReviewExpertCreate(BaseModel):

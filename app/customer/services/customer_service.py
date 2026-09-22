@@ -81,7 +81,7 @@ def list_customers(
 ) -> tuple[list[dict], int]:
     from app.user.models import User
 
-    stmt = select(Customer).order_by(Customer.credit_amount.desc())
+    stmt = select(Customer).order_by(Customer.created_at.desc())
 
     # 数据级权限：按管护人过滤（§4.1）——部门范围经统一入口翻译为部门内用户集合
     stmt = apply_data_scope_filter(db, stmt, ctx, owner_field="managementor_id")

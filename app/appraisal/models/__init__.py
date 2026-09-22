@@ -14,6 +14,7 @@ AGENTS.md §4.1 对齐：
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -38,7 +39,7 @@ class Appraisal(Base):
     seq: Mapped[int] = mapped_column(comment="评审次序:年份内递增")
     review_model: Mapped[int] = mapped_column(SmallInteger, comment="评审类型:ReviewModel")
     review_date: Mapped[Date] = mapped_column(Date, comment="评审日期")
-    compere_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), comment="主持人")
+    compere_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), comment="主持人")
     meeting_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="状态:MeetingState")
 
     __table_args__ = (
@@ -53,7 +54,7 @@ class AppraisalArticle(Base):
     __tablename__ = "appraisal_articles"
 
     appraisal_id: Mapped[int] = mapped_column(ForeignKey("appraisals.id", ondelete="CASCADE"))
-    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"))
 
     __table_args__ = (
         UniqueConstraint("appraisal_id", "article_id", name="uq_appraisal_article"),
@@ -65,10 +66,10 @@ class AppraisalComment(Base):
 
     __tablename__ = "appraisal_comments"
 
-    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
-    expert_id: Mapped[int] = mapped_column(ForeignKey("appraisal_review_experts.id", ondelete="RESTRICT"))
-    comment_type: Mapped[int] = mapped_column(SmallInteger, default=0, comment="0未发表/10同意/20复议/30不同意")
-    concrete: Mapped[str | None] = mapped_column(Text, comment="意见详情")
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"))
+    expert_id: Mapped[int] = mapped_column(ForeignKey("appraisal_review_experts.id"))
+    comment: Mapped[int] = mapped_column(SmallInteger, default=0, comment="意见:CommentType")
+    detail: Mapped[str | None] = mapped_column(Text, comment="意见详情")
 
     __table_args__ = (
         UniqueConstraint("article_id", "expert_id", name="uq_comment_article_expert"),
@@ -86,9 +87,9 @@ class ReviewExpert(Base):
     expert_type: Mapped[int] = mapped_column(SmallInteger, comment="类别:ExpertType")
     contact_numb: Mapped[str | None] = mapped_column(String(16), comment="联系电话")
     email: Mapped[str | None] = mapped_column(String(64), comment="邮箱")
-    sort: Mapped[int] = mapped_column(default=1, comment="排序")
     remark: Mapped[str | None] = mapped_column(String(255), comment="备注")
-    status: Mapped[int] = mapped_column(SmallInteger, default=1, comment="状态")
+    status: Mapped[bool] = mapped_column(Boolean, default=True, comment="状态:True启用/False停用")
+    sort: Mapped[int] = mapped_column(default=1, comment="排序")
 
 
 class AppraisalSupply(Base):

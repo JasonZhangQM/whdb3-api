@@ -22,10 +22,10 @@ def list_article_comments(db: Session, article_id: int) -> list[dict]:
         {
             "id": c.id,
             "expert_name": expert_name or f"专家#{c.expert_id}",
-            "comment_type": c.comment_type,
-            "comment_type_display": {10: "同意上会", 20: "复议", 30: "不同意"}.get(c.comment_type, "未发表"),
+            "comment": c.comment,
+            "comment_display": {10: "同意上会", 20: "复议", 30: "不同意"}.get(c.comment, "未发表"),
             "score": None,
-            "concrete": c.concrete,
+            "detail": c.detail,
             "created_at": str(c.created_at) if c.created_at else None,
         }
         for c, expert_name in rows
