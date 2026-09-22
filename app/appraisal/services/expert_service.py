@@ -16,9 +16,9 @@ from app.appraisal.models import (
     Appraisal,
     AppraisalArticle,
     AppraisalComment,
-    ReviewExpert,
+    AppraisalExpert,
 )
-from app.appraisal.schemas import ReviewExpertCreate
+from app.appraisal.schemas import AppraisalExpertCreate
 from app.article.models import Article
 from app.core.deps import AuthContext
 from app.core.exceptions import BizError
@@ -28,8 +28,8 @@ from app.user.models import User
 
 # ============ 顶部标配 ============
 
-def _get_or_404(db: Session, expert_id: int) -> ReviewExpert:
-    e = db.get(ReviewExpert, expert_id)
+def _get_or_404(db: Session, expert_id: int) -> AppraisalExpert:
+    e = db.get(AppraisalExpert, expert_id)
     if e is None:
         raise BizError(4041, "评审专家不存在")
     return e
@@ -62,21 +62,21 @@ def list_experts(
     data_scope 豁免：评委库是全局共享资源，不加 apply_data_scope_filter。
     v1.9.2：status 升级为 Boolean（True=启用/False=停用）。
     """
-    stmt = select(ReviewExpert)
+    stmt = select(AppraisalExpert)
     if expert_type is not None:
-        stmt = stmt.where(ReviewExpert.expert_type == expert_type)
+        stmt = stmt.where(AppraisalExpert.expert_type == expert_type)
     if status is not None:
-        stmt = stmt.where(ReviewExpert.status == status)
+        stmt = stmt.where(AppraisalExpert.status == status)
     if keyword and keyword.strip():
         like = f"%{keyword.strip()}%"
         stmt = stmt.where(sa.or_(
-            ReviewExpert.name.like(like),
-            ReviewExpert.org_name.like(like),
+            AppraisalExpert.name.like(like),
+            AppraisalExpert.org_name.like(like),
         ))
 
     total = db.scalar(select(sa.func.count()).select_from(stmt.subquery())) or 0
     items = db.scalars(
-        stmt.order_by(ReviewExpert.created_at.desc(), ReviewExpert.id.desc())
+        stmt.order_by(AppraisalExpert.created_at.desc(), AppraisalExpert.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
@@ -147,19 +147,19 @@ def get_expert(db: Session, expert_id: int) -> dict:
 
 
 def create_expert(
-    db: Session, body: ReviewExpertCreate, user_id: int
+    db: Session, body: AppraisalExpertCreate, user_id: int
 ) -> int:
     """新建评委（唯一性：姓名 + 单位）。"""
     exists = db.scalar(
-        select(ReviewExpert).where(
-            ReviewExpert.name == body.name,
-            ReviewExpert.org_name == body.org_name,
+        select(AppraisalExpert).where(
+            AppraisalExpert.name == body.name,
+            AppraisalExpert.org_name == body.org_name,
         )
     )
     if exists:
         raise BizError(4091, "该专家已存在")
 
-    expert = ReviewExpert(
+    expert = AppraisalExpert(
         name=body.name,
         title=body.title,
         org_name=body.org_name,
@@ -175,7 +175,7 @@ def create_expert(
 
 
 def update_expert(
-    db: Session, expert_id: int, body: ReviewExpertCreate, user_id: int
+    db: Session, expert_id: int, body: AppraisalExpertCreate, user_id: int
 ) -> None:
     """修改专家。"""
     expert = _get_or_404(db, expert_id)
@@ -205,7 +205,7 @@ def delete_expert(db: Session, expert_id: int, user_id: int) -> None:
         expert.status = False
     else:
         db.execute(
-            delete(ReviewExpert).where(ReviewExpert.id == expert_id)
+            delete(AppraisalExpert).where(AppraisalExpert.id == expert_id)
         )
 
     db.commit()
@@ -214,7 +214,7 @@ def delete_expert(db: Session, expert_id: int, user_id: int) -> None:
 def sort_experts(db: Session, items: list[dict], user_id: int) -> None:
     """批量更新排序。"""
     for item in items:
-        expert = db.get(ReviewExpert, item["id"])
+        expert = db.get(AppraisalExpert, item["id"])
         if expert:
             expert.sort = item.get("sort", expert.sort)
     db.commit()

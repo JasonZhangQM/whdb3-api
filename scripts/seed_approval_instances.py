@@ -22,7 +22,7 @@ from app.article.models import (
 )
 from app.article.enums import ArticleState
 from app.approval.models import ApprovalFlowDef, ApprovalFlowNode, ApprovalInstance, ApprovalTask
-from app.appraisal.models import AppraisalComment, AppraisalSupply, ReviewExpert
+from app.appraisal.models import AppraisalComment, AppraisalSupply, AppraisalExpert
 from app.core.db import SessionLocal
 from app.customer.models import Customer
 from app.user.models import User
@@ -84,9 +84,9 @@ def ensure_experts_and_categories(db):
     expert_names = ["张评审", "李风控", "王业务"]
     experts = []
     for name in expert_names:
-        e = db.scalar(select(ReviewExpert).where(ReviewExpert.name == name))
+        e = db.scalar(select(AppraisalExpert).where(AppraisalExpert.name == name))
         if e is None:
-            e = ReviewExpert(
+            e = AppraisalExpert(
                 name=name, title="高级评审", org_name="外部评审机构",
                 expert_type=20, status=1, sort=1,
             )

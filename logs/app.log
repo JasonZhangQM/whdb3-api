@@ -312,3 +312,320 @@ FROM appraisal_comments
 WHERE appraisal_comments.expert_id = %(expert_id_1)s]
 [parameters: {'expert_id_1': 7}]
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-09-22 10:33:02,438 ERROR [6908fccb1a33] app.main: unhandled error: (pymysql.err.ProgrammingError) (1146, "Table 'whdb_v3_dev.appraisal_experts' doesn't exist")
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT appraisal_experts.name AS name, appraisal_experts.org_name AS org_name, appraisal_experts.title AS title, appraisal_experts.expert_type AS expert_type, appraisal_experts.contact_numb AS contact_numb, appraisal_experts.email AS email, appraisal_experts.remark AS remark, appraisal_experts.status AS status, appraisal_experts.sort AS sort, appraisal_experts.id AS id, appraisal_experts.created_by AS created_by, appraisal_experts.created_at AS created_at, appraisal_experts.updated_at AS updated_at 
+FROM appraisal_experts) AS anon_1]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+Traceback (most recent call last):
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\cursors.py", line 153, in execute
+    result = self._query(query)
+             ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\cursors.py", line 322, in _query
+    conn.query(q)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 563, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 825, in _read_query_result
+    result.read()
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 1199, in read
+    first_packet = self.connection._read_packet()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 775, in _read_packet
+    packet.raise_for_error()
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\protocol.py", line 219, in raise_for_error
+    err.raise_mysql_exception(self._data)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.ProgrammingError: (1146, "Table 'whdb_v3_dev.appraisal_experts' doesn't exist")
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_utils.py", line 87, in collapse_excgroups
+    raise exc
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\mysite\whdb3\whdb3-api\app\core\logging.py", line 53, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\routing.py", line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\anyio\to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\anyio\_backends\_asyncio.py", line 2502, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\mysite\whdb3\whdb3-api\app\appraisal\api\v1\appraisals.py", line 267, in list_experts
+    items, total = expert_service.list_experts(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\mysite\whdb3\whdb3-api\app\appraisal\services\expert_service.py", line 77, in list_experts
+    total = db.scalar(select(sa.func.count()).select_from(stmt.subquery())) or 0
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\orm\session.py", line 2421, in scalar
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\orm\session.py", line 2271, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\cursors.py", line 153, in execute
+    result = self._query(query)
+             ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\cursors.py", line 322, in _query
+    conn.query(q)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 563, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 825, in _read_query_result
+    result.read()
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 1199, in read
+    first_packet = self.connection._read_packet()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 775, in _read_packet
+    packet.raise_for_error()
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\protocol.py", line 219, in raise_for_error
+    err.raise_mysql_exception(self._data)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
+    raise errorclass(errno, errval)
+sqlalchemy.exc.ProgrammingError: (pymysql.err.ProgrammingError) (1146, "Table 'whdb_v3_dev.appraisal_experts' doesn't exist")
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT appraisal_experts.name AS name, appraisal_experts.org_name AS org_name, appraisal_experts.title AS title, appraisal_experts.expert_type AS expert_type, appraisal_experts.contact_numb AS contact_numb, appraisal_experts.email AS email, appraisal_experts.remark AS remark, appraisal_experts.status AS status, appraisal_experts.sort AS sort, appraisal_experts.id AS id, appraisal_experts.created_by AS created_by, appraisal_experts.created_at AS created_at, appraisal_experts.updated_at AS updated_at 
+FROM appraisal_experts) AS anon_1]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+2026-09-22 10:33:32,089 ERROR [a2eb71b460f9] app.main: unhandled error: (pymysql.err.ProgrammingError) (1146, "Table 'whdb_v3_dev.appraisal_experts' doesn't exist")
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT appraisal_experts.name AS name, appraisal_experts.org_name AS org_name, appraisal_experts.title AS title, appraisal_experts.expert_type AS expert_type, appraisal_experts.contact_numb AS contact_numb, appraisal_experts.email AS email, appraisal_experts.remark AS remark, appraisal_experts.status AS status, appraisal_experts.sort AS sort, appraisal_experts.id AS id, appraisal_experts.created_by AS created_by, appraisal_experts.created_at AS created_at, appraisal_experts.updated_at AS updated_at 
+FROM appraisal_experts) AS anon_1]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+Traceback (most recent call last):
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\cursors.py", line 153, in execute
+    result = self._query(query)
+             ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\cursors.py", line 322, in _query
+    conn.query(q)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 563, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 825, in _read_query_result
+    result.read()
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 1199, in read
+    first_packet = self.connection._read_packet()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 775, in _read_packet
+    packet.raise_for_error()
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\protocol.py", line 219, in raise_for_error
+    err.raise_mysql_exception(self._data)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.ProgrammingError: (1146, "Table 'whdb_v3_dev.appraisal_experts' doesn't exist")
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_utils.py", line 87, in collapse_excgroups
+    raise exc
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\mysite\whdb3\whdb3-api\app\core\logging.py", line 53, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\fastapi\routing.py", line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\anyio\to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\anyio\_backends\_asyncio.py", line 2502, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\mysite\whdb3\whdb3-api\app\appraisal\api\v1\appraisals.py", line 267, in list_experts
+    items, total = expert_service.list_experts(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\mysite\whdb3\whdb3-api\app\appraisal\services\expert_service.py", line 77, in list_experts
+    total = db.scalar(select(sa.func.count()).select_from(stmt.subquery())) or 0
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\orm\session.py", line 2421, in scalar
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\orm\session.py", line 2271, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\69588\.conda\envs\whdb3\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\cursors.py", line 153, in execute
+    result = self._query(query)
+             ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\cursors.py", line 322, in _query
+    conn.query(q)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 563, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 825, in _read_query_result
+    result.read()
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 1199, in read
+    first_packet = self.connection._read_packet()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\connections.py", line 775, in _read_packet
+    packet.raise_for_error()
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\protocol.py", line 219, in raise_for_error
+    err.raise_mysql_exception(self._data)
+  File "C:\Users\69588\AppData\Roaming\Python\Python312\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
+    raise errorclass(errno, errval)
+sqlalchemy.exc.ProgrammingError: (pymysql.err.ProgrammingError) (1146, "Table 'whdb_v3_dev.appraisal_experts' doesn't exist")
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT appraisal_experts.name AS name, appraisal_experts.org_name AS org_name, appraisal_experts.title AS title, appraisal_experts.expert_type AS expert_type, appraisal_experts.contact_numb AS contact_numb, appraisal_experts.email AS email, appraisal_experts.remark AS remark, appraisal_experts.status AS status, appraisal_experts.sort AS sort, appraisal_experts.id AS id, appraisal_experts.created_by AS created_by, appraisal_experts.created_at AS created_at, appraisal_experts.updated_at AS updated_at 
+FROM appraisal_experts) AS anon_1]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+2026-09-22 10:35:23,664 WARNING [3e7de87956a6] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`warrant_ownerships`, CONSTRAINT `warrant_ownerships_ibfk_3` FOREIGN KEY (`warrant_id`) REFERENCES `warrants` (`id`))')
+2026-09-22 10:35:31,128 WARNING [388071f4f4bc] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`warrant_ownerships`, CONSTRAINT `warrant_ownerships_ibfk_3` FOREIGN KEY (`warrant_id`) REFERENCES `warrants` (`id`))')
+2026-09-22 10:35:35,160 WARNING [0a111e58869b] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`warrant_ownerships`, CONSTRAINT `warrant_ownerships_ibfk_3` FOREIGN KEY (`warrant_id`) REFERENCES `warrants` (`id`))')
+2026-09-22 10:35:39,312 WARNING [f250a49e4fc3] app.main: integrity error: (1451, 'Cannot delete or update a parent row: a foreign key constraint fails (`whdb_v3_dev`.`warrant_ownerships`, CONSTRAINT `warrant_ownerships_ibfk_3` FOREIGN KEY (`warrant_id`) REFERENCES `warrants` (`id`))')
+2026-09-22 10:45:46,278 INFO [-] httpx: HTTP Request: GET http://testserver/api/v1/appraisals "HTTP/1.1 401 Unauthorized"
+2026-09-22 10:45:59,966 INFO [-] httpx: HTTP Request: POST http://testserver/api/v1/auth/login "HTTP/1.1 200 OK"
+2026-09-22 10:46:33,860 INFO [-] httpx: HTTP Request: GET http://testserver/api/v1/dicts/appraisal "HTTP/1.1 401 Unauthorized"
+2026-09-22 10:48:50,979 INFO [-] httpx: HTTP Request: GET http://testserver/api/v1/appraisals?page=1&page_size=20 "HTTP/1.1 401 Unauthorized"
+2026-09-22 10:48:50,982 INFO [-] httpx: HTTP Request: GET http://testserver/api/v1/appraisals?page=abc "HTTP/1.1 401 Unauthorized"
+2026-09-22 10:49:36,807 INFO [-] httpx: HTTP Request: GET http://testserver/api/v1/appraisals "HTTP/1.1 401 Unauthorized"
+2026-09-22 10:49:36,811 INFO [-] httpx: HTTP Request: GET http://testserver/api/v1/appraisals?page=1&page_size=20 "HTTP/1.1 401 Unauthorized"

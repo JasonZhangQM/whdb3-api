@@ -10,7 +10,7 @@ from app.appraisal.schemas import (
     AppraisalFinish,
     CommentBatchCreate,
     ExpertSortBatch,
-    ReviewExpertCreate,
+    AppraisalExpertCreate,
     SupplyCreate,
     SupplyResolve,
     SupplyUpdate,
@@ -282,7 +282,7 @@ def get_expert(
 
 @router.post("/review-experts")
 def create_expert(
-    body: ReviewExpertCreate,
+    body: AppraisalExpertCreate,
     db=Depends(get_db),
     user: AuthContext = Depends(require_perm("appraisal:expert_create")),
 ):
@@ -293,7 +293,7 @@ def create_expert(
 @router.put("/review-experts/{expert_id}")
 def update_expert(
     expert_id: int,
-    body: ReviewExpertCreate,
+    body: AppraisalExpertCreate,
     db=Depends(get_db),
     user: AuthContext = Depends(require_perm("appraisal:expert_update")),
 ):

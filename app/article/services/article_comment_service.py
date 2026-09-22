@@ -3,7 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.appraisal.models import AppraisalComment, ReviewExpert
+from app.appraisal.models import AppraisalComment, AppraisalExpert
 
 
 def list_article_comments(db: Session, article_id: int) -> list[dict]:
@@ -12,8 +12,8 @@ def list_article_comments(db: Session, article_id: int) -> list[dict]:
     注：AppraisalComment 无 score 字段，返回 None 占位。
     """
     stmt = (
-        select(AppraisalComment, ReviewExpert.name.label("expert_name"))
-        .outerjoin(ReviewExpert, ReviewExpert.id == AppraisalComment.expert_id)
+        select(AppraisalComment, AppraisalExpert.name.label("expert_name"))
+        .outerjoin(AppraisalExpert, AppraisalExpert.id == AppraisalComment.expert_id)
         .where(AppraisalComment.article_id == article_id)
         .order_by(AppraisalComment.id.asc())
     )

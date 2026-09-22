@@ -39,7 +39,7 @@ class Appraisal(Base):
     seq: Mapped[int] = mapped_column(comment="评审次序:年份内递增")
     review_model: Mapped[int] = mapped_column(SmallInteger, comment="评审类型:ReviewModel")
     review_date: Mapped[Date] = mapped_column(Date, comment="评审日期")
-    compere_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), comment="主持人")
+    compere_id: Mapped[int | None] = mapped_column(ForeignKey("appraisal_experts.id"), comment="主持人(评审委员)")
     meeting_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="状态:MeetingState")
 
     __table_args__ = (
@@ -67,7 +67,7 @@ class AppraisalComment(Base):
     __tablename__ = "appraisal_comments"
 
     article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"))
-    expert_id: Mapped[int] = mapped_column(ForeignKey("appraisal_review_experts.id"))
+    expert_id: Mapped[int] = mapped_column(ForeignKey("appraisal_experts.id"))
     comment: Mapped[int] = mapped_column(SmallInteger, default=0, comment="意见:CommentType")
     detail: Mapped[str | None] = mapped_column(Text, comment="意见详情")
 
@@ -76,10 +76,10 @@ class AppraisalComment(Base):
     )
 
 
-class ReviewExpert(Base):
+class AppraisalExpert(Base):
     """评审专家。"""
 
-    __tablename__ = "appraisal_review_experts"
+    __tablename__ = "appraisal_experts"
 
     name: Mapped[str] = mapped_column(String(64), comment="姓名")
     org_name: Mapped[str | None] = mapped_column(String(128), comment="单位")

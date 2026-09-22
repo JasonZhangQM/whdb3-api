@@ -34,7 +34,7 @@ class CommentItem(BaseModel):
     detail: str | None = None
 
 
-class ReviewExpertCreate(BaseModel):
+class AppraisalExpertCreate(BaseModel):
     """新增评审专家。v1.9：category_id 已删除。"""
     name: str = Field(max_length=64)
     org_name: str | None = Field(default=None, max_length=128)

@@ -20,6 +20,7 @@ from app.appraisal.models import (
     AppraisalArticle,
     AppraisalComment,
     AppraisalSupply,
+    AppraisalExpert,
 )
 from app.article.models import (
     Article,
@@ -165,15 +166,22 @@ def list_appraisals(
     if not items:
         return [], total
 
-    # §3.7.3 N+1 消除：合并 compere_id + created_by 到一次 User 查询
+    # N+1 消除：compere_id 指向 AppraisalExpert，created_by 指向 User → 分两次查
     compere_ids = {a.compere_id for a in items if a.compere_id}
+    expert_names: dict[int, str] = {}
+    if compere_ids:
+        expert_names = dict(
+            db.execute(
+                select(AppraisalExpert.id, AppraisalExpert.name).where(AppraisalExpert.id.in_(compere_ids))
+            ).all()
+        )
+
     created_ids = {a.created_by for a in items if a.created_by}
-    all_user_ids = compere_ids | created_ids
     users: dict[int, str] = {}
-    if all_user_ids:
+    if created_ids:
         users = dict(
             db.execute(
-                select(User.id, User.name).where(User.id.in_(all_user_ids))
+                select(User.id, User.name).where(User.id.in_(created_ids))
             ).all()
         )
 
@@ -202,7 +210,7 @@ def list_appraisals(
             "meeting_state": a.meeting_state,
             "meeting_state_display": _disp(APPRAISAL_LABELS.get("meeting_state"), a.meeting_state),
             "compere_id": a.compere_id,
-            "compere_name": users.get(a.compere_id),
+            "compere_name": expert_names.get(a.compere_id),
             "articles_count": article_counts.get(a.id, 0),
             "created_by": a.created_by,
             "created_by_name": users.get(a.created_by),
@@ -384,12 +392,17 @@ def get_appraisal(db: Session, ctx: AuthContext, appraisal_id: int) -> dict:
             raise BizError(4041, "评审会不存在")  # 4041 避免暴露 ID 是否有效
     # ===== 可见性检查结束 =====
 
-    # N+1：合并 compere_id + created_by
-    all_user_ids = {uid for uid in [appraisal.compere_id, appraisal.created_by] if uid}
+    # compere_id → AppraisalExpert.name；created_by → User.name
+    compere_name = None
+    if appraisal.compere_id:
+        compere_name = db.execute(
+            select(AppraisalExpert.name).where(AppraisalExpert.id == appraisal.compere_id)
+        ).scalar_one_or_none()
+
     users: dict[int, str] = {}
-    if all_user_ids:
+    if appraisal.created_by:
         users = dict(
-            db.execute(select(User.id, User.name).where(User.id.in_(all_user_ids))).all()
+            db.execute(select(User.id, User.name).where(User.id == appraisal.created_by)).all()
         )
 
     # 参评项目清单（复用 list_appraisal_articles 的查询逻辑）
@@ -441,7 +454,7 @@ def get_appraisal(db: Session, ctx: AuthContext, appraisal_id: int) -> dict:
         "review_model_display": _disp(APPRAISAL_LABELS.get("review_model"), appraisal.review_model),
         "review_date": str(appraisal.review_date) if appraisal.review_date else None,
         "compere_id": appraisal.compere_id,
-        "compere_name": users.get(appraisal.compere_id),
+        "compere_name": compere_name,
         "meeting_state": appraisal.meeting_state,
         "meeting_state_display": _disp(APPRAISAL_LABELS.get("meeting_state"), appraisal.meeting_state),
         "created_by": appraisal.created_by,
@@ -530,7 +543,7 @@ def delete_appraisal(db: Session, appraisal_id: int, user_id: int) -> None:
 def list_article_comments(db: Session, article_id: int) -> list[dict]:
     """项目的评委意见列表（#11，N+1 消除）。
 
-    联表取 ReviewExpert.name（评委姓名），一条批量查询。
+    联表取 AppraisalExpert.name（评委姓名），一条批量查询。
     """
     rows = db.execute(
         select(
@@ -539,9 +552,9 @@ def list_article_comments(db: Session, article_id: int) -> list[dict]:
             AppraisalComment.comment,
             AppraisalComment.detail,
             AppraisalComment.created_at,
-            ReviewExpert.name.label("expert_name"),
+            AppraisalExpert.name.label("expert_name"),
         ).outerjoin(
-            ReviewExpert, ReviewExpert.id == AppraisalComment.expert_id
+            AppraisalExpert, AppraisalExpert.id == AppraisalComment.expert_id
         ).where(
             AppraisalComment.article_id == article_id
         ).order_by(AppraisalComment.id.desc())
@@ -761,9 +774,9 @@ def list_appraisal_comment_matrix(
             AppraisalComment.expert_id,
             AppraisalComment.comment,
             AppraisalComment.detail,
-            ReviewExpert.name.label("expert_name"),
+            AppraisalExpert.name.label("expert_name"),
         ).outerjoin(
-            ReviewExpert, ReviewExpert.id == AppraisalComment.expert_id
+            AppraisalExpert, AppraisalExpert.id == AppraisalComment.expert_id
         ).where(
             AppraisalComment.article_id.in_(article_ids)
         )
@@ -1295,7 +1308,7 @@ def get_appraisal_material_report(
     compere_name = None
     if appraisal.compere_id:
         compere_name = db.execute(
-            select(User.name).where(User.id == appraisal.compere_id)
+            select(AppraisalExpert.name).where(AppraisalExpert.id == appraisal.compere_id)
         ).scalar_one_or_none()
 
     meeting_cover = {

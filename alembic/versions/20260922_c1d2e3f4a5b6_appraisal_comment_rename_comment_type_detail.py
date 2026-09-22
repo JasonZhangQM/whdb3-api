@@ -10,7 +10,7 @@
 FK 改动采用 warrant_ownership_fk_no_cascade 的 introspect 模式动态
 查找约束名，兼容 MySQL/PostgreSQL。
 
-Revision ID: c1d2e3f4a5b6
+Revision ID: 20260922_comment_rename
 Revises: b3c4d5e6f7a8
 Create Date: 2026-09-22 17:00:00.000000
 """
@@ -18,7 +18,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = 'c1d2e3f4a5b6'
+revision = '20260922_comment_rename'
 down_revision = 'b3c4d5e6f7a8'
 branch_labels = None
 depends_on = None
