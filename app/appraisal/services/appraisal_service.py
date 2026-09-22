@@ -129,7 +129,7 @@ def list_appraisals(
     review_model: int | None = None,
     meeting_state: int | None = None,
 ) -> tuple[list[dict], int]:
-    """评审会列表（AGENTS.md §3.7 + §6.4 + v1.4 data_scope）。
+    """评审会（AGENTS.md §3.7 + §6.4 + v1.4 data_scope）。
 
     v1.4 实现 pm 数据范围（自定义，不走 apply_data_scope_filter）：
     标准 apply_data_scope_filter 只支持 owner_field 简单列过滤，
@@ -197,6 +197,7 @@ def list_appraisals(
             "year": a.year,
             "seq": a.seq,
             "review_model": a.review_model,
+            "review_model_display": _disp(APPRAISAL_LABELS.get("review_model"), a.review_model),
             "review_date": str(a.review_date) if a.review_date else None,
             "meeting_state": a.meeting_state,
             "meeting_state_display": _disp(APPRAISAL_LABELS.get("meeting_state"), a.meeting_state),
@@ -236,6 +237,7 @@ def create_appraisal(
         review_date=body.review_date,
         compere_id=body.compere_id,
         meeting_state=MeetingState.PENDING.value,
+        created_by=user_id,
     )
     db.add(appraisal)
     db.flush()

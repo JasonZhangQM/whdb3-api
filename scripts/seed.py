@@ -87,7 +87,7 @@ MENU_PERM_NAMES: dict[str, str] = {
     "customer:group_list": "集团管理",
     "warrant:list": "权证列表",
     "article:list": "项目列表",
-    "appraisal:list": "评审会列表",
+    "appraisal:list": "评审会",
     "appraisal:expert_list": "评委库",
 }
 

@@ -7,7 +7,7 @@
 
 ACTION_PERMISSIONS: list[tuple[str, str]] = [
     # 评审会（7 个）
-    ("appraisal:list", "评审会列表"),
+    ("appraisal:list", "评审会"),
     ("appraisal:read", "评审会详情查看"),
     ("appraisal:create", "评审会新建"),
     ("appraisal:update", "评审会修改（排会/移出/纪要编辑）"),
@@ -31,7 +31,7 @@ MENUS: list[dict] = [
         "type": 10,  # 一级目录
         "children": [
             {
-                "caption": "评审会列表",
+                "caption": "评审会",
                 "path": "/appraisal/list",
                 "component": "appraisal/index",
                 "type": 20,

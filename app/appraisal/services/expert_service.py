@@ -167,6 +167,7 @@ def create_expert(
         contact_numb=body.contact_numb,
         email=body.email,
         remark=body.remark,
+        created_by=user_id,
     )
     db.add(expert)
     db.commit()
