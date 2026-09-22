@@ -259,7 +259,7 @@ def list_experts(
     db=Depends(get_db),
     ctx: AuthContext = Depends(require_perm("appraisal:expert_list")),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     expert_type: int | None = None,
     status: bool | None = None,
     keyword: str | None = Query(None, description="姓名/单位模糊搜索"),
