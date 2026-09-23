@@ -34,12 +34,12 @@ class Appraisal(Base):
 
     __tablename__ = "appraisals"
 
-    num: Mapped[str] = mapped_column(String(32), unique=True, comment="评审会编号 年-次序")
+    num: Mapped[str] = mapped_column(String(32), unique=True, comment="评审会编号:年-次序")
     year: Mapped[int] = mapped_column(comment="评审年份")
     seq: Mapped[int] = mapped_column(comment="评审次序:年份内递增")
     review_model: Mapped[int] = mapped_column(SmallInteger, comment="评审类型:ReviewModel")
     review_date: Mapped[Date] = mapped_column(Date, comment="评审日期")
-    compere_id: Mapped[int | None] = mapped_column(ForeignKey("appraisal_experts.id"), comment="主持人(评审委员)")
+    compere_id: Mapped[int | None] = mapped_column(ForeignKey("appraisal_experts.id"), comment="主持人:评审委员")
     meeting_state: Mapped[int] = mapped_column(SmallInteger, default=10, index=True, comment="状态:MeetingState")
 
     __table_args__ = (

@@ -146,7 +146,10 @@ def update_user(user_id: int, req: UserUpdate, request: Request,
 def delete_user(user_id: int, request: Request,
                 ctx: AuthContext = Depends(require_perm("user:delete")),
                 db: Session = Depends(get_db)):
-    """逻辑删除（停用）；超管账号不可删。"""
+    """硬删除（物理删行，不可恢复）；超管账号不可删。
+
+    存在非空职责引用（主办项目/管护客户/审批等）时拒绝，提示先移交。
+    """
     if ctx.is_super_admin and user_id == ctx.user_id:
         raise BizError(4091, "不可删除当前登录账号")
     user_service.delete(db, ctx, user_id)

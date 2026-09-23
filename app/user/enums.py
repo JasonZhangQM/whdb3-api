@@ -6,7 +6,6 @@ from app.core.enums import LabeledIntEnum, make_labels
 class UserStatus(LabeledIntEnum):
     ACTIVE = 10, '启用'
     DISABLED = 20, '停用'
-    RESIGNED = 30, '离职'
 
 
 class Gender(LabeledIntEnum):

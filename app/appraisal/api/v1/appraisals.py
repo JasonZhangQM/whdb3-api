@@ -141,6 +141,9 @@ def list_article_comments(
     db=Depends(get_db),
     _: AuthContext = Depends(require_perm("appraisal:list")),
 ):
+    # 注意：article 模块 articles.py 有同路径 GET（权限 article:detail）且注册在先，
+    # 本路由实际被其遮蔽；两处壳路由共享同一 service 实现，行为一致。
+    # POST（批量录入）仅在本模块定义，不受遮蔽影响。
     data = appraisal_service.list_article_comments(db, article_id)
     return ok(data)
 
@@ -154,6 +157,17 @@ def batch_upsert_comments(
 ):
     count = appraisal_service.batch_upsert_comments(db, article_id, body, user.user_id)
     return ok({"count": count}, message="意见已保存")
+
+
+@router.delete("/articles/{article_id}/comments/{expert_id}")
+def delete_comment(
+    article_id: int,
+    expert_id: int,
+    db=Depends(get_db),
+    _: AuthContext = Depends(require_perm("appraisal:comment")),
+):
+    appraisal_service.delete_comment(db, article_id, expert_id)
+    return ok(message="评委已删除")
 
 
 # ============ 补调问题 ============

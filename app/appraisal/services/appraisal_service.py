@@ -50,7 +50,7 @@ from app.appraisal.schemas import (
     SupplyResolve,
     SummaryUpdate,
 )
-from app.article.enums import ArticleState
+from app.article.enums import ArticleState, Propose
 from app.article.models import Article, ArticleApproval
 from app.core.deps import AuthContext
 from app.core.exceptions import BizError
@@ -471,6 +471,8 @@ def list_appraisal_articles(db: Session, appraisal_id: int) -> list[dict]:
     """评审会详情：参评项目清单（§3.2 详情接口的 articles 子块）。
 
     路由引用此函数（appraisals.py 58-60 行），原来缺失。
+    v1.x：补项目经理/项目助理/风控专员（Article 直查 + User 批量）与
+    上会建议（ArticleFeedback.propose 一对一 outerjoin）。
     """
     appraisal = _get_or_404(db, appraisal_id)
 
@@ -482,6 +484,9 @@ def list_appraisal_articles(db: Session, appraisal_id: int) -> list[dict]:
             Article.augment,
             Article.article_state,
             Article.director_id,
+            Article.assistant_id,
+            Article.control_id,
+            ArticleFeedback.propose,
             Customer.name.label("customer_name"),
             ArticleProduct.name.label("product_name"),
         ).join(
@@ -490,16 +495,20 @@ def list_appraisal_articles(db: Session, appraisal_id: int) -> list[dict]:
             Customer, Customer.id == Article.customer_id
         ).outerjoin(
             ArticleProduct, ArticleProduct.id == Article.product_id
+        ).outerjoin(
+            ArticleFeedback, ArticleFeedback.article_id == Article.id
         ).where(AppraisalArticle.appraisal_id == appraisal_id)
     ).all()
 
-    # 批量查 director 名称（避免 N+1）
-    director_ids = {r.director_id for r in rows if r.director_id}
-    directors = {}
-    if director_ids:
-        directors = dict(
+    # 批量查 director/assistant/control 名称（避免 N+1，三岗合并一次查）
+    staff_ids: set[int] = set()
+    for r in rows:
+        staff_ids.update(x for x in (r.director_id, r.assistant_id, r.control_id) if x)
+    staff_names: dict[int, str] = {}
+    if staff_ids:
+        staff_names = dict(
             db.execute(
-                select(User.id, User.name).where(User.id.in_(director_ids))
+                select(User.id, User.name).where(User.id.in_(staff_ids))
             ).all()
         )
 
@@ -516,7 +525,13 @@ def list_appraisal_articles(db: Session, appraisal_id: int) -> list[dict]:
                 APPRAISAL_LABELS.get("article_state"), r.article_state
             ) or _article_state_label(r.article_state),
             "director_id": r.director_id,
-            "director_name": directors.get(r.director_id),
+            "director_name": staff_names.get(r.director_id),
+            "assistant_id": r.assistant_id,
+            "assistant_name": staff_names.get(r.assistant_id),
+            "control_id": r.control_id,
+            "control_name": staff_names.get(r.control_id),
+            "propose": r.propose,
+            "propose_display": _propose_label(r.propose),
         }
         for r in rows
     ]
@@ -528,6 +543,16 @@ def _article_state_label(value: int | None) -> str | None:
         return None
     try:
         return ArticleState(value).label
+    except ValueError:
+        return str(value)
+
+
+def _propose_label(value: int | None) -> str | None:
+    """跨模块枚举取中文（Propose 在 article.enums 中，非 appraisal.enums）。"""
+    if value is None:
+        return None
+    try:
+        return Propose(value).label
     except ValueError:
         return str(value)
 
@@ -550,7 +575,7 @@ def delete_appraisal(db: Session, appraisal_id: int, user_id: int) -> None:
 def list_article_comments(db: Session, article_id: int) -> list[dict]:
     """项目的评委意见列表（#11，N+1 消除）。
 
-    联表取 AppraisalExpert.name（评委姓名），一条批量查询。
+    联表取 AppraisalExpert（评委姓名 + 单位/职务/联系电话/邮箱），一条批量查询。
     """
     rows = db.execute(
         select(
@@ -560,6 +585,10 @@ def list_article_comments(db: Session, article_id: int) -> list[dict]:
             AppraisalComment.detail,
             AppraisalComment.created_at,
             AppraisalExpert.name.label("expert_name"),
+            AppraisalExpert.org_name,
+            AppraisalExpert.title,
+            AppraisalExpert.contact_numb,
+            AppraisalExpert.email,
         ).outerjoin(
             AppraisalExpert, AppraisalExpert.id == AppraisalComment.expert_id
         ).where(
@@ -572,6 +601,10 @@ def list_article_comments(db: Session, article_id: int) -> list[dict]:
             "id": r.id,
             "expert_id": r.expert_id,
             "expert_name": r.expert_name or f"#{r.expert_id}",
+            "org_name": r.org_name,
+            "title": r.title,
+            "contact_numb": r.contact_numb,
+            "email": r.email,
             "comment": r.comment,
             "comment_display": _disp(APPRAISAL_LABELS.get("comment_type"), r.comment),
             "detail": r.detail,
@@ -617,6 +650,35 @@ def batch_upsert_comments(
 
     db.commit()
     return count
+
+
+def delete_comment(db: Session, article_id: int, expert_id: int) -> None:
+    """删除评委（意见记录）。
+
+    状态门槛与 batch_upsert_comments 一致（待上会/已上会/待变更）。
+    按 (article_id, expert_id) 唯一约束定位，见模型 uq_comment_article_expert。
+    """
+    article = db.get(Article, article_id)
+    if article is None:
+        raise BizError(4041, "项目不存在")
+    allowed = {
+        ArticleState.PENDING_REVIEW.value,
+        ArticleState.REVIEW_DONE.value,
+        ArticleState.PENDING_CHANGE.value,
+    }
+    if article.article_state not in allowed:
+        raise BizError(4031, "当前状态不允许删除评委")
+
+    comment = db.scalar(
+        select(AppraisalComment).where(
+            AppraisalComment.article_id == article_id,
+            AppraisalComment.expert_id == expert_id,
+        )
+    )
+    if comment is None:
+        raise BizError(4041, "评委意见不存在")
+    db.delete(comment)
+    db.commit()
 
 
 # ============ 补调问题 ============

@@ -322,12 +322,103 @@ def assign_roles(db: Session, ctx: AuthContext, user_id: int, role_ids: list[int
     context_service.invalidate(user_id)
 
 
+# 硬删除阻断提示：表.列 → 业务中文名（未命中映射的引用以 table.col 兜底展示）
+_BLOCKER_LABELS = {
+    ("articles", "director_id"): "担任项目经理的项目",
+    ("articles", "assistant_id"): "担任项目助理的项目",
+    ("articles", "control_id"): "担任风控专员的项目",
+    ("customers", "managementor_id"): "担任管护经理的客户",
+    ("customers", "controler_id"): "担任风控专员的客户",
+    ("warrants", "conservator_id"): "负责管理的权证",
+    ("approval_instances", "submitted_by"): "提交的审批",
+    ("approval_tasks", "approver_id"): "经办的审批任务",
+    ("appraisal_supplies", "supplier_id"): "创建的评审补调",
+    ("attachments", "uploaded_by"): "上传的附件",
+    ("institution_credit_histories", "changed_by"): "维护的授信变更记录",
+}
+
+
+def _iter_user_fks(db: Session):
+    """反射生成器：全库指向 users.id 的外键 → (表名, 列名, 是否可空)。
+
+    新表只要建了指向 users.id 的外键即自动纳入，调用方无需维护清单。
+    user_user_roles 除外（角色中间表，删除流程显式清行）。
+    """
+    from sqlalchemy import inspect
+
+    insp = inspect(db.bind)
+    for table in insp.get_table_names():
+        if table == "user_user_roles":
+            continue
+        for fk in insp.get_foreign_keys(table):
+            if fk.get("referred_table") != "users":
+                continue
+            cols = fk.get("constrained_columns") or []
+            if not cols:
+                continue
+            col = cols[0]
+            nullable = any(
+                c.get("name") == col and c.get("nullable")
+                for c in insp.get_columns(table)
+            )
+            yield table, col, nullable
+
+
+def _count_user_blockers(db: Session, user_id: int) -> list[str]:
+    """纯读检测阻断（COUNT 一致性读，不加任何行锁）。
+
+    注意：检测必须发生在任何写入之前——savepoint 回滚会还原数据但行锁
+    留在外层事务里，若先 UPDATE 后阻断，审计日志独立会话的 INSERT 会与
+    这些锁冲突等满 innodb_lock_wait_timeout(50s)，拖死整个请求响应。
+    """
+    from sqlalchemy import text as sa_text
+
+    blockers: list[str] = []
+    for table, col, nullable in _iter_user_fks(db):
+        if nullable:
+            continue
+        n = db.scalar(
+            sa_text(f"SELECT COUNT(*) FROM `{table}` WHERE `{col}` = :uid"),
+            {"uid": user_id},
+        )
+        if n:
+            label = _BLOCKER_LABELS.get((table, col), f"{table}.{col}")
+            blockers.append(f"{label} {n} 条")
+    return blockers
+
+
+def _null_user_references(db: Session, user_id: int) -> None:
+    """写阶段（阻断检测通过后才调用）：清角色中间表 + 可空审计引用置 NULL 留痕。"""
+    from sqlalchemy import text as sa_text
+
+    db.execute(
+        sa_text("DELETE FROM `user_user_roles` WHERE `user_id` = :uid"),
+        {"uid": user_id},
+    )
+    for table, col, nullable in _iter_user_fks(db):
+        if not nullable:
+            continue
+        db.execute(
+            sa_text(f"UPDATE `{table}` SET `{col}` = NULL WHERE `{col}` = :uid"),
+            {"uid": user_id},
+        )
+
+
 def delete(db: Session, ctx: AuthContext, user_id: int) -> None:
-    """逻辑删除（status=20 停用）。"""
+    """硬删除：物理删除用户行，不可恢复。
+
+    - 先纯读 COUNT 检测非空职责引用，有则直接阻断（该路径零写入、零行锁）
+    - 通过后写阶段：清角色中间表 + 可空审计列置 NULL 留痕 → 删用户行
+    - 检测与删除之间存在引用的并发窗口由 DB 外键最终兜底（RESTRICT 报 5001）
+    """
     user = _get_or_404(db, user_id)
     check_super_admin_boundary(db, ctx, user)
+    blockers = _count_user_blockers(db, user_id)
+    if blockers:
+        raise BizError(4090, "该用户存在业务引用，请先移交或改派：" + "、".join(blockers))
     with db.begin_nested():
-        user.status = UserStatus.DISABLED.value
+        _null_user_references(db, user_id)
+        db.delete(user)
     db.commit()
     context_service.invalidate(user_id)
     TokenService.revoke_all(user_id)

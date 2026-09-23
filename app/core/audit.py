@@ -26,15 +26,31 @@ STATUS_FAILED = 20
 
 
 def _write_log(**kwargs) -> None:
-    """独立会话落库，容错（审计失败不阻断业务响应）。"""
+    """独立会话落库，容错（审计失败不阻断业务响应）。
+
+    锁等待上限 3 秒：业务失败路径下，业务会话 savepoint 回滚只还原数据、
+    行锁仍留在外层事务里，审计 INSERT 曾因此等满 innodb_lock_wait_timeout
+    (默认 50s) 把用户响应拖到前端超时。SET SESSION 用后恢复 DEFAULT，
+    避免该连接回池后带 3s 锁超时污染其他业务查询。
+    """
+    from sqlalchemy import text
+
     try:
         # R3：core -> user 逆向引用，函数内局部 import
         from app.core.db import SessionLocal
         from app.user.models import OperationLog
 
         with SessionLocal() as db:
-            db.add(OperationLog(**kwargs))
-            db.commit()
+            db.execute(text("SET SESSION innodb_lock_wait_timeout = 3"))
+            try:
+                db.add(OperationLog(**kwargs))
+                db.commit()
+            finally:
+                try:
+                    db.rollback()  # 提交失败时清会话状态；成功时无事务为 no-op
+                    db.execute(text("SET SESSION innodb_lock_wait_timeout = DEFAULT"))
+                except Exception:
+                    pass
     except Exception:
         logger.warning("audit log write failed", exc_info=True)
 

@@ -6,6 +6,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.article.services import article_service
+from app.appraisal.services import appraisal_service
 from app.article.schemas import (
     ArticleCreate,
     ArticleUpdate,
@@ -224,7 +225,11 @@ def get_article_comments(
     db=Depends(get_db),
     _: AuthContext = Depends(require_perm("article:detail")),
 ):
-    return ok(article_service.list_article_comments(db, article_id))
+    # 委托 appraisal_service（AppraisalComment 的 owner 模块）。
+    # 注意：appraisal 模块的 appraisals.py 也定义了同路径 GET（权限 appraisal:list），
+    # 但本路由先注册会将其遮蔽——两处壳路由共享同一实现，行为一致；
+    # 旧 article_comment_service 重复实现（score 占位版）已删除。
+    return ok(appraisal_service.list_article_comments(db, article_id))
 
 
 @router.get("/{article_id}/supplies")

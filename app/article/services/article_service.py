@@ -32,7 +32,8 @@ from app.customer.models import Customer
 from app.user.models import User
 
 # ---------- 子模块 re-export（按 AGENTS.md §2.2 拆分到独立 service）----------
-from .article_comment_service import list_article_comments  # noqa: E402
+# 注：list_article_comments 已收敛到 appraisal_service（AppraisalComment owner 模块），
+# article 侧重复实现已删除；路由层直接委托 appraisal_service。
 from .article_feedback_service import submit_feedback  # noqa: E402
 from .article_order_service import (  # noqa: E402
     add_order,
