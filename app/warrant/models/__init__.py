@@ -45,7 +45,7 @@ class WarrantOwnership(Base):
     __tablename__ = "warrant_ownerships"
 
 
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"))
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="CASCADE"))
     ownership_num: Mapped[str] = mapped_column(String(128), unique=True, comment="产权证编号（全局唯一）")
     owner_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
     share_ratio: Mapped[float | None] = mapped_column(Numeric(5, 2), comment="共有份额%，null=独有")

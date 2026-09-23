@@ -1,4 +1,4 @@
-"""项目模块模型：9 张表。
+﻿"""项目模块模型：9 张表。
 
 设计决策（AGENTS.md 对齐）：
 - A2 FK ondelete 分层：子表→聚合根用 CASCADE；子表→字典/用户用 RESTRICT
@@ -177,7 +177,7 @@ class ArticleSureCustomer(Base):
     __tablename__ = "article_sure_customers"
 
     sure_id: Mapped[int] = mapped_column(ForeignKey("article_sures.id", ondelete="CASCADE"))
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"))
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
 
     __table_args__ = (
         UniqueConstraint("sure_id", "customer_id", name="uq_sure_customer_sure_customer"),
@@ -194,7 +194,7 @@ class ArticleSureWarrant(Base):
     __tablename__ = "article_sure_warrants"
 
     sure_id: Mapped[int] = mapped_column(ForeignKey("article_sures.id", ondelete="CASCADE"))
-    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id", ondelete="RESTRICT"))
+    warrant_id: Mapped[int] = mapped_column(ForeignKey("warrants.id"))
 
     __table_args__ = (
         UniqueConstraint("sure_id", "warrant_id", name="uq_sure_warrant_sure_warrant"),
