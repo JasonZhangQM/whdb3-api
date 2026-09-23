@@ -27,6 +27,7 @@ from app.article.models import (
     ArticleApproval,
     ArticleFeedback,
     ArticleOrder,
+    ArticleProduct,
     ArticleSure,
     ArticleSureCustomer,
     ArticleSureWarrant,
@@ -477,14 +478,18 @@ def list_appraisal_articles(db: Session, appraisal_id: int) -> list[dict]:
         select(
             Article.id,
             Article.article_num,
-            (func.coalesce(Article.renewal, 0) + func.coalesce(Article.augment, 0)).label("amount"),
+            Article.renewal,
+            Article.augment,
             Article.article_state,
             Article.director_id,
             Customer.name.label("customer_name"),
+            ArticleProduct.name.label("product_name"),
         ).join(
             AppraisalArticle, AppraisalArticle.article_id == Article.id
         ).outerjoin(
             Customer, Customer.id == Article.customer_id
+        ).outerjoin(
+            ArticleProduct, ArticleProduct.id == Article.product_id
         ).where(AppraisalArticle.appraisal_id == appraisal_id)
     ).all()
 
@@ -503,7 +508,9 @@ def list_appraisal_articles(db: Session, appraisal_id: int) -> list[dict]:
             "article_id": r.id,
             "article_num": r.article_num,
             "customer_name": r.customer_name,
-            "amount": r.amount,
+            "product_name": r.product_name,
+            "renewal": float(r.renewal or 0),
+            "augment": float(r.augment or 0),
             "article_state": r.article_state,
             "article_state_display": _disp(
                 APPRAISAL_LABELS.get("article_state"), r.article_state
